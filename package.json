@@ -1,0 +1,42 @@
+{
+  "name": "nftvault",
+  "version": "1.0.0",
+  "description": "A Solana fractional NFT vault program built with Anchor",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "create-collection": "ts-node scripts/create-devnet-collection.ts create-collection",
+    "mint-nfts": "ts-node scripts/create-devnet-collection.ts mint-nfts"
+  },
+  "devDependencies": {
+    "@solana/spl-token": "^0.3.9",
+    "@solana/web3.js": "^1.87.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.0",
+    "mocha": "^11.7.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.26.0",
+    "@metaplex-foundation/js": "^0.20.1",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@solana/spl-token": "^0.3.11",
+    "@solana/web3.js": "^1.87.0",
+    "chai": "^4.3.7"
+  },
+  "keywords": [
+    "solana",
+    "anchor",
+    "nft",
+    "fractional",
+    "vault",
+    "defi"
+  ],
+  "author": "",
+  "license": "MIT"
+}

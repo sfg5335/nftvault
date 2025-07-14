@@ -1,0 +1,26 @@
+{
+  "price": 0,
+  "number": 10,
+  "symbol": "WASSIE",
+  "sellerFeeBasisPoints": 500,
+  "creators": [
+    {
+      "address": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+      "share": 100
+    }
+  ],
+  "isMutable": true,
+  "maxSupply": 0,
+  "retainAuthority": true,
+  "goLiveDate": null,
+  "solTreasuryAccount": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+  "uploadMethod": "bundlr",
+  "storage": "bundlr",
+  "assetsDir": "assets/New folder",
+  "collectionMint": null,
+  "collection": {
+    "name": "NFT Vault Collection",
+    "symbol": "NFTV",
+    "uri": "collection.json"
+  }
+}

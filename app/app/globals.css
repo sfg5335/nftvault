@@ -1,0 +1,248 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Wallet Adapter Styles */
+@import '@solana/wallet-adapter-react-ui/styles.css';
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+.gradient-bg {
+  background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Essential Wallet Modal Fixes */
+.wallet-adapter-modal {
+  z-index: 999999 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  z-index: 999999 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+.wallet-adapter-modal-overlay {
+  z-index: 999998 !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.wallet-adapter-modal-container {
+  z-index: 999999 !important;
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+}
+
+/* Wallet Button Dropdown Fixes - SPECIFIC FOR CONNECTED WALLET */
+.wallet-adapter-button-dropdown {
+  z-index: 999999 !important;
+  position: relative !important;
+}
+
+.wallet-adapter-button-dropdown-list {
+  z-index: 999999 !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: white !important;
+  border: 1px solid #ccc !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  overflow: visible !important;
+  min-width: 200px !important;
+}
+
+/* Specific fixes for connected wallet dropdown */
+.wallet-adapter-button {
+  z-index: 999999 !important;
+  position: relative !important;
+}
+
+.wallet-adapter-button-dropdown-list-item {
+  z-index: 999999 !important;
+  position: relative !important;
+  background: white !important;
+  color: black !important;
+  padding: 8px 12px !important;
+  cursor: pointer !important;
+  border-bottom: 1px solid #eee !important;
+}
+
+.wallet-adapter-button-dropdown-list-item:hover {
+  background: #f5f5f5 !important;
+}
+
+.wallet-adapter-button-dropdown-list-item:last-child {
+  border-bottom: none !important;
+}
+
+/* Ensure all wallet elements are clickable */
+.wallet-adapter-modal *,
+.wallet-adapter-button-dropdown * {
+  pointer-events: auto !important;
+}
+
+/* Force modal to be visible */
+.wallet-adapter-modal,
+.wallet-adapter-modal-wrapper,
+.wallet-adapter-modal-overlay,
+.wallet-adapter-modal-container {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Header-specific fixes for wallet dropdown */
+header .wallet-adapter-button-dropdown {
+  z-index: 999999 !important;
+}
+
+header .wallet-adapter-button-dropdown-list {
+  z-index: 999999 !important;
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  left: auto !important;
+  min-width: 250px !important;
+  background: #1f2937 !important;
+  border: 1px solid #374151 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+}
+
+header .wallet-adapter-button-dropdown-list-item {
+  background: #1f2937 !important;
+  color: white !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+header .wallet-adapter-button-dropdown-list-item:hover {
+  background: #374151 !important;
+}
+
+/* Ensure the dropdown appears above the header */
+header {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Force the wallet button container to have proper stacking */
+.wallet-adapter-button-container {
+  position: relative !important;
+  z-index: 999999 !important;
+}
+
+/* Additional fixes for header wallet dropdown */
+header .wallet-adapter-button {
+  position: relative !important;
+  z-index: 999999 !important;
+}
+
+header .wallet-adapter-button-dropdown-list {
+  position: absolute !important;
+  z-index: 999999 !important;
+  top: 100% !important;
+  right: 0 !important;
+  left: auto !important;
+  width: auto !important;
+  min-width: 250px !important;
+  max-width: 300px !important;
+  background: #1f2937 !important;
+  border: 1px solid #374151 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+  margin-top: 8px !important;
+  overflow: visible !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure dropdown items are properly styled and clickable */
+header .wallet-adapter-button-dropdown-list-item {
+  position: relative !important;
+  z-index: 999999 !important;
+  background: #1f2937 !important;
+  color: white !important;
+  padding: 12px 16px !important;
+  cursor: pointer !important;
+  border-bottom: 1px solid #374151 !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  transition: background-color 0.2s !important;
+}
+
+header .wallet-adapter-button-dropdown-list-item:hover {
+  background: #374151 !important;
+}
+
+header .wallet-adapter-button-dropdown-list-item:last-child {
+  border-bottom: none !important;
+}
+
+/* Force the dropdown to be above everything */
+header .wallet-adapter-button-dropdown-list,
+header .wallet-adapter-button-dropdown-list * {
+  z-index: 999999 !important;
+  pointer-events: auto !important;
+} 

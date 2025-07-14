@@ -1,0 +1,28 @@
+{
+  "name": "Wassieverse #3",
+  "symbol": "WASSIE",
+  "description": "Wassieverse is a collection of 3000 fully rigged 3D NFTs. Wassies were created by @wasserpest and @inversebrah on Twitter/X in 2017/2018, since then they have lived in the hearts of crypto participants around the world. Wassieverse is a subsidiary of the @Wassie brand, the irl ownable crypto culture.",
+  "seller_fee_basis_points": 500,
+  "image": "https://d344nqw9y6muw5.cloudfront.net/models/previews/3.jpeg",
+  "external_url": "https://wassieverse.io",
+  "attributes": [
+    {
+      "trait_type": "1of1",
+      "value": "Bonkers-Fraud"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://d344nqw9y6muw5.cloudfront.net/models/previews/3.mp4",
+        "type": "video/mp4"
+      },
+      {
+        "uri": "https://d344nqw9y6muw5.cloudfront.net/models/previews/3.jpeg",
+        "type": "image/jpeg"
+      }
+    ],
+    "category": "video"
+  },
+  "animation_url": "https://d344nqw9y6muw5.cloudfront.net/models/previews/3.mp4"
+}

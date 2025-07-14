@@ -1,0 +1,55 @@
+{
+  "collections": [
+    {
+      "collectionMint": "test_collection_1752463964860_wkz8k5828",
+      "name": "Samoyed Coin (Test)",
+      "symbol": "SAMO",
+      "description": "Test collection based on Samoyed Coin from mainnet",
+      "nftCount": 3
+    },
+    {
+      "collectionMint": "test_collection_1752463966029_uasr96i92",
+      "name": "USD Coin (Test)",
+      "symbol": "USDC",
+      "description": "Test collection based on USD Coin from mainnet",
+      "nftCount": 2
+    }
+  ],
+  "nfts": [
+    {
+      "mint": "test_nft_1752463964860_0_08yr4r0bx",
+      "name": "Samoyed #1 (Test)",
+      "symbol": "SAMO",
+      "image": "https://via.placeholder.com/400x400/FF6B6B/ffffff?text=Samoyed+1",
+      "collection": "test_collection_1752463964860_wkz8k5828"
+    },
+    {
+      "mint": "test_nft_1752463964860_1_ow2uw5cxs",
+      "name": "Samoyed #2 (Test)",
+      "symbol": "SAMO",
+      "image": "https://via.placeholder.com/400x400/4ECDC4/ffffff?text=Samoyed+2",
+      "collection": "test_collection_1752463964860_wkz8k5828"
+    },
+    {
+      "mint": "test_nft_1752463964860_2_dsivcja05",
+      "name": "Samoyed #3 (Test)",
+      "symbol": "SAMO",
+      "image": "https://via.placeholder.com/400x400/45B7D1/ffffff?text=Samoyed+3",
+      "collection": "test_collection_1752463964860_wkz8k5828"
+    },
+    {
+      "mint": "test_nft_1752463966029_0_b593bfpfq",
+      "name": "USDC Token #1 (Test)",
+      "symbol": "USDC",
+      "image": "https://via.placeholder.com/400x400/2773BA/ffffff?text=USDC+1",
+      "collection": "test_collection_1752463966029_uasr96i92"
+    },
+    {
+      "mint": "test_nft_1752463966029_1_0newjpb7i",
+      "name": "USDC Token #2 (Test)",
+      "symbol": "USDC",
+      "image": "https://via.placeholder.com/400x400/2773BA/ffffff?text=USDC+2",
+      "collection": "test_collection_1752463966029_uasr96i92"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+[package]
+name = "fractional_vault"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "fractional_vault"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anchor-lang = "0.25.0"
+anchor-spl = "0.25.0"
+spl-token = { version = "3.3.0", default-features = false }
+spl-associated-token-account = { version = "1.0.3", default-features = false }

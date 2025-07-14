@@ -1,0 +1,14 @@
+{
+  "name": "NFT Vault #1",
+  "symbol": "NFTV",
+  "description": "NFT #1 from the NFT Vault Collection",
+  "image": "0.png",
+  "seller_fee_basis_points": 0,
+  "attributes": [],
+  "properties": {
+    "files": [{ "uri": "0.png", "type": "image/png" }],
+    "category": "image",
+    "creators": [{ "address": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja", "share": 100 }]
+  },
+  "collection": { "name": "NFT Vault Collection", "family": "NFT Vault" }
+} 

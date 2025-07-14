@@ -1,0 +1,238 @@
+{
+  "collectionMint": "5bapG55mbvK47a484WW9GxC5Kcsu9Kjyfi6SpbzT4EKG",
+  "nftMints": [
+    "HpNjouzCf4XYTuLqaJdqnSSnZ1mZoJZ2CdCAh7KjGraG",
+    "3mctRmv2m54aWzhxCCzuisDzJwAKmBmjxQxdHw4m8uej",
+    "9JxJaWqPfwDm54WwS74tbMHC5WAPnXtvBMegS4BPx392",
+    "H3GF2dDXV61W7i1AnJAFLwQTV35qF4AzfLdHyAaxFtsn"
+  ],
+  "wallet": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+  "collectionMetadata": {
+    "name": "NFT Vault Collection",
+    "symbol": "NFTV",
+    "description": "A collection of NFTs for fractional vault testing",
+    "image": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+Vault+Collection",
+    "external_url": "https://nftvault.com",
+    "attributes": [
+      {
+        "trait_type": "Type",
+        "value": "Test Collection"
+      },
+      {
+        "trait_type": "Purpose",
+        "value": "Fractional Vault"
+      }
+    ],
+    "properties": {
+      "files": [
+        {
+          "type": "image/png",
+          "uri": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+Vault+Collection"
+        }
+      ],
+      "category": "image",
+      "creators": [
+        {
+          "address": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+          "share": 100,
+          "verified": true
+        }
+      ]
+    },
+    "collection": {
+      "name": "NFT Vault Collection",
+      "family": "NFT Vault"
+    }
+  },
+  "nftMetadataTemplates": [
+    {
+      "mint": "HpNjouzCf4XYTuLqaJdqnSSnZ1mZoJZ2CdCAh7KjGraG",
+      "metadata": {
+        "name": "NFT Vault #1",
+        "symbol": "NFTV",
+        "description": "NFT #1 from the NFT Vault Collection",
+        "image": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+1",
+        "external_url": "https://nftvault.com",
+        "attributes": [
+          {
+            "trait_type": "Number",
+            "value": "1"
+          },
+          {
+            "trait_type": "Type",
+            "value": "Test NFT"
+          },
+          {
+            "trait_type": "Collection",
+            "value": "NFT Vault"
+          }
+        ],
+        "properties": {
+          "files": [
+            {
+              "type": "image/png",
+              "uri": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+1"
+            }
+          ],
+          "category": "image",
+          "creators": [
+            {
+              "address": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+              "share": 100,
+              "verified": true
+            }
+          ]
+        },
+        "collection": {
+          "name": "NFT Vault Collection",
+          "family": "NFT Vault"
+        }
+      }
+    },
+    {
+      "mint": "3mctRmv2m54aWzhxCCzuisDzJwAKmBmjxQxdHw4m8uej",
+      "metadata": {
+        "name": "NFT Vault #2",
+        "symbol": "NFTV",
+        "description": "NFT #2 from the NFT Vault Collection",
+        "image": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+2",
+        "external_url": "https://nftvault.com",
+        "attributes": [
+          {
+            "trait_type": "Number",
+            "value": "2"
+          },
+          {
+            "trait_type": "Type",
+            "value": "Test NFT"
+          },
+          {
+            "trait_type": "Collection",
+            "value": "NFT Vault"
+          }
+        ],
+        "properties": {
+          "files": [
+            {
+              "type": "image/png",
+              "uri": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+2"
+            }
+          ],
+          "category": "image",
+          "creators": [
+            {
+              "address": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+              "share": 100,
+              "verified": true
+            }
+          ]
+        },
+        "collection": {
+          "name": "NFT Vault Collection",
+          "family": "NFT Vault"
+        }
+      }
+    },
+    {
+      "mint": "9JxJaWqPfwDm54WwS74tbMHC5WAPnXtvBMegS4BPx392",
+      "metadata": {
+        "name": "NFT Vault #3",
+        "symbol": "NFTV",
+        "description": "NFT #3 from the NFT Vault Collection",
+        "image": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+3",
+        "external_url": "https://nftvault.com",
+        "attributes": [
+          {
+            "trait_type": "Number",
+            "value": "3"
+          },
+          {
+            "trait_type": "Type",
+            "value": "Test NFT"
+          },
+          {
+            "trait_type": "Collection",
+            "value": "NFT Vault"
+          }
+        ],
+        "properties": {
+          "files": [
+            {
+              "type": "image/png",
+              "uri": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+3"
+            }
+          ],
+          "category": "image",
+          "creators": [
+            {
+              "address": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+              "share": 100,
+              "verified": true
+            }
+          ]
+        },
+        "collection": {
+          "name": "NFT Vault Collection",
+          "family": "NFT Vault"
+        }
+      }
+    },
+    {
+      "mint": "H3GF2dDXV61W7i1AnJAFLwQTV35qF4AzfLdHyAaxFtsn",
+      "metadata": {
+        "name": "NFT Vault #4",
+        "symbol": "NFTV",
+        "description": "NFT #4 from the NFT Vault Collection",
+        "image": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+4",
+        "external_url": "https://nftvault.com",
+        "attributes": [
+          {
+            "trait_type": "Number",
+            "value": "4"
+          },
+          {
+            "trait_type": "Type",
+            "value": "Test NFT"
+          },
+          {
+            "trait_type": "Collection",
+            "value": "NFT Vault"
+          }
+        ],
+        "properties": {
+          "files": [
+            {
+              "type": "image/png",
+              "uri": "https://via.placeholder.com/400x400/6366f1/ffffff?text=NFT+4"
+            }
+          ],
+          "category": "image",
+          "creators": [
+            {
+              "address": "ArcTZEsEuieqaJ5tFnp6dHVNEMkDS56FxQyekYu6N6ja",
+              "share": 100,
+              "verified": true
+            }
+          ]
+        },
+        "collection": {
+          "name": "NFT Vault Collection",
+          "family": "NFT Vault"
+        }
+      }
+    }
+  ],
+  "createdAt": "2025-07-14T04:16:30.767Z",
+  "note": "Metadata structure created. To make this a verified collection, you need to:",
+  "nextSteps": [
+    "1. Upload metadata JSON to IPFS or similar decentralized storage",
+    "2. Create metadata accounts using the Metaplex metadata program",
+    "3. Link NFTs to the collection",
+    "4. Verify the collection membership"
+  ],
+  "tools": [
+    "Metaplex Studio: https://studio.metaplex.com/",
+    "Sugar CLI: https://docs.metaplex.com/developer-tools/sugar/",
+    "Metaplex JS SDK: https://docs.metaplex.com/developer-tools/js/"
+  ]
+}

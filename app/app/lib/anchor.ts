@@ -125,13 +125,81 @@ export class AnchorClient {
     }
   }
 
+  // Debug method to get detailed vault information
+  async debugVaultInfo(collectionMint: PublicKey): Promise<any> {
+    try {
+      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
+      const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
+      
+      const vaultStateAccount = await this.provider.connection.getAccountInfo(vaultStatePDA);
+      const fractionalMintAccount = await this.provider.connection.getAccountInfo(fractionalMintPDA);
+      
+      let vaultState = null;
+      try {
+        vaultState = await this.program.account.vaultState.fetch(vaultStatePDA);
+      } catch (err) {
+        console.warn('Could not fetch vault state:', err);
+      }
+      
+      return {
+        collectionMint: collectionMint.toString(),
+        vaultStatePDA: vaultStatePDA.toString(),
+        fractionalMintPDA: fractionalMintPDA.toString(),
+        vaultStateAccountExists: vaultStateAccount !== null,
+        fractionalMintAccountExists: fractionalMintAccount !== null,
+        vaultStateData: vaultState ? {
+          collectionMint: vaultState.collectionMint.toString(),
+          creator: vaultState.creator.toString(),
+          fractionalMint: vaultState.fractionalMint.toString(),
+          totalDeposits: vaultState.totalDeposits.toNumber(),
+          totalFractionsMinted: vaultState.totalFractionsMinted.toNumber(),
+          isActive: vaultState.isActive
+        } : null,
+        error: null
+      };
+    } catch (error) {
+      return {
+        collectionMint: collectionMint.toString(),
+        error: error.message,
+        vaultStateAccountExists: false,
+        fractionalMintAccountExists: false,
+        vaultStateData: null
+      };
+    }
+  }
+
   // Check if vault exists
   async vaultExists(collectionMint: PublicKey): Promise<boolean> {
     try {
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
+      console.log('Checking vault existence for PDA:', vaultStatePDA.toString());
+      
       const vaultState = await this.provider.connection.getAccountInfo(vaultStatePDA);
-      return vaultState !== null;
+      const exists = vaultState !== null;
+      
+      console.log('Vault exists check result:', exists);
+      
+      if (exists) {
+        // Additional verification: try to fetch the actual vault state
+        try {
+          const state = await this.program.account.vaultState.fetch(vaultStatePDA);
+          console.log('Vault state verification successful:', {
+            collectionMint: state.collectionMint.toString(),
+            creator: state.creator.toString(),
+            totalDeposits: state.totalDeposits.toNumber(),
+            isActive: state.isActive
+          });
+        } catch (stateErr) {
+          console.warn('Vault account exists but state fetch failed:', stateErr);
+          // The account exists but might be corrupted or not a valid vault state
+          return false;
+        }
+      }
+      
+      return exists;
     } catch (error) {
+      console.error("Error checking vault existence:", error);
+      // Return false on error to allow retry
       return false;
     }
   }

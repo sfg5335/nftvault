@@ -352,6 +352,37 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
     setCurrentStep(prev => Math.max(1, prev - 1))
   }
 
+  const debugVaultInfo = async (collectionMint: PublicKey) => {
+    if (!client) return
+    
+    try {
+      console.log('🔍 Debugging vault info for:', collectionMint.toString())
+      const debugInfo = await client.debugVaultInfo(collectionMint)
+      console.log('Vault debug info:', debugInfo)
+      
+      const debugMessage = `Vault Debug Information:
+      
+Collection Mint: ${debugInfo.collectionMint}
+Vault State PDA: ${debugInfo.vaultStatePDA}
+Fractional Mint PDA: ${debugInfo.fractionalMintPDA}
+Vault State Account Exists: ${debugInfo.vaultStateAccountExists}
+Fractional Mint Account Exists: ${debugInfo.fractionalMintAccountExists}
+
+${debugInfo.vaultStateData ? `Vault State Data:
+- Creator: ${debugInfo.vaultStateData.creator}
+- Total Deposits: ${debugInfo.vaultStateData.totalDeposits}
+- Total Fractions: ${debugInfo.vaultStateData.totalFractionsMinted}
+- Is Active: ${debugInfo.vaultStateData.isActive}` : 'No vault state data available'}
+
+${debugInfo.error ? `Error: ${debugInfo.error}` : ''}`
+
+      alert(debugMessage)
+    } catch (err) {
+      console.error('Error debugging vault info:', err)
+      alert('Failed to debug vault info: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -375,11 +406,58 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
         return
       }
 
-      // Check if vault already exists
+      // Enhanced vault existence check with retry logic
       if (client) {
-        const exists = await client.vaultExists(collectionMint)
-        if (exists) {
+        console.log('Checking if vault exists for collection:', collectionMint.toString())
+        
+        // Check multiple times to ensure consistency
+        let vaultExists = false
+        let retryCount = 0
+        const maxRetries = 3
+        
+        while (retryCount < maxRetries && !vaultExists) {
+          try {
+            vaultExists = await client.vaultExists(collectionMint)
+            console.log(`Vault exists check attempt ${retryCount + 1}:`, vaultExists)
+            
+            if (vaultExists) {
+              // Double-check by trying to fetch vault state
+              const vaultState = await client.getVaultState(collectionMint)
+              if (vaultState) {
+                console.log('Vault state confirmed:', vaultState)
+                alert(`A vault for this collection already exists!\n\nCreator: ${vaultState.creator.toString()}\nTotal Deposits: ${vaultState.totalDeposits}\nTotal Fractions: ${vaultState.totalFractionsMinted}`)
+                return
+              } else {
+                console.warn('Vault exists but state is null, retrying...')
+                vaultExists = false
+              }
+            }
+          } catch (err) {
+            console.error(`Error checking vault existence (attempt ${retryCount + 1}):`, err)
+          }
+          
+          retryCount++
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second between retries
+          }
+        }
+        
+        if (vaultExists) {
           alert('A vault for this collection already exists!')
+          return
+        }
+      }
+
+      // Check if this collection is already in localStorage
+      const existingPool = PoolStorage.getPoolByMint(collectionMint.toString())
+      if (existingPool) {
+        console.warn('Pool already exists in localStorage:', existingPool)
+        const shouldContinue = window.confirm(
+          `A pool for this collection was previously created (${existingPool.name}).\n\n` +
+          `Transaction: ${existingPool.txSignature}\n\n` +
+          `Do you want to continue and try to create a new vault?`
+        )
+        if (!shouldContinue) {
           return
         }
       }
@@ -388,6 +466,14 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
       console.log('Initializing vault for collection:', collectionMint.toString())
       const vaultSignature = await initializeCollectionVault(collectionMint)
       console.log('Vault initialized successfully:', vaultSignature)
+      
+      // Verify the vault was actually created
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Wait for transaction confirmation
+      
+      const vaultCreated = await client?.vaultExists(collectionMint)
+      if (!vaultCreated) {
+        throw new Error('Vault initialization transaction succeeded but vault was not found on-chain. This might be a network issue.')
+      }
       
       // Deposit selected NFTs
       const depositSignatures = []
@@ -458,9 +544,11 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
         } else if (message.includes('invalid account')) {
           errorMessage = 'Invalid account data. Please check your collection mint address.'
         } else if (message.includes('already in use')) {
-          errorMessage = 'A vault for this collection already exists.'
+          errorMessage = 'A vault for this collection already exists. This could be due to:\n\n1. Someone else already created a vault for this collection\n2. A previous transaction succeeded but wasn\'t detected\n3. Network synchronization issues\n\nTry refreshing the page and checking if the vault appears in your pools.'
         } else if (message.includes('not found')) {
           errorMessage = 'NFT not found in your wallet. Please make sure you own the NFTs you\'re trying to deposit.'
+        } else if (message.includes('account in use')) {
+          errorMessage = 'Account already in use. This usually means a vault for this collection already exists on-chain.'
         } else if (isSendTransactionErrorWithLogs(err)) {
           try {
             const logs = await err.getLogs()
@@ -562,7 +650,28 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
               <h4 className="text-red-400 font-semibold mb-2">Error</h4>
               <div className="text-white/70 whitespace-pre-line mb-4">{error}</div>
-
+              
+              {/* Debug button for vault-related errors */}
+              {error.toLowerCase().includes('vault') && formData.collectionMintAddress && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      try {
+                        const collectionMint = new PublicKey(formData.collectionMintAddress.trim())
+                        debugVaultInfo(collectionMint)
+                      } catch (err) {
+                        alert('Invalid collection mint address for debugging')
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm"
+                  >
+                    🔍 Debug Vault Info
+                  </button>
+                  <p className="text-white/50 text-xs mt-2">
+                    Click to get detailed information about the vault state on-chain
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

@@ -4,7 +4,7 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount, Transfer},
 };
 
-declare_id!("6EcAbJfr6ezXipHraPug3TPRjpUcJW58ngKv8S6fwjDX");
+declare_id!("3j7hAXi2YgewoJErxs2LjFmEwAMFMdVvoWesWDocHADe");
 
 /// Constants for the fractional vault program
 pub mod constants {
@@ -15,6 +15,15 @@ pub mod constants {
     pub const DEFAULT_DEPOSIT_FEE_RATE: u16 = 250; // 2.5%
     pub const DEFAULT_RANDOM_REDEEM_FEE_RATE: u16 = 250; // 2.5%
     pub const DEFAULT_SPECIFIC_REDEEM_FEE_RATE: u16 = 750; // 7.5%
+    
+    /// Protocol treasury address - fees are sent here
+    /// TODO: Replace with your actual treasury address
+    /// To set your treasury address:
+    /// 1. Create a new wallet: solana-keygen new --outfile treasury-keypair.json
+    /// 2. Get the public key: solana-keygen pubkey treasury-keypair.json
+    /// 3. Replace the address below with your treasury public key
+    /// 4. Fund the treasury wallet with SOL for transaction fees
+    pub const PROTOCOL_TREASURY: &str = "2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt";
 }
 
 /// Errors that can be returned by the vault program
@@ -87,8 +96,14 @@ pub struct InitializeVault<'info> {
 pub struct DepositNft<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(mut)]
+    
+    #[account(
+        mut,
+        seeds = [b"vault", vault_state.collection_mint.as_ref()],
+        bump
+    )]
     pub vault_state: Account<'info, VaultState>,
+    
     /// CHECK: Validated in handler
     #[account(mut)]
     pub user_nft_account: UncheckedAccount<'info>,
@@ -103,6 +118,9 @@ pub struct DepositNft<'info> {
     pub fractional_mint: UncheckedAccount<'info>,
     /// CHECK: Validated in handler
     pub nft_metadata: UncheckedAccount<'info>,
+    /// CHECK: Protocol treasury account for fee collection
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -225,7 +243,7 @@ impl<'info> DepositNft<'info> {
         let fee_amount = (tokens_to_mint * ctx.accounts.vault_state.deposit_fee_rate as u64) / 10000;
         let tokens_after_fee = tokens_to_mint - fee_amount;
 
-        // Mint fractional tokens to user
+        // Mint fractional tokens to user (after fee)
         let seeds = &[
             b"vault",
             collection_key.as_ref(),
@@ -243,10 +261,22 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::mint_to(mint_ctx, tokens_after_fee)?;
 
+        // Mint fee tokens to protocol treasury
+        let protocol_treasury_mint_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.protocol_treasury.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::mint_to(protocol_treasury_mint_ctx, fee_amount)?;
+
         // Now mutably borrow vault_state for mutation
         let vault_state = &mut ctx.accounts.vault_state;
         vault_state.total_deposits += 1;
-        vault_state.total_fractions_minted += tokens_after_fee;
+        vault_state.total_fractions_minted += tokens_to_mint; // Total tokens minted (including fees)
         vault_state.total_fees_collected += fee_amount;
         Ok(())
     }

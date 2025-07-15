@@ -8,7 +8,7 @@ name = "fractional_vault"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-anchor-lang = "0.25.0"
-anchor-spl = "0.25.0"
-spl-token = { version = "3.3.0", default-features = false }
-spl-associated-token-account = { version = "1.0.3", default-features = false }
+anchor-lang = "0.26.0"
+anchor-spl = "0.26.0"
+spl-token = { version = "3.5.0", default-features = false }
+spl-associated-token-account = { version = "1.1.3", default-features = false }

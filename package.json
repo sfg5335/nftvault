@@ -6,28 +6,34 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "create-collection": "ts-node scripts/create-devnet-collection.ts create-collection",
-    "mint-nfts": "ts-node scripts/create-devnet-collection.ts mint-nfts"
-  },
-  "devDependencies": {
-    "@solana/spl-token": "^0.3.9",
-    "@solana/web3.js": "^1.87.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^20",
-    "eslint": "^8",
-    "eslint-config-next": "14.0.0",
-    "mocha": "^11.7.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "lint": "next lint"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.26.0",
     "@metaplex-foundation/js": "^0.20.1",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@solana/spl-token": "^0.3.11",
-    "@solana/web3.js": "^1.87.0",
-    "chai": "^4.3.7"
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.34",
+    "@solana/wallet-adapter-wallets": "^0.19.23",
+    "@solana/web3.js": "^1.98.2",
+    "autoprefixer": "^10.4.16",
+    "lucide-react": "^0.292.0",
+    "next": "14.0.0",
+    "pino-pretty": "^13.0.0",
+    "postcss": "^8.4.31",
+    "react": "^18",
+    "react-dom": "^18",
+    "tailwindcss": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.0",
+    "typescript": "^5"
   },
   "keywords": [
     "solana",

@@ -123,7 +123,7 @@ pub struct InitializeVault<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-/// Deposit an NFT into the vault
+/// Deposit an NFT into the vault (transfer only)
 #[derive(Accounts)]
 pub struct DepositNft<'info> {
     #[account(mut)]
@@ -137,18 +137,30 @@ pub struct DepositNft<'info> {
     pub vault_state: Account<'info, VaultState>,
 
     // User's NFT token account (must hold the NFT)
-    #[account(
-        mut,
-        // owner = user, // Not supported in Anchor 0.26.0; check manually if needed
-    )]
-    pub user_nft_account: Account<'info, TokenAccount>,
+    /// CHECK: Validated in handler
+    #[account(mut)]
+    pub user_nft_account: UncheckedAccount<'info>,
 
     // Vault's NFT token account (authority = vault_state PDA)
+    /// CHECK: Validated in handler
+    #[account(mut)]
+    pub vault_nft_account: UncheckedAccount<'info>,
+
+    pub token_program: Program<'info, Token>,
+}
+
+/// Mint fractional tokens after NFT deposit
+#[derive(Accounts)]
+pub struct MintFractional<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
     #[account(
         mut,
-        // owner = vault_state, // Not supported in Anchor 0.26.0; check manually if needed
+        seeds = [b"vault", vault_state.collection_mint.as_ref()],
+        bump
     )]
-    pub vault_nft_account: Account<'info, TokenAccount>,
+    pub vault_state: Account<'info, VaultState>,
 
     // Fractional token mint PDA (authority = vault_state PDA)
     #[account(
@@ -167,10 +179,9 @@ pub struct DepositNft<'info> {
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
 
-
     /// CHECK: Protocol treasury account for fee collection
     #[account(mut)]
-    pub protocol_treasury: Account<'info, TokenAccount>,
+    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -254,16 +265,16 @@ impl<'info> InitializeVault<'info> {
 
 impl<'info> DepositNft<'info> {
     pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
+        // Manually validate unchecked accounts
+        let user_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_nft_account)?;
+        let _vault_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_nft_account)?;
+        
         // Validate user has the NFT
-        require!(ctx.accounts.user_nft_account.amount > 0, VaultError::NoNftsAvailable);
+        require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
 
         // Simple collection verification - verify the NFT mint belongs to the collection
-        // This is a basic check that can be enhanced later
-        let nft_mint = ctx.accounts.user_nft_account.mint;
+        let nft_mint = user_nft_account.mint;
         require!(nft_mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
-
-        let collection_key = ctx.accounts.vault_state.collection_mint;
-        let bump = ctx.bumps["vault_state"];
 
         // Transfer NFT from user to vault
         let transfer_ctx = CpiContext::new(
@@ -275,6 +286,22 @@ impl<'info> DepositNft<'info> {
             },
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
+
+        // Update vault state
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_deposits += 1;
+        
+        Ok(())
+    }
+}
+
+impl<'info> MintFractional<'info> {
+    pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
+        // Manually validate unchecked accounts
+        let _protocol_treasury = Account::<TokenAccount>::try_from(&ctx.accounts.protocol_treasury)?;
+        
+        let collection_key = ctx.accounts.vault_state.collection_mint;
+        let bump = ctx.bumps["vault_state"];
 
         // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
         let tokens_to_mint = constants::TOKENS_PER_NFT;
@@ -312,11 +339,11 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::mint_to(protocol_treasury_mint_ctx, fee_amount)?;
 
-        // Now mutably borrow vault_state for mutation
+        // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_deposits += 1;
         vault_state.total_fractions_minted += tokens_to_mint; // Total tokens minted (including fees)
         vault_state.total_fees_collected += fee_amount;
+        
         Ok(())
     }
 }
@@ -439,15 +466,23 @@ impl<'info> RedeemSpecificNft<'info> {
 #[program]
 pub mod fractional_vault {
     use super::*;
-    pub fn initialize_vault(ctx: Context<InitializeVault>) -> Result<()> {
-        ctx.accounts.initialize_vault()
+
+    pub fn initialize_vault(mut ctx: Context<InitializeVault>) -> Result<()> {
+        InitializeVault::initialize_vault(&mut ctx.accounts)
     }
+
     pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
         DepositNft::deposit_nft(ctx)
     }
+
+    pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
+        MintFractional::mint_fractional(ctx)
+    }
+
     pub fn redeem_nft(ctx: Context<RedeemNft>) -> Result<()> {
         RedeemNft::redeem_nft(ctx)
     }
+
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
         RedeemSpecificNft::redeem_specific_nft(ctx)
     }

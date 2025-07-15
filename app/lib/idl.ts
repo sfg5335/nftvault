@@ -67,7 +67,23 @@ export const IDL = {
           "isSigner": false
         },
         {
-          "name": "userFractionalAccount",
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "mintFractional",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
           "isMut": true,
           "isSigner": false
         },
@@ -77,8 +93,13 @@ export const IDL = {
           "isSigner": false
         },
         {
-          "name": "nftMetadata",
-          "isMut": false,
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "protocolTreasury",
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -282,6 +303,21 @@ export const IDL = {
       "code": 6005,
       "name": "CollectionNotVerified",
       "msg": "Collection not verified"
+    },
+    {
+      "code": 6006,
+      "name": "CollectionMetadataMissing",
+      "msg": "Collection metadata missing"
+    },
+    {
+      "code": 6007,
+      "name": "MissingVaultAta",
+      "msg": "Missing vault NFT token account"
+    },
+    {
+      "code": 6008,
+      "name": "MissingFractionalAta",
+      "msg": "Missing user fractional token account"
     }
   ]
-} as const; 
+}; 

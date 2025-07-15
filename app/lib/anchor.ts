@@ -4,7 +4,7 @@ import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import { Metaplex } from '@metaplex-foundation/js';
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("HKuuQC777mT27HJgcMEyfdvHa8831kDzAvMaZAbWxN9u");
+const PROGRAM_ID = new PublicKey("9MxmxCHSJ9jp6moeMUMXN9sfJhB9hgP8SYT8vhCs78MF");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -160,6 +160,7 @@ export class AnchorClient {
       if (!nft.collection.address.equals(collectionMint)) {
         throw new Error(`NFT collection mismatch. NFT belongs to collection ${nft.collection.address.toString()}, but pool is for ${collectionMint.toString()}`);
       }
+      
       // Use the collection mint for vaultState PDA (per updated program constraint)
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
       const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
@@ -167,7 +168,6 @@ export class AnchorClient {
       // Official program IDs
       const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
       const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-      const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
 
       // Get user's NFT token account
       const userNftAccount = await anchor.utils.token.associatedAddress({
@@ -194,87 +194,36 @@ export class AnchorClient {
         owner: protocolTreasuryAddress,
       });
 
-      // Get NFT metadata account
-      const [nftMetadata] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s").toBuffer(),
-          nftMint.toBuffer(),
-        ],
-        new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
-      );
+      // Step 1: Deposit NFT (transfer only)
+      const depositTx = await this.program.methods
+        .depositNft()
+        .accounts({
+          user: this.provider.wallet.publicKey,
+          vaultState: vaultStatePDA,
+          userNftAccount: userNftAccount,
+          vaultNftAccount: vaultNftAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
 
-      // Check if accounts exist and create them if needed
-      const accountsToCreate = [];
-      // Check vault NFT account
-      const vaultNftAccountInfo = await this.provider.connection.getAccountInfo(vaultNftAccount);
-      if (!vaultNftAccountInfo) {
-        accountsToCreate.push(
-          createAssociatedTokenAccountInstruction(
-            this.provider.wallet.publicKey,
-            vaultNftAccount,
-            vaultStatePDA,
-            nftMint
-          )
-        );
-      }
-      // Check user fractional account
-      const userFractionalAccountInfo = await this.provider.connection.getAccountInfo(userFractionalAccount);
-      if (!userFractionalAccountInfo) {
-        accountsToCreate.push(
-          createAssociatedTokenAccountInstruction(
-            this.provider.wallet.publicKey,
-            userFractionalAccount,
-            this.provider.wallet.publicKey,
-            fractionalMintPDA
-          )
-        );
-      }
-      // Check protocol treasury account
-      const protocolTreasuryAccountInfo = await this.provider.connection.getAccountInfo(protocolTreasuryAccount);
-      if (!protocolTreasuryAccountInfo) {
-        accountsToCreate.push(
-          createAssociatedTokenAccountInstruction(
-            this.provider.wallet.publicKey,
-            protocolTreasuryAccount,
-            protocolTreasuryAddress,
-            fractionalMintPDA
-          )
-        );
-      }
-      // Create missing accounts if any
-      if (accountsToCreate.length > 0) {
-        const createAccountsTx = new anchor.web3.Transaction();
-        createAccountsTx.add(...accountsToCreate);
-        await this.provider.sendAndConfirm(createAccountsTx);
-      }
-      // Debug log for all accounts (move before .rpc call)
-      const depositAccounts = {
-        user: this.provider.wallet.publicKey,
-        vaultState: vaultStatePDA,
-        userNftAccount: userNftAccount,
-        vaultNftAccount: vaultNftAccount,
-        userFractionalAccount: userFractionalAccount,
-        fractionalMint: fractionalMintPDA,
-        nftMetadata: nftMetadata,
-        protocolTreasury: protocolTreasuryAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      };
-      console.log('DepositNft accounts (debug):', depositAccounts);
-      try {
-        const tx = await this.program.methods
-          .depositNft()
-          .accounts(depositAccounts)
-          .rpc();
-        return tx;
-      } catch (error) {
-        console.error('Deposit failed:', error, depositAccounts);
-        throw error;
-      }
+      // Step 2: Mint fractional tokens
+      const mintTx = await this.program.methods
+        .mintFractional()
+        .accounts({
+          user: this.provider.wallet.publicKey,
+          vaultState: vaultStatePDA,
+          fractionalMint: fractionalMintPDA,
+          userFractionalAccount: userFractionalAccount,
+          protocolTreasury: protocolTreasuryAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+
+      return `Deposit: ${depositTx}, Mint: ${mintTx}`;
     } catch (error) {
-      console.error("Deposit failed:", error);
+      console.error("NFT deposit failed:", error);
       throw error;
     }
   }

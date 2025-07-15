@@ -129,9 +129,35 @@ export class AnchorClient {
   async vaultExists(collectionMint: PublicKey): Promise<boolean> {
     try {
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
+      
+      // First check if the account exists
       const vaultState = await this.provider.connection.getAccountInfo(vaultStatePDA);
-      return vaultState !== null;
+      
+      if (vaultState === null) {
+        console.log(`Vault does not exist for collection: ${collectionMint.toString()}`);
+        return false;
+      }
+      
+      // Verify it's owned by our program
+      if (!vaultState.owner.equals(new PublicKey('6EcAbJfr6ezXipHraPug3TPRjpUcJW58ngKv8S6fwjDX'))) {
+        console.log(`Vault account exists but is not owned by our program: ${collectionMint.toString()}`);
+        return false;
+      }
+      
+      // Try to deserialize the account to verify it's a valid vault state
+      try {
+        const vaultStateData = await this.program.account.vaultState.fetch(vaultStatePDA);
+        console.log(`Vault exists and is valid for collection: ${collectionMint.toString()}`);
+        console.log(`Vault creator: ${vaultStateData.creator.toString()}`);
+        console.log(`Total deposits: ${vaultStateData.totalDeposits.toNumber()}`);
+        return true;
+      } catch (deserializeError) {
+        console.log(`Vault account exists but failed to deserialize: ${collectionMint.toString()}`);
+        console.error('Deserialization error:', deserializeError);
+        return false;
+      }
     } catch (error) {
+      console.error(`Error checking vault existence for ${collectionMint.toString()}:`, error);
       return false;
     }
   }

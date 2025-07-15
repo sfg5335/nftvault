@@ -137,27 +137,7 @@ function PoolGrid() {
     try {
       const fetchedPools: Pool[] = []
 
-      // Add hard-coded AI collection pool
-      const hardcodedPool: Pool = {
-        id: "GTh4VxUx6PsWvMR4wF4hdsPiSjAhFUMZpWf3H5dHhd3W",
-        name: "Test Vault Collection",
-        symbol: "TVC",
-        image: "",
-        floorPrice: 0.5,
-        totalValue: 1250000, // $1.25M total value
-        nftCount: 10,
-        tokenPrice: 0.001,
-        volume24h: 25000,
-        change24h: 12.5,
-        isTrending: true,
-        collectionMint: "GTh4VxUx6PsWvMR4wF4hdsPiSjAhFUMZpWf3H5dHhd3W",
-        creator: "Test Collection Creator",
-        fractionalMint: "FractionalMintAddress123",
-        totalFractionsMinted: 10000000, // 10 NFTs * 1M tokens each
-        totalFeesCollected: 12500,
-        isActive: true
-      }
-      fetchedPools.push(hardcodedPool)
+      // No hardcoded pools - only show real vaults from localStorage
 
       // Get created pools from localStorage
       const createdPools = PoolStorage.getCreatedPools()
@@ -260,32 +240,36 @@ function PoolGrid() {
             </a>
             <button 
               onClick={() => {
-                const collectionMint = "Aiikm9UC3GshTZNpNM3GAtZMh6udTCFM9ipNWRL6Go3u";
+                // Generate a fresh test collection mint to avoid conflicts
+                const timestamp = Date.now();
+                const random = Math.random().toString(36).substring(2, 15);
+                const collectionMint = `TestCollection${timestamp}${random}`;
+                
                 const existingPools = JSON.parse(localStorage.getItem('createdPools') || '[]');
                 const poolExists = existingPools.some((p: any) => p.collectionMint === collectionMint);
                 
                 if (!poolExists) {
                   const newPool = {
                     collectionMint: collectionMint,
-                    name: "AI Collection",
-                    symbol: "AIC",
-                    description: "AI-generated NFT collection",
+                    name: "Test Collection",
+                    symbol: "TEST",
+                    description: "Test NFT collection for development",
                     imageUrl: "",
                     createdAt: new Date().toISOString(),
-                    txSignature: "existing_vault"
+                    txSignature: "test_vault"
                   };
                   
                   existingPools.push(newPool);
                   localStorage.setItem('createdPools', JSON.stringify(existingPools));
-                  alert("Existing vault added! Refreshing page...");
+                  alert(`Test collection added with mint: ${collectionMint}\nRefreshing page...`);
                   window.location.reload();
                 } else {
-                  alert("Vault already exists in tracking system");
+                  alert("Test collection already exists in tracking system");
                 }
               }}
               className="block w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 border border-white/20"
             >
-              Add Existing AI Collection Vault
+              Add Test Collection (Development)
             </button>
           </div>
         </div>

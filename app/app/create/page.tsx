@@ -12,6 +12,7 @@ import { Connection } from '@solana/web3.js'
 import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
 import { SendTransactionError } from '@solana/web3.js'
+import { VaultUtils } from '../lib/vaultUtils'
 
 interface CollectionNFT {
   mint: PublicKey
@@ -377,10 +378,19 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
 
       // Check if vault already exists
       if (client) {
-        const exists = await client.vaultExists(collectionMint)
-        if (exists) {
-          alert('A vault for this collection already exists!')
-          return
+        try {
+          console.log('Checking if vault exists for collection:', collectionMint.toString())
+          const exists = await client.vaultExists(collectionMint)
+          if (exists) {
+            setError('A vault for this collection already exists! Please use a different collection or try depositing to the existing vault.')
+            return
+          }
+          console.log('Vault does not exist, proceeding with creation...')
+        } catch (vaultCheckError) {
+          console.error('Error checking vault existence:', vaultCheckError)
+          // Continue with vault creation even if the check fails
+          // This handles cases where RPC is slow or there are network issues
+          console.log('Proceeding with vault creation despite check error...')
         }
       }
 
@@ -458,7 +468,13 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
         } else if (message.includes('invalid account')) {
           errorMessage = 'Invalid account data. Please check your collection mint address.'
         } else if (message.includes('already in use')) {
-          errorMessage = 'A vault for this collection already exists.'
+          errorMessage = 'A vault for this collection already exists. This could be due to:
+
+1. A previous vault creation that succeeded but wasn't tracked
+2. Network issues causing stale data
+3. Another user creating a vault for this collection
+
+Try using a different collection mint or clear your browser storage.
         } else if (message.includes('not found')) {
           errorMessage = 'NFT not found in your wallet. Please make sure you own the NFTs you\'re trying to deposit.'
         } else if (isSendTransactionErrorWithLogs(err)) {
@@ -829,6 +845,42 @@ If you're testing, you can use the Cosmic Explorer NFTs by clicking the button b
           </div>
         </div>
       </main>
+
+      {/* Debug Section - Only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-6">
+          <h4 className="text-yellow-400 font-semibold mb-2">Debug Tools (Development Only)</h4>
+          <div className="space-y-3">
+            <button 
+              onClick={() => {
+                VaultUtils.clearVaultStorage()
+                alert('Vault storage cleared! Refresh the page.')
+              }}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded text-sm"
+            >
+              Clear Vault Storage
+            </button>
+            <button 
+              onClick={() => {
+                const knownMints = VaultUtils.getKnownCollectionMints()
+                alert(`Known test mints:\n${knownMints.join('\n')}`)
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm ml-2"
+            >
+              Show Known Mints
+            </button>
+            <button 
+              onClick={() => {
+                const testMint = VaultUtils.generateTestCollectionMint()
+                alert(`Generated test mint: ${testMint}`)
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm ml-2"
+            >
+              Generate Test Mint
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

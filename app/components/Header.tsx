@@ -14,9 +14,6 @@ export function Header() {
             </Link>
             
             <nav className="hidden md:flex items-center space-x-6">
-              <Link href="/" className="text-white/70 hover:text-white transition-colors">
-                Pools
-              </Link>
               <Link href="/portfolio" className="text-white/70 hover:text-white transition-colors">
                 Portfolio
               </Link>

@@ -7,13 +7,19 @@ import PoolGrid from './components/PoolGrid'
 import { CreatePoolCard } from './components/CreatePoolCard'
 import { Header } from './components/Header'
 import { StatsBar } from './components/StatsBar'
+import { useEffect } from 'react'
 
 export default function Home() {
   return <HomeContent />
 }
 
 function HomeContent() {
-  const { connected } = useWallet()
+  const { connected, publicKey, connecting, disconnecting } = useWallet()
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Wallet state:', { connected, publicKey: publicKey?.toString(), connecting, disconnecting })
+  }, [connected, publicKey, connecting, disconnecting])
 
   if (!connected) {
     return (
@@ -24,10 +30,13 @@ function HomeContent() {
             Fractionalize your NFT collections into tradeable tokens
           </p>
           <div className="space-y-4">
-            {/* Test button to see if styling is the issue */}
-            <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 py-3 text-lg">
-              Test Button
-            </button>
+            {/* Debug info */}
+            <div className="text-white/60 text-sm mb-4">
+              <p>Debug: connected={connected.toString()}</p>
+              <p>Debug: connecting={connecting.toString()}</p>
+              <p>Debug: disconnecting={disconnecting.toString()}</p>
+              {publicKey && <p>Debug: publicKey={publicKey.toString()}</p>}
+            </div>
             
             <SimpleWalletButton />
             

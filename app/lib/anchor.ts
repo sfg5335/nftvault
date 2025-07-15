@@ -4,7 +4,7 @@ import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import { Metaplex } from '@metaplex-foundation/js';
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("3j7hAXi2YgewoJErxs2LjFmEwAMFMdVvoWesWDocHADe");
+const PROGRAM_ID = new PublicKey("HKuuQC777mT27HJgcMEyfdvHa8831kDzAvMaZAbWxN9u");
 
 // Network configuration
 export const NETWORK = "devnet";

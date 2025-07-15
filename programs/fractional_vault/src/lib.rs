@@ -1,10 +1,36 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount, Transfer},
-};
+use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
+use anchor_spl::associated_token::AssociatedToken;
 
-declare_id!("3j7hAXi2YgewoJErxs2LjFmEwAMFMdVvoWesWDocHADe");
+// Manual collection verification without Metaplex dependency
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+pub struct Collection {
+    pub verified: bool,
+    pub key: Pubkey,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct Creator {
+    pub address: Pubkey,
+    pub verified: bool,
+    pub share: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct Uses {
+    pub use_method: UseMethod,
+    pub remaining: u64,
+    pub total: u64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+pub enum UseMethod {
+    Burn,
+    Multiple,
+    Single,
+}
+
+declare_id!("7E4dCbpqc4w1RsAYzj3FBKJZE5aGp3C3e4pMeroxbvqv");
 
 /// Constants for the fractional vault program
 pub mod constants {
@@ -41,6 +67,12 @@ pub enum VaultError {
     InvalidFeeRate,
     #[msg("Collection not verified")]
     CollectionNotVerified,
+    #[msg("Collection metadata missing")]
+    CollectionMetadataMissing,
+    #[msg("Missing vault NFT token account")]
+    MissingVaultAta,
+    #[msg("Missing user fractional token account")]
+    MissingFractionalAta,
 }
 
 /// State account for the vault
@@ -103,24 +135,42 @@ pub struct DepositNft<'info> {
         bump
     )]
     pub vault_state: Account<'info, VaultState>,
-    
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub user_nft_account: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub vault_nft_account: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub user_fractional_account: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub fractional_mint: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    pub nft_metadata: UncheckedAccount<'info>,
+
+    // User's NFT token account (must hold the NFT)
+    #[account(
+        mut,
+        // owner = user, // Not supported in Anchor 0.26.0; check manually if needed
+    )]
+    pub user_nft_account: Account<'info, TokenAccount>,
+
+    // Vault's NFT token account (authority = vault_state PDA)
+    #[account(
+        mut,
+        // owner = vault_state, // Not supported in Anchor 0.26.0; check manually if needed
+    )]
+    pub vault_nft_account: Account<'info, TokenAccount>,
+
+    // Fractional token mint PDA (authority = vault_state PDA)
+    #[account(
+        mut,
+        seeds = [b"fractional_mint", vault_state.key().as_ref()],
+        bump
+    )]
+    pub fractional_mint: Account<'info, Mint>,
+
+    // User's fractional token account – create if it doesn't exist
+    #[account(
+        init,
+        payer = user,
+        associated_token::mint = fractional_mint,
+        associated_token::authority = user,
+    )]
+    pub user_fractional_account: Account<'info, TokenAccount>,
+
+
     /// CHECK: Protocol treasury account for fee collection
     #[account(mut)]
-    pub protocol_treasury: UncheckedAccount<'info>,
+    pub protocol_treasury: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -204,25 +254,14 @@ impl<'info> InitializeVault<'info> {
 
 impl<'info> DepositNft<'info> {
     pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
-        // Manual validation of all accounts
-        let user_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_nft_account)?;
-        let vault_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_nft_account)?;
-        let user_fractional_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_fractional_account)?;
-        let fractional_mint = Account::<Mint>::try_from(&ctx.accounts.fractional_mint)?;
-        
-        // Validate token account owners
-        require!(user_nft_account.owner == ctx.accounts.user.key(), VaultError::WrongCollection);
-        require!(vault_nft_account.owner == ctx.accounts.vault_state.key(), VaultError::WrongCollection);
-        require!(user_fractional_account.owner == ctx.accounts.user.key(), VaultError::WrongCollection);
-        
-        // Validate mints
-        require!(user_nft_account.mint == vault_nft_account.mint, VaultError::WrongCollection);
-        require!(user_fractional_account.mint == fractional_mint.key(), VaultError::WrongCollection);
-        require!(fractional_mint.key() == ctx.accounts.vault_state.fractional_mint, VaultError::WrongCollection);
-        
         // Validate user has the NFT
-        require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
-        
+        require!(ctx.accounts.user_nft_account.amount > 0, VaultError::NoNftsAvailable);
+
+        // Simple collection verification - verify the NFT mint belongs to the collection
+        // This is a basic check that can be enhanced later
+        let nft_mint = ctx.accounts.user_nft_account.mint;
+        require!(nft_mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
+
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
 

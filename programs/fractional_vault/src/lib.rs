@@ -4,7 +4,7 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount, Transfer},
 };
 
-declare_id!("3j7hAXi2YgewoJErxs2LjFmEwAMFMdVvoWesWDocHADe");
+declare_id!("87JJ2Ttnei2xU2S9UeYYj8pNuug1ezcbkwC3TaxzTCCC");
 
 /// Constants for the fractional vault program
 pub mod constants {

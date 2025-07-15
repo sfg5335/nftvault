@@ -102,14 +102,14 @@ export function useAnchor() {
     }
   }
 
-  const redeemRandomNFT = async (collectionMint: PublicKey, nftMint: string, amount: number): Promise<string> => {
+  const redeemRandomNFT = async (collectionMint: PublicKey, nftMint: string): Promise<string> => {
     if (!client) throw new Error('Client not initialized')
     
     setLoading(true)
     setError(null)
     
     try {
-      const tx = await client.redeemRandomNFT(collectionMint, new PublicKey(nftMint), amount)
+      const tx = await client.redeemRandomNFT(collectionMint, new PublicKey(nftMint))
       console.log('Random NFT redeemed:', tx)
       await fetchVaultState()
       return tx
@@ -122,14 +122,14 @@ export function useAnchor() {
     }
   }
 
-  const redeemSpecificNFT = async (collectionMint: PublicKey, nftMint: string, amount: number): Promise<string> => {
+  const redeemSpecificNFT = async (collectionMint: PublicKey, nftMint: string): Promise<string> => {
     if (!client) throw new Error('Client not initialized')
     
     setLoading(true)
     setError(null)
     
     try {
-      const tx = await client.redeemSpecificNFT(collectionMint, new PublicKey(nftMint), amount)
+      const tx = await client.redeemSpecificNFT(collectionMint, new PublicKey(nftMint))
       console.log('Specific NFT redeemed:', tx)
       await fetchVaultState()
       return tx
@@ -151,8 +151,8 @@ export function useAnchor() {
     initializeCollectionVault,
     depositNFT,
     // UI must provide an NFT mint for random and specific redemption
-    redeemRandomNFT, // (collectionMint: PublicKey, nftMint: string, amount: number)
-    redeemSpecificNFT, // (collectionMint: PublicKey, nftMint: string, amount: number)
+    redeemRandomNFT, // (collectionMint: PublicKey, nftMint: string)
+    redeemSpecificNFT, // (collectionMint: PublicKey, nftMint: string)
     collectionMint: DEMO_COLLECTION_MINT,
   }
 } 

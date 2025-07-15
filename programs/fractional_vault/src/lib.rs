@@ -3,6 +3,8 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount, Transfer},
 };
+use mpl_token_metadata::state::Metadata;
+use std::str::FromStr;
 
 declare_id!("3j7hAXi2YgewoJErxs2LjFmEwAMFMdVvoWesWDocHADe");
 
@@ -41,6 +43,8 @@ pub enum VaultError {
     InvalidFeeRate,
     #[msg("Collection not verified")]
     CollectionNotVerified,
+    #[msg("Incorrect protocol treasury account provided")]
+    WrongTreasury,
 }
 
 /// State account for the vault
@@ -131,28 +135,31 @@ pub struct DepositNft<'info> {
 pub struct RedeemNft<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    
+ 
     #[account(mut)]
     pub vault_state: Account<'info, VaultState>,
-    
+ 
     #[account(
         mut,
         associated_token::mint = vault_state.fractional_mint,
         associated_token::authority = user
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        mut,
-        associated_token::mint = vault_state.fractional_mint,
-        associated_token::authority = vault_state
-    )]
-    pub vault_fractional_account: Account<'info, TokenAccount>,
-    
+ 
     /// CHECK: Fractional mint
     #[account(mut)]
     pub fractional_mint: Account<'info, Mint>,
-    
+
+    #[account(mut)]
+    pub vault_nft_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub user_nft_account: Account<'info, TokenAccount>,
+
+    /// CHECK: Protocol treasury
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
+ 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -180,6 +187,9 @@ pub struct RedeemSpecificNft<'info> {
     /// CHECK: Validated in handler
     #[account(mut)]
     pub fractional_mint: UncheckedAccount<'info>,
+    /// CHECK: Protocol treasury
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -222,7 +232,19 @@ impl<'info> DepositNft<'info> {
         
         // Validate user has the NFT
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
-        
+ 
+        // Verify protocol treasury account matches constant
+        let expected_treasury = Pubkey::from_str(constants::PROTOCOL_TREASURY).map_err(|_| error!(VaultError::WrongTreasury))?;
+        require!(ctx.accounts.protocol_treasury.key() == expected_treasury, VaultError::WrongTreasury);
+
+        // Verify collection metadata is correct and verified
+        let metadata_account_info = ctx.accounts.nft_metadata.to_account_info();
+        let metadata = Metadata::from_account_info(&metadata_account_info)?;
+        require!(metadata.collection.is_some(), VaultError::CollectionNotVerified);
+        let collection = metadata.collection.unwrap();
+        require!(collection.verified, VaultError::CollectionNotVerified);
+        require!(collection.key == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
+
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
 
@@ -283,7 +305,19 @@ impl<'info> DepositNft<'info> {
 }
 
 impl<'info> RedeemNft<'info> {
-    pub fn redeem_nft(ctx: Context<RedeemNft>) -> Result<()> {
+     pub fn redeem_nft(ctx: Context<RedeemNft>) -> Result<()> {
+        // Verify protocol treasury account matches constant
+        let expected_treasury = Pubkey::from_str(constants::PROTOCOL_TREASURY).map_err(|_| error!(VaultError::WrongTreasury))?;
+        require!(ctx.accounts.protocol_treasury.key() == expected_treasury, VaultError::WrongTreasury);
+
+        // Validate NFT token accounts
+        let vault_nft_account = &ctx.accounts.vault_nft_account;
+        let user_nft_account = &ctx.accounts.user_nft_account;
+        require!(vault_nft_account.owner == ctx.accounts.vault_state.key(), VaultError::WrongCollection);
+        require!(user_nft_account.owner == ctx.accounts.user.key(), VaultError::WrongCollection);
+        require!(vault_nft_account.mint == user_nft_account.mint, VaultError::WrongCollection);
+        require!(vault_nft_account.amount > 0, VaultError::NoNftsAvailable);
+
         // Calculate tokens required (1 NFT = 1,000,000 tokens + fee)
         let base_tokens_required = constants::TOKENS_PER_NFT;
         let fee_amount = (base_tokens_required * ctx.accounts.vault_state.random_redeem_fee_rate as u64) / 10000;
@@ -295,7 +329,7 @@ impl<'info> RedeemNft<'info> {
             VaultError::InsufficientTokens
         );
 
-        // Burn tokens from user
+        // Burn only the base amount (represents the NFT being removed from supply)
         let burn_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             anchor_spl::token::Burn {
@@ -304,9 +338,37 @@ impl<'info> RedeemNft<'info> {
                 authority: ctx.accounts.user.to_account_info(),
             },
         );
-        anchor_spl::token::burn(burn_ctx, total_tokens_required)?;
+        anchor_spl::token::burn(burn_ctx, base_tokens_required)?;
 
-        // Now mutably borrow vault_state for mutation
+        // Mint fee tokens to protocol treasury
+        let collection_key = ctx.accounts.vault_state.collection_mint;
+        let bump = ctx.bumps["vault_state"];
+        let seeds = &[b"vault", collection_key.as_ref(), &[bump]];
+        let signer = &[&seeds[..]];
+        let mint_fee_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.protocol_treasury.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::mint_to(mint_fee_ctx, fee_amount)?;
+
+        // Transfer NFT from vault to user
+        let transfer_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.vault_nft_account.to_account_info(),
+                to: ctx.accounts.user_nft_account.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::transfer(transfer_ctx, 1)?;
+
+        // Update state
         let vault_state = &mut ctx.accounts.vault_state;
         require!(vault_state.is_active, VaultError::VaultInactive);
         require!(vault_state.total_deposits > 0, VaultError::NoNftsAvailable);
@@ -366,15 +428,32 @@ impl<'info> RedeemSpecificNft<'info> {
                 authority: ctx.accounts.user.to_account_info(),
             },
         );
-        anchor_spl::token::burn(burn_ctx, total_tokens_required)?;
+        // Burn only base amount (NFT redemption), fee will be minted to treasury
+        anchor_spl::token::burn(burn_ctx, base_tokens_required)?;
 
-        // Transfer specific NFT from vault to user
+        // Verify protocol treasury account matches constant
+        let expected_treasury = Pubkey::from_str(constants::PROTOCOL_TREASURY).map_err(|_| error!(VaultError::WrongTreasury))?;
+        require!(ctx.accounts.protocol_treasury.key() == expected_treasury, VaultError::WrongTreasury);
+
+        // Mint fee tokens to protocol treasury
         let seeds = &[
             b"vault",
             collection_key.as_ref(),
             &[bump],
         ];
         let signer = &[&seeds[..]];
+        let mint_fee_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.protocol_treasury.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::mint_to(mint_fee_ctx, fee_amount)?;
+
+        // Transfer specific NFT from vault to user
         let transfer_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             Transfer {

@@ -280,12 +280,17 @@ export class AnchorClient {
   }
 
   // Redeem random NFT
-  async redeemRandomNFT(collectionMint: PublicKey, nftMint: PublicKey, amount: anchor.BN): Promise<string> {
+  async redeemRandomNFT(collectionMint: PublicKey, nftMint: PublicKey): Promise<string> {
     try {
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
       const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
-      const [fractionalMintAuthorityPDA] = this.getFractionalMintAuthorityPDA();
-      const [protocolTreasuryPDA] = this.getProtocolTreasuryPDA();
+      const protocolTreasuryAddress = new PublicKey('2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt');
+
+      // ATA for treasury
+      const protocolTreasuryAccount = await anchor.utils.token.associatedAddress({
+        mint: fractionalMintPDA,
+        owner: protocolTreasuryAddress,
+      });
 
       // Get user's fractional token account
       const userFractionalAccount = await anchor.utils.token.associatedAddress({
@@ -308,21 +313,16 @@ export class AnchorClient {
       const tx = await this.program.methods
         .redeemNft()
         .accounts({
-          vaultState: vaultStatePDA,
-          fractionalMint: fractionalMintPDA,
-          userFractionalAccount: userFractionalAccount,
-          vaultNftAccount: vaultNftAccount,
-          userNftAccount: userNftAccount,
-          vaultAuthority: vaultStatePDA, // Using vaultStatePDA as vault authority
-          fractionalMintAuthority: fractionalMintAuthorityPDA,
-          protocolTreasury: protocolTreasuryPDA,
           user: this.provider.wallet.publicKey,
-          nftMint: nftMint,
-          collectionMint: collectionMint,
+          vaultState: vaultStatePDA,
+          userFractionalAccount,
+          fractionalMint: fractionalMintPDA,
+          vaultNftAccount,
+          userNftAccount,
+          protocolTreasury: protocolTreasuryAccount,
           tokenProgram: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
           associatedTokenProgram: new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'),
           systemProgram: anchor.web3.SystemProgram.programId,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         })
         .rpc();
 
@@ -334,12 +334,15 @@ export class AnchorClient {
   }
 
   // Redeem specific NFT
-  async redeemSpecificNFT(collectionMint: PublicKey, nftMint: PublicKey, amount: anchor.BN): Promise<string> {
+  async redeemSpecificNFT(collectionMint: PublicKey, nftMint: PublicKey): Promise<string> {
     try {
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
       const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
-      const [fractionalMintAuthorityPDA] = this.getFractionalMintAuthorityPDA();
-      const [protocolTreasuryPDA] = this.getProtocolTreasuryPDA();
+      const protocolTreasuryAddress = new PublicKey('2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt');
+      const protocolTreasuryAccount = await anchor.utils.token.associatedAddress({
+        mint: fractionalMintPDA,
+        owner: protocolTreasuryAddress,
+      });
 
       // Get user's fractional token account
       const userFractionalAccount = await anchor.utils.token.associatedAddress({
@@ -347,7 +350,13 @@ export class AnchorClient {
         owner: this.provider.wallet.publicKey,
       });
 
-      // Get vault's NFT token account
+      // Get vault's fractional token account
+      const vaultFractionalAccount = await anchor.utils.token.associatedAddress({
+        mint: fractionalMintPDA,
+        owner: vaultStatePDA,
+      });
+
+      // Get vault's specific NFT token account
       const vaultNftAccount = await anchor.utils.token.associatedAddress({
         mint: nftMint,
         owner: vaultStatePDA,
@@ -362,21 +371,17 @@ export class AnchorClient {
       const tx = await this.program.methods
         .redeemSpecificNft()
         .accounts({
-          vaultState: vaultStatePDA,
-          fractionalMint: fractionalMintPDA,
-          userFractionalAccount: userFractionalAccount,
-          vaultNftAccount: vaultNftAccount,
-          userNftAccount: userNftAccount,
-          vaultAuthority: vaultStatePDA, // Using vaultStatePDA as vault authority
-          fractionalMintAuthority: fractionalMintAuthorityPDA,
-          protocolTreasury: protocolTreasuryPDA,
           user: this.provider.wallet.publicKey,
-          nftMint: nftMint,
-          collectionMint: collectionMint,
+          vaultState: vaultStatePDA,
+          userFractionalAccount,
+          fractionalMint: fractionalMintPDA,
+          vaultFractionalAccount,
+          vaultSpecificNftAccount: vaultNftAccount,
+          userSpecificNftAccount: userNftAccount,
+          protocolTreasury: protocolTreasuryAccount,
           tokenProgram: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
           associatedTokenProgram: new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'),
           systemProgram: anchor.web3.SystemProgram.programId,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         })
         .rpc();
 

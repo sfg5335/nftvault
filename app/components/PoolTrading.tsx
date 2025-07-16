@@ -252,22 +252,13 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
     setRedeeming(true)
     try {
       const collectionMint = new PublicKey(poolId)
-      let txSignature: string
       
-      if (redeemType === 'random') {
-        // This code path won't execute due to the check above
-        console.log('Performing random redemption...')
-        const nftMint = selectedVaultNFTs[0] || poolId
-        txSignature = await redeemRandomNFT(collectionMint, nftMint)
-        
-        alert(`✅ Random NFT redeemed successfully!\n\nTransaction: ${txSignature}\n\nYou burned 1,025,000 tokens (1,000,000 + 2.5% fee) and received a random NFT.\n\nView on explorer: https://explorer.solana.com/tx/${txSignature}?cluster=devnet`)
-      } else {
-        console.log('Performing specific redemption for NFT:', selectedVaultNFTs[0])
-        const nftMint = selectedVaultNFTs[0]
-        txSignature = await redeemSpecificNFT(collectionMint, nftMint)
-        
-        alert(`✅ Specific NFT redeemed successfully!\n\nTransaction: ${txSignature}\n\nYou burned 1,075,000 tokens (1,000,000 + 7.5% fee) and received your selected NFT.\n\nView on explorer: https://explorer.solana.com/tx/${txSignature}?cluster=devnet`)
-      }
+      // Only specific redemption is currently supported
+      console.log('Performing specific redemption for NFT:', selectedVaultNFTs[0])
+      const nftMint = selectedVaultNFTs[0]
+      const txSignature = await redeemSpecificNFT(collectionMint, nftMint)
+      
+      alert(`✅ Specific NFT redeemed successfully!\n\nTransaction: ${txSignature}\n\nYou burned 1,075,000 tokens (1,000,000 + 7.5% fee) and received your selected NFT.\n\nView on explorer: https://explorer.solana.com/tx/${txSignature}?cluster=devnet`)
       
       // Refresh data
       setSelectedVaultNFTs([])
@@ -413,6 +404,7 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
                   >
                     <NFTImage
                       nft={nft}
+                      alt={nft.name}
                       className="w-full h-24"
                       aspectRatio="auto"
                       lazy={true}

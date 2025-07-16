@@ -271,6 +271,7 @@ export function VaultNFTDisplay({
                 {/* NFT Image */}
                 <NFTImage
                   nft={nft}
+                  alt={nft.name}
                   className="w-full aspect-square"
                   lazy={true}
                   fallbackText={nft.symbol}
@@ -310,6 +311,7 @@ export function VaultNFTDisplay({
               >
                 <NFTImage
                   nft={nft}
+                  alt={nft.name}
                   className="w-16 h-16 flex-shrink-0"
                   lazy={true}
                   fallbackText={nft.symbol}

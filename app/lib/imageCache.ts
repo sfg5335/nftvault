@@ -202,12 +202,22 @@ class ImageCacheManager {
   }
 
   getCacheStats() {
+    const totalSize = this.getTotalCacheSize()
+    const cacheSize = this.formatBytes(totalSize)
+    
     return {
       totalImages: this.cache.size,
-      totalSize: this.getTotalCacheSize(),
+      totalSize: totalSize,
       maxSize: this.config.maxSizeBytes,
-      usagePercentage: (this.getTotalCacheSize() / this.config.maxSizeBytes) * 100
+      usagePercentage: (totalSize / this.config.maxSizeBytes) * 100,
+      cacheSize: cacheSize
     }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 }
 

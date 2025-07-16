@@ -1,6 +1,6 @@
 import * as anchor from '@coral-xyz/anchor'
 import { Program, AnchorProvider } from '@coral-xyz/anchor'
-import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from '@solana/web3.js'
+import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Connection } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, getAccount } from '@solana/spl-token'
 import { Metaplex } from '@metaplex-foundation/js';
 import { IDL } from './idl'

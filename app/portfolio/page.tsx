@@ -471,7 +471,7 @@ async function fetchUserNfts(publicKey: PublicKey, connection: any): Promise<Nft
         }
         
         result.push({
-          mint: fullNft.mintAddress.toString(),
+          mint: fullNft.address.toString(),
           name: fullNft.name,
           symbol: fullNft.symbol,
           image: imageUrl,

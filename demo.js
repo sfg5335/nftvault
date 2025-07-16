@@ -6,7 +6,7 @@ async function main() {
   console.log("=========================================\n");
 
   // Connect to local validator
-  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+  const connection = new Connection("https://api.devnet.solana.com", "confirmed");
   
   // Load the program ID from the deployed program
   const programId = new PublicKey("6iHy2jgsEdqTJXGneSXh6achDMNGHFDG8GSnDV9VaqpE");

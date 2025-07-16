@@ -9,7 +9,7 @@ import fs from "fs";
 
 describe("fractional_vault", () => {
   // Manually configure the provider
-  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+  const connection = new Connection("https://api.devnet.solana.com", "confirmed");
   const walletPath = process.env.ANCHOR_WALLET || "/root/.config/solana/id.json";
   const rawWallet = JSON.parse(fs.readFileSync(walletPath, "utf-8"));
   const wallet = Keypair.fromSecretKey(new Uint8Array(rawWallet));

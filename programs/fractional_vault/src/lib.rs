@@ -30,7 +30,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5");
+declare_id!("2sztCkFATGcHNENyUqMxv7wnP9P4mKxNqcFLaH62Vz3g");
 
 /// Constants for the fractional vault program
 pub mod constants {
@@ -73,6 +73,10 @@ pub enum VaultError {
     MissingVaultAta,
     #[msg("Missing user fractional token account")]
     MissingFractionalAta,
+    #[msg("Invalid token amount")]
+    InvalidTokenAmount,
+    #[msg("Not implemented due to Anchor framework limitations")]
+    NotImplemented,
 }
 
 /// State account for the vault
@@ -314,6 +318,59 @@ pub struct RedeemSpecificNft<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Deposit multiple NFTs into the vault at once
+#[derive(Accounts)]
+#[instruction(num_nfts: u8)]
+pub struct DepositMultipleNfts<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"vault", vault_state.collection_mint.as_ref()],
+        bump
+    )]
+    pub vault_state: Account<'info, VaultState>,
+
+    pub token_program: Program<'info, Token>,
+}
+
+/// Mint fractional tokens for multiple NFTs
+#[derive(Accounts)]
+#[instruction(num_nfts: u8)]
+pub struct MintFractionalMultiple<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"vault", vault_state.collection_mint.as_ref()],
+        bump
+    )]
+    pub vault_state: Account<'info, VaultState>,
+
+    // Fractional token mint PDA (authority = vault_state PDA)
+    #[account(
+        mut,
+        seeds = [b"fractional_mint", vault_state.key().as_ref()],
+        bump
+    )]
+    pub fractional_mint: Account<'info, Mint>,
+
+    // User's fractional token account
+    #[account(
+        mut,
+        associated_token::mint = fractional_mint,
+        associated_token::authority = user,
+    )]
+    pub user_fractional_account: Account<'info, TokenAccount>,
+
+    /// CHECK: Protocol treasury account for fee collection
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
 impl<'info> InitializeVault<'info> {
     pub fn initialize_vault(&mut self) -> Result<()> {
         self.vault_state.collection_mint = self.collection_mint.key();
@@ -341,7 +398,7 @@ impl<'info> DepositNft<'info> {
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
 
         // Simple collection verification - verify the NFT mint belongs to the collection
-        let nft_mint = user_nft_account.mint;
+        let _nft_mint = user_nft_account.mint;
         // NOTE: This check is incorrect - NFT mints are different from collection mints
         // Collection verification is done in the frontend using Metaplex metadata
         // require!(nft_mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
@@ -566,6 +623,96 @@ impl<'info> RedeemSpecificNft<'info> {
     }
 }
 
+// Temporarily disabled due to lifetime issues with remaining_accounts
+impl<'info> DepositMultipleNfts<'info> {
+    pub fn deposit_multiple_nfts(
+        _ctx: Context<DepositMultipleNfts>, 
+        _num_nfts: u8,
+        _user_nft_accounts: Vec<Pubkey>,
+        _vault_nft_accounts: Vec<Pubkey>
+    ) -> Result<()> {
+        // This implementation is disabled due to a fundamental lifetime issue in Anchor
+        // when trying to use remaining_accounts alongside regular context accounts.
+        // 
+        // The issue: When accessing remaining_accounts and trying to convert them to
+        // Account types or use them with accounts from the context, Rust's borrow
+        // checker cannot prove that the lifetimes are compatible.
+        //
+        // Attempted solutions:
+        // 1. Direct Account::try_from() - Results in "temporary value dropped" error
+        // 2. Manual deserialization - Results in lifetime mismatch errors
+        // 3. Cloning AccountInfo - Still results in lifetime conflicts
+        //
+        // Root cause: The Context<'info> struct has complex lifetime parameters that
+        // don't align well with the lifetime of remaining_accounts when used together.
+        //
+        // Alternative approaches that would work:
+        // 1. Create separate instructions for each NFT deposit (not batch)
+        // 2. Use a different architecture with a temporary holding account
+        // 3. Wait for Anchor framework updates that might resolve this limitation
+        // 4. Use lower-level Solana programming without Anchor's type safety
+        
+        return Err(VaultError::NotImplemented.into());
+    }
+}
+
+impl<'info> MintFractionalMultiple<'info> {
+    pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
+        // Manually validate unchecked accounts
+        let _protocol_treasury = Account::<TokenAccount>::try_from(&ctx.accounts.protocol_treasury)?;
+        
+        let collection_key = ctx.accounts.vault_state.collection_mint;
+        let bump = ctx.bumps["vault_state"];
+
+        // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
+        let tokens_per_nft = constants::TOKENS_PER_NFT;
+        let total_tokens_to_mint = tokens_per_nft * num_nfts as u64;
+        
+        // Calculate fee
+        let fee_amount = (total_tokens_to_mint * ctx.accounts.vault_state.deposit_fee_rate as u64) / 10000;
+        let tokens_after_fee = total_tokens_to_mint - fee_amount;
+
+        // Mint fractional tokens to user (after fee)
+        let seeds = &[
+            b"vault",
+            collection_key.as_ref(),
+            &[bump],
+        ];
+        let signer = &[&seeds[..]];
+        let mint_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.user_fractional_account.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::mint_to(mint_ctx, tokens_after_fee)?;
+
+        // Mint fee tokens to protocol treasury
+        let protocol_treasury_mint_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.protocol_treasury.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::mint_to(protocol_treasury_mint_ctx, fee_amount)?;
+
+        // Update vault state
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_fractions_minted += total_tokens_to_mint;
+        vault_state.total_fees_collected += fee_amount;
+        
+        msg!("Minted {} fractional tokens for {} NFTs", tokens_after_fee, num_nfts);
+        
+        Ok(())
+    }
+}
+
 #[program]
 pub mod fractional_vault {
     use super::*;
@@ -592,6 +739,20 @@ pub mod fractional_vault {
 
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
         RedeemSpecificNft::redeem_specific_nft(ctx)
+    }
+
+    // Temporarily disabled due to lifetime issues with remaining_accounts
+    // pub fn deposit_multiple_nfts(
+    //     ctx: Context<DepositMultipleNfts>, 
+    //     num_nfts: u8,
+    //     user_nft_accounts: Vec<Pubkey>,
+    //     vault_nft_accounts: Vec<Pubkey>
+    // ) -> Result<()> {
+    //     DepositMultipleNfts::deposit_multiple_nfts(ctx, num_nfts, user_nft_accounts, vault_nft_accounts)
+    // }
+
+    pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
+        MintFractionalMultiple::mint_fractional_multiple(ctx, num_nfts)
     }
 }
 

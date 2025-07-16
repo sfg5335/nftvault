@@ -5,11 +5,8 @@ anchor_version = "0.26.0"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-fractional_vault = "8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5"
-
 [programs.devnet]
-fractional_vault = "8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5"
+fractional_vault = "2sztCkFATGcHNENyUqMxv7wnP9P4mKxNqcFLaH62Vz3g"
 
 [registry]
 url = "https://api.apr.dev"

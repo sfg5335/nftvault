@@ -218,6 +218,30 @@ export function VaultNFTDisplay({
 
   return (
     <div className="space-y-4">
+      {/* Selection helper */}
+      <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+        <div className="flex items-center justify-between">
+          <p className="text-purple-300 text-sm">
+            {selectedNFTs.length === 0 
+              ? maxSelection === 1 
+                ? "👆 Click on an NFT to select it for redemption"
+                : `👆 Click on NFTs to select them (up to ${maxSelection} NFTs)`
+              : maxSelection === 1
+                ? "✅ NFT selected for redemption - you can change your selection anytime"
+                : `✅ ${selectedNFTs.length} NFT${selectedNFTs.length > 1 ? 's' : ''} selected - click to deselect or add more`
+            }
+          </p>
+          {selectedNFTs.length > 0 && maxSelection > 1 && (
+            <button
+              onClick={() => onSelectNFTs([])}
+              className="text-purple-400 hover:text-purple-300 text-sm underline"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      </div>
+      
       {/* Header with view controls */}
       <div className="flex items-center justify-between">
         <div>
@@ -255,17 +279,17 @@ export function VaultNFTDisplay({
       
       {/* NFT Grid/List */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {displayNFTs.map((nft) => {
             const isSelected = selectedNFTs.includes(nft.mint)
             return (
               <div
                 key={nft.mint}
                 onClick={() => handleNFTClick(nft.mint)}
-                className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all duration-200 hover:scale-105 ${
+                className={`relative cursor-pointer rounded-xl overflow-hidden border-2 transition-all duration-200 transform hover:scale-105 bg-white/5 ${
                   isSelected 
-                    ? 'border-purple-500 ring-2 ring-purple-500/20 shadow-lg shadow-purple-500/25' 
-                    : 'border-white/10 hover:border-white/20'
+                    ? 'border-purple-500 ring-2 ring-purple-500/30 shadow-xl shadow-purple-500/30' 
+                    : 'border-white/10 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/10'
                 }`}
               >
                 {/* NFT Image */}
@@ -279,9 +303,9 @@ export function VaultNFTDisplay({
                 
                 {/* Selection overlay */}
                 {isSelected && (
-                  <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-                    <div className="bg-purple-500 rounded-full p-2 shadow-lg">
-                      <Check className="w-5 h-5 text-white" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 to-purple-600/30 flex items-center justify-center backdrop-blur-sm">
+                    <div className="bg-purple-500 rounded-full p-3 shadow-2xl animate-pulse">
+                      <Check className="w-6 h-6 text-white" />
                     </div>
                   </div>
                 )}

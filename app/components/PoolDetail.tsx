@@ -9,16 +9,17 @@ import { VaultNFTDisplay } from './VaultNFTDisplay'
 
 interface PoolDetailProps {
   poolId: string
+  selectedNFTs: string[]
+  onSelectNFTs: (nfts: string[]) => void
 }
 
-export function PoolDetail({ poolId }: PoolDetailProps) {
+export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailProps) {
   const { client } = useAnchor()
   const [loading, setLoading] = useState(true)
   const [vaultState, setVaultState] = useState<any>(null)
   const [poolMetadata, setPoolMetadata] = useState<any>(null)
   const [imageError, setImageError] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedNFTs, setSelectedNFTs] = useState<string[]>([]) // For display only
 
   useEffect(() => {
     if (client && poolId) {
@@ -251,14 +252,21 @@ export function PoolDetail({ poolId }: PoolDetailProps) {
 
       {/* NFTs in Vault */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
-        <h2 className="text-xl font-bold text-white mb-4">NFTs in Vault</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-white">NFTs in Vault</h2>
+          {selectedNFTs.length > 0 && (
+            <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-sm rounded-full">
+              {selectedNFTs.length} selected
+            </span>
+          )}
+        </div>
         {vaultState && client ? (
           <VaultNFTDisplay
             vaultState={vaultState}
             client={client}
             selectedNFTs={selectedNFTs}
-            onSelectNFTs={setSelectedNFTs}
-            maxSelection={999} // Allow viewing all NFTs
+            onSelectNFTs={onSelectNFTs}
+                          maxSelection={10} // Allow selecting up to 10 NFTs for batch operations
           />
         ) : (
           <div className="text-center py-8">

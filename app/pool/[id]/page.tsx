@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '../../components/WalletProvider'
@@ -29,6 +30,9 @@ function PoolPageContent() {
   const params = useParams()
   const { connected } = useWallet()
   const poolId = params.id as string
+  
+  // Shared state for selected NFTs
+  const [selectedVaultNFTs, setSelectedVaultNFTs] = useState<string[]>([])
 
   if (!connected) {
     return (
@@ -52,12 +56,20 @@ function PoolPageContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Pool Details */}
           <div className="lg:col-span-2">
-            <PoolDetail poolId={poolId} />
+            <PoolDetail 
+              poolId={poolId} 
+              selectedNFTs={selectedVaultNFTs}
+              onSelectNFTs={setSelectedVaultNFTs}
+            />
           </div>
           
           {/* Trading Interface */}
           <div className="lg:col-span-1">
-            <PoolTrading poolId={poolId} />
+            <PoolTrading 
+              poolId={poolId} 
+              selectedVaultNFTs={selectedVaultNFTs}
+              onSelectVaultNFTs={setSelectedVaultNFTs}
+            />
           </div>
         </div>
       </main>

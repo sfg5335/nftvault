@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchor } from '../hooks/useAnchor'
 import { PoolStorage } from '../lib/poolStorage'
+import { TrendingUp, Users, Coins, Activity, Lock, ExternalLink } from 'lucide-react'
+import { VaultNFTDisplay } from './VaultNFTDisplay'
 
 interface PoolDetailProps {
   poolId: string
@@ -16,6 +18,7 @@ export function PoolDetail({ poolId }: PoolDetailProps) {
   const [poolMetadata, setPoolMetadata] = useState<any>(null)
   const [imageError, setImageError] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedNFTs, setSelectedNFTs] = useState<string[]>([]) // For display only
 
   useEffect(() => {
     if (client && poolId) {
@@ -129,105 +132,164 @@ export function PoolDetail({ poolId }: PoolDetailProps) {
 
   return (
     <div className="space-y-6">
-      {/* Pool Header */}
+      {/* Header Card */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
-        <div className="flex items-start space-x-6">
-          <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            {poolImage && !imageError ? (
-              <img
-                src={poolImage}
-                alt={poolName}
-                className="w-full h-full object-cover"
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <span className="text-white font-bold text-2xl">
-                {getInitials(poolName)}
-              </span>
-            )}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center space-x-4">
+            {/* Pool Image */}
+            <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/10">
+              {poolMetadata?.imageUrl && !imageError ? (
+                <img
+                  src={poolMetadata.imageUrl}
+                  alt={poolMetadata?.name || 'Pool'}
+                  className="w-full h-full object-cover"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Coins className="w-10 h-10 text-white/20" />
+                </div>
+              )}
+            </div>
+            
+            {/* Pool Info */}
+            <div>
+              <h1 className="text-2xl font-bold text-white">
+                {poolMetadata?.name || `Pool ${poolId.slice(0, 8)}...`}
+              </h1>
+              <p className="text-white/60 mt-1">
+                Symbol: {poolMetadata?.symbol || 'VAULT'}
+              </p>
+              <div className="flex items-center space-x-2 mt-2">
+                <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
+                  {vaultState?.isActive ? 'Active' : 'Inactive'}
+                </span>
+                <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                  {vaultState?.totalDeposits || 0} NFTs
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-white mb-2">{poolName}</h1>
-            <p className="text-white/60 text-lg mb-2">{poolSymbol}</p>
-            <p className="text-white/40 text-sm font-mono mb-4">
-              Collection: {poolId}
-            </p>
-            <p className="text-white/70">{description}</p>
-          </div>
+          
+          {/* View on Explorer */}
+          <a
+            href={`https://explorer.solana.com/address/${poolId}?cluster=devnet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/60 hover:text-white transition-colors"
+          >
+            <ExternalLink className="w-5 h-5" />
+          </a>
         </div>
       </div>
 
-      {/* Key Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
-          <p className="text-white/60 text-sm">NFTs in Vault</p>
-          <p className="text-white font-bold text-xl">{vaultState.totalDeposits}</p>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/60 text-sm">Total NFTs</span>
+            <Coins className="w-4 h-4 text-blue-400" />
+          </div>
+          <p className="text-2xl font-bold text-white">{vaultState?.totalDeposits || 0}</p>
         </div>
+        
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
-          <p className="text-white/60 text-sm">Total Tokens</p>
-          <p className="text-white font-bold text-xl">{formatTokenAmount(vaultState.totalFractionsMinted)}</p>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/60 text-sm">Tokens Minted</span>
+            <TrendingUp className="w-4 h-4 text-green-400" />
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {formatNumber(vaultState?.totalFractionsMinted / 1000000 || 0)}
+          </p>
         </div>
+        
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
-          <p className="text-white/60 text-sm">Total Fees</p>
-          <p className="text-white font-bold text-xl">{formatTokenAmount(vaultState.totalFeesCollected)}</p>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/60 text-sm">Fees Collected</span>
+            <Activity className="w-4 h-4 text-purple-400" />
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {formatNumber(vaultState?.totalFeesCollected / 1000000 || 0)}
+          </p>
         </div>
+        
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
-          <p className="text-white/60 text-sm">Status</p>
-          <p className={`font-bold text-xl ${vaultState.isActive ? 'text-green-400' : 'text-red-400'}`}>
-            {vaultState.isActive ? 'Active' : 'Inactive'}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/60 text-sm">Creator</span>
+            <Users className="w-4 h-4 text-orange-400" />
+          </div>
+          <p className="text-sm font-mono text-white truncate">
+            {vaultState?.creator.toString().slice(0, 8)}...
           </p>
         </div>
       </div>
 
-      {/* Detailed Stats */}
+      {/* Fee Structure */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
-        <h2 className="text-xl font-bold text-white mb-4">Vault Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="flex justify-between">
-              <span className="text-white/60">Creator</span>
-              <span className="text-white font-mono text-sm">
-                {vaultState.creator.toString().slice(0, 8)}...{vaultState.creator.toString().slice(-8)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Fractional Mint</span>
-              <span className="text-white font-mono text-sm">
-                {vaultState.fractionalMint.toString().slice(0, 8)}...{vaultState.fractionalMint.toString().slice(-8)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Tokens per NFT</span>
-              <span className="text-white font-semibold">1,000,000</span>
-            </div>
+        <h2 className="text-xl font-bold text-white mb-4">Fee Structure</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white/5 rounded-lg p-4">
+            <p className="text-white/60 text-sm mb-1">Deposit Fee</p>
+            <p className="text-white font-bold text-lg">
+              {vaultState?.depositFeeRate / 100 || 0}%
+            </p>
           </div>
-          <div className="space-y-4">
-            <div className="flex justify-between">
-              <span className="text-white/60">Deposit Fee</span>
-              <span className="text-white font-semibold">{vaultState.depositFeeRate / 100}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Random Redeem Fee</span>
-              <span className="text-white font-semibold">{vaultState.randomRedeemFeeRate / 100}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Specific Redeem Fee</span>
-              <span className="text-white font-semibold">{vaultState.specificRedeemFeeRate / 100}%</span>
-            </div>
+          <div className="bg-white/5 rounded-lg p-4">
+            <p className="text-white/60 text-sm mb-1">Random Redeem</p>
+            <p className="text-white font-bold text-lg">
+              {vaultState?.randomRedeemFeeRate / 100 || 0}%
+            </p>
+          </div>
+          <div className="bg-white/5 rounded-lg p-4">
+            <p className="text-white/60 text-sm mb-1">Specific Redeem</p>
+            <p className="text-white font-bold text-lg">
+              {vaultState?.specificRedeemFeeRate / 100 || 0}%
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Pool Economics */}
-      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
-        <h3 className="text-blue-400 font-semibold mb-3">Pool Economics</h3>
-        <ul className="text-white/70 text-sm space-y-2">
-          <li>• Each NFT deposited mints exactly 1,000,000 fractional tokens</li>
-          <li>• {vaultState.depositFeeRate / 100}% fee on deposits goes to protocol treasury</li>
-          <li>• {vaultState.randomRedeemFeeRate / 100}% fee for random NFT redemption</li>
-          <li>• {vaultState.specificRedeemFeeRate / 100}% fee for specific NFT redemption</li>
-          <li>• Total fees collected: {formatTokenAmount(vaultState.totalFeesCollected)} tokens</li>
-        </ul>
+      {/* NFTs in Vault */}
+      <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
+        <h2 className="text-xl font-bold text-white mb-4">NFTs in Vault</h2>
+        {vaultState && client ? (
+          <VaultNFTDisplay
+            vaultState={vaultState}
+            client={client}
+            selectedNFTs={selectedNFTs}
+            onSelectNFTs={setSelectedNFTs}
+            maxSelection={999} // Allow viewing all NFTs
+          />
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-white/60">Loading vault NFTs...</p>
+          </div>
+        )}
+      </div>
+
+      {/* Pool Info */}
+      <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
+        <h2 className="text-xl font-bold text-white mb-4">Pool Information</h2>
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-white/60">Collection Mint</span>
+            <span className="text-white font-mono">{poolId.slice(0, 16)}...</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-white/60">Fractional Mint</span>
+            <span className="text-white font-mono">
+              {vaultState?.fractionalMint.toString().slice(0, 16)}...
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-white/60">Token Decimals</span>
+            <span className="text-white">6</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-white/60">Tokens per NFT</span>
+            <span className="text-white">1,000,000</span>
+          </div>
+        </div>
       </div>
     </div>
   )

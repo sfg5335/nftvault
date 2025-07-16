@@ -8,6 +8,9 @@ import { Header } from '../../components/Header'
 import { PoolDetail } from '../../components/PoolDetail'
 import { PoolTrading } from '../../components/PoolTrading'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export default function PoolPage() {
   return (
     <ClientOnly fallback={

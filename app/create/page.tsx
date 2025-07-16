@@ -14,6 +14,9 @@ import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMeta
 import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
 import { SendTransactionError } from '@solana/web3.js'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 interface CollectionInfo {
   mint: string
   name: string
@@ -123,7 +126,7 @@ function CreatePoolPageContent() {
         
         try {
           // Fetch NFT metadata
-          const metadata = await fetchNFTMetadata(mint, connection)
+          const metadata = await fetchNFTMetadata(mint.toString(), connection)
           
           if (metadata) {
             // Use the collection key if available, otherwise use the mint itself

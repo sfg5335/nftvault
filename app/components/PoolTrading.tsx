@@ -6,6 +6,8 @@ import { Connection, PublicKey } from '@solana/web3.js'
 import { getAccount } from '@solana/spl-token'
 import { useAnchor } from '../hooks/useAnchor'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
+import { VaultNFTDisplay } from './VaultNFTDisplay'
+import { Shuffle, Target, Gift, AlertCircle } from 'lucide-react'
 
 interface PoolTradingProps {
   poolId: string
@@ -21,7 +23,7 @@ interface NFT {
 
 export function PoolTrading({ poolId }: PoolTradingProps) {
   const { publicKey } = useWallet()
-  const { client, depositNFT } = useAnchor()
+  const { client, depositNFT, redeemRandomNFT, redeemSpecificNFT } = useAnchor()
   const [activeTab, setActiveTab] = useState<'deposit' | 'redeem' | 'trade'>('deposit')
   const [amount, setAmount] = useState('')
   const [userNfts, setUserNfts] = useState<NFT[]>([])
@@ -31,6 +33,11 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
   const [userTokenBalance, setUserTokenBalance] = useState<number>(0)
   const [loadingBalance, setLoadingBalance] = useState(false)
   const [poolVaultState, setPoolVaultState] = useState<any>(null)
+  
+  // Redemption state
+  const [selectedVaultNFTs, setSelectedVaultNFTs] = useState<string[]>([])
+  const [redeemType, setRedeemType] = useState<'random' | 'specific'>('random')
+  const [redeeming, setRedeeming] = useState(false)
 
   // Fetch vault state for this specific pool
   const fetchPoolVaultState = async () => {
@@ -201,8 +208,101 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
   }
 
   const handleRedeem = async () => {
-    // TODO: Implement redemption logic
-    alert('Redemption feature coming soon!')
+    if (!client || !publicKey || !poolVaultState) {
+      alert('Please ensure your wallet is connected')
+      return
+    }
+
+    // Check if vault has NFTs
+    if (poolVaultState.totalDeposits === 0) {
+      alert('No NFTs available in the vault for redemption')
+      return
+    }
+
+    // Check user balance
+    const requiredTokens = redeemType === 'random' ? 1025000 : 1075000 // Including fees
+    if (userTokenBalance < requiredTokens) {
+      alert(`Insufficient token balance. You need ${requiredTokens.toLocaleString()} tokens but only have ${userTokenBalance.toLocaleString()}`)
+      return
+    }
+
+    // For specific redemption, check if NFT is selected
+    if (redeemType === 'specific' && selectedVaultNFTs.length === 0) {
+      alert('Please select an NFT for specific redemption')
+      return
+    }
+
+    // Temporary: Block random redemption as it's not implemented in the smart contract
+    if (redeemType === 'random') {
+      alert('⚠️ Random redemption is not yet implemented in the smart contract.\n\nThe contract currently only burns tokens without transferring an NFT.\n\nPlease use specific redemption instead.')
+      return
+    }
+
+    setRedeeming(true)
+    try {
+      const collectionMint = new PublicKey(poolId)
+      let txSignature: string
+      
+      if (redeemType === 'random') {
+        // This code path won't execute due to the check above
+        console.log('Performing random redemption...')
+        const nftMint = selectedVaultNFTs[0] || poolId
+        txSignature = await redeemRandomNFT(collectionMint, nftMint)
+        
+        alert(`✅ Random NFT redeemed successfully!\n\nTransaction: ${txSignature}\n\nYou burned 1,025,000 tokens (1,000,000 + 2.5% fee) and received a random NFT.\n\nView on explorer: https://explorer.solana.com/tx/${txSignature}?cluster=devnet`)
+      } else {
+        console.log('Performing specific redemption for NFT:', selectedVaultNFTs[0])
+        const nftMint = selectedVaultNFTs[0]
+        txSignature = await redeemSpecificNFT(collectionMint, nftMint)
+        
+        alert(`✅ Specific NFT redeemed successfully!\n\nTransaction: ${txSignature}\n\nYou burned 1,075,000 tokens (1,000,000 + 7.5% fee) and received your selected NFT.\n\nView on explorer: https://explorer.solana.com/tx/${txSignature}?cluster=devnet`)
+      }
+      
+      // Refresh data
+      setSelectedVaultNFTs([])
+      await fetchPoolVaultState()
+      await fetchUserTokenBalance()
+      await fetchUserNfts()
+      
+    } catch (error) {
+      console.error('Error redeeming NFT:', error)
+      let errorMessage = 'Unknown error'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // Log the full error details
+        console.error('Full error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          error: error
+        })
+        
+        // Check for specific error types
+        if (errorMessage.includes('insufficient funds')) {
+          errorMessage = 'Insufficient SOL for transaction fees.'
+        } else if (errorMessage.includes('InsufficientTokens')) {
+          errorMessage = 'Insufficient fractional tokens for redemption.'
+        } else if (errorMessage.includes('NoNftsAvailable')) {
+          errorMessage = 'No NFTs available in the vault.'
+        } else if (errorMessage.includes('User rejected')) {
+          errorMessage = 'Transaction cancelled by user.'
+        } else if (errorMessage.includes('Simulation failed')) {
+          // Extract more specific error from simulation
+          const match = errorMessage.match(/Error processing Instruction \d+: (.+?)(?:\.|$)/)
+          if (match && match[1]) {
+            errorMessage = `Transaction simulation failed: ${match[1]}`
+          } else {
+            errorMessage = 'Transaction simulation failed. Check console for details.'
+          }
+        }
+      }
+      
+      alert(`❌ Redemption failed: ${errorMessage}`)
+    } finally {
+      setRedeeming(false)
+    }
   }
 
   const handleTrade = () => {
@@ -229,33 +329,33 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
       )}
       
       {/* Tabs */}
-      <div className="flex space-x-1 mb-6 bg-white/10 rounded-lg p-1">
+      <div className="flex space-x-1 mb-6">
         <button
           onClick={() => setActiveTab('deposit')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
             activeTab === 'deposit'
-              ? 'bg-white text-gray-900'
-              : 'text-white/70 hover:text-white'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white/10 text-white/60 hover:text-white'
           }`}
         >
           Deposit
         </button>
         <button
           onClick={() => setActiveTab('redeem')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
             activeTab === 'redeem'
-              ? 'bg-white text-gray-900'
-              : 'text-white/70 hover:text-white'
+              ? 'bg-purple-600 text-white'
+              : 'bg-white/10 text-white/60 hover:text-white'
           }`}
         >
           Redeem
         </button>
         <button
           onClick={() => setActiveTab('trade')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
             activeTab === 'trade'
-              ? 'bg-white text-gray-900'
-              : 'text-white/70 hover:text-white'
+              ? 'bg-green-600 text-white'
+              : 'bg-white/10 text-white/60 hover:text-white'
           }`}
         >
           Trade
@@ -367,25 +467,110 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
             </p>
           </div>
           
+          {/* Redemption Type Selection */}
           <div className="space-y-3">
-            <div className="bg-white/10 rounded-lg p-4">
-              <p className="text-white/60 text-sm mb-1">Random NFT Redemption</p>
-              <p className="text-white font-semibold">1,025,000 tokens</p>
-              <p className="text-white/40 text-xs">1,000,000 + 2.5% fee</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  setRedeemType('random')
+                  setSelectedVaultNFTs([])
+                }}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  redeemType === 'random'
+                    ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                }`}
+              >
+                <Shuffle className="w-6 h-6 mx-auto mb-2" />
+                <div className="font-semibold">Random NFT</div>
+                <div className="text-xs mt-1">1,025,000 tokens</div>
+                <div className="text-xs text-white/40">2.5% fee</div>
+              </button>
+              
+              <button
+                onClick={() => setRedeemType('specific')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  redeemType === 'specific'
+                    ? 'bg-purple-500/20 border-purple-500 text-purple-400'
+                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                }`}
+              >
+                <Target className="w-6 h-6 mx-auto mb-2" />
+                <div className="font-semibold">Specific NFT</div>
+                <div className="text-xs mt-1">1,075,000 tokens</div>
+                <div className="text-xs text-white/40">7.5% fee</div>
+              </button>
             </div>
             
-            <div className="bg-white/10 rounded-lg p-4">
-              <p className="text-white/60 text-sm mb-1">Specific NFT Redemption</p>
-              <p className="text-white font-semibold">1,075,000 tokens</p>
-              <p className="text-white/40 text-xs">1,000,000 + 7.5% fee</p>
+            {/* Random redemption warning */}
+            {redeemType === 'random' && (
+              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 mt-4">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-orange-300">
+                    <p className="font-semibold mb-1">⚠️ Random Redemption Not Available</p>
+                    <p className="text-xs">The smart contract's random redemption is incomplete - it only burns tokens without transferring an NFT. Please use specific redemption instead.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Show vault NFTs for specific redemption */}
+            {redeemType === 'specific' && poolVaultState && (
+              <div className="mt-4">
+                <VaultNFTDisplay
+                  vaultState={poolVaultState}
+                  client={client}
+                  selectedNFTs={selectedVaultNFTs}
+                  onSelectNFTs={setSelectedVaultNFTs}
+                  maxSelection={1}
+                />
+              </div>
+            )}
+            
+            {/* Redemption Info */}
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mt-4">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-yellow-300">
+                  <p className="font-semibold mb-1">Redemption Info:</p>
+                  <ul className="space-y-1 text-xs">
+                    <li>• You will burn exactly 1,000,000 tokens + fee</li>
+                    <li>• <span className="line-through opacity-50">Random: Get any NFT from the vault (2.5% fee)</span> <span className="text-orange-400">Not implemented</span></li>
+                    <li>• Specific: Choose your NFT (7.5% fee)</li>
+                    <li>• Fees go to protocol treasury</li>
+                  </ul>
+                </div>
+              </div>
             </div>
             
             <button
               onClick={handleRedeem}
-              disabled={userTokenBalance < 1025000}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+              disabled={
+                redeeming || 
+                userTokenBalance < (redeemType === 'random' ? 1025000 : 1075000) ||
+                (redeemType === 'specific' && selectedVaultNFTs.length === 0) ||
+                !poolVaultState ||
+                poolVaultState.totalDeposits === 0
+              }
+              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
             >
-              {userTokenBalance < 1025000 ? 'Insufficient Balance' : 'Redeem Random NFT'}
+              {redeeming ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Redeeming...</span>
+                </>
+              ) : (
+                <>
+                  <Gift className="w-5 h-5" />
+                  <span>
+                    {userTokenBalance < (redeemType === 'random' ? 1025000 : 1075000) 
+                      ? 'Insufficient Balance' 
+                      : `Redeem ${redeemType === 'random' ? 'Random' : 'Specific'} NFT`
+                    }
+                  </span>
+                </>
+              )}
             </button>
           </div>
         </div>

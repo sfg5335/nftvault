@@ -121,6 +121,42 @@
       "args": []
     },
     {
+      "name": "mintFractionalExisting",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "fractionalMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "redeemNft",
       "accounts": [
         {

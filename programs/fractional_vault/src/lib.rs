@@ -228,7 +228,11 @@ pub struct RedeemNft<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"vault", vault_state.collection_mint.as_ref()],
+        bump
+    )]
     pub vault_state: Account<'info, VaultState>,
     
     #[account(
@@ -245,8 +249,11 @@ pub struct RedeemNft<'info> {
     )]
     pub vault_fractional_account: Account<'info, TokenAccount>,
     
-    /// CHECK: Fractional mint
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"fractional_mint", vault_state.key().as_ref()],
+        bump
+    )]
     pub fractional_mint: Account<'info, Mint>,
     
     pub token_program: Program<'info, Token>,
@@ -259,23 +266,49 @@ pub struct RedeemNft<'info> {
 pub struct RedeemSpecificNft<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    #[account(mut)]
+    
+    #[account(
+        mut,
+        seeds = [b"vault", vault_state.collection_mint.as_ref()],
+        bump
+    )]
     pub vault_state: Account<'info, VaultState>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub user_fractional_account: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub vault_fractional_account: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub vault_specific_nft_account: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub user_specific_nft_account: UncheckedAccount<'info>,
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub fractional_mint: UncheckedAccount<'info>,
+    
+    #[account(
+        mut,
+        associated_token::mint = vault_state.fractional_mint,
+        associated_token::authority = user
+    )]
+    pub user_fractional_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        mut,
+        associated_token::mint = vault_state.fractional_mint,
+        associated_token::authority = vault_state
+    )]
+    pub vault_fractional_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        mut,
+        constraint = vault_specific_nft_account.owner == vault_state.key() @ VaultError::WrongCollection,
+        constraint = vault_specific_nft_account.amount > 0 @ VaultError::NoNftsAvailable
+    )]
+    pub vault_specific_nft_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        mut,
+        constraint = user_specific_nft_account.owner == user.key() @ VaultError::WrongCollection,
+        constraint = user_specific_nft_account.mint == vault_specific_nft_account.mint @ VaultError::WrongCollection
+    )]
+    pub user_specific_nft_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        mut,
+        seeds = [b"fractional_mint", vault_state.key().as_ref()],
+        bump
+    )]
+    pub fractional_mint: Account<'info, Mint>,
+    
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -462,40 +495,25 @@ impl<'info> RedeemNft<'info> {
         );
         anchor_spl::token::burn(burn_ctx, total_tokens_required)?;
 
-        // Now mutably borrow vault_state for mutation
+        // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
         require!(vault_state.is_active, VaultError::VaultInactive);
         require!(vault_state.total_deposits > 0, VaultError::NoNftsAvailable);
         vault_state.total_deposits -= 1;
         vault_state.total_fractions_minted -= base_tokens_required;
         vault_state.total_fees_collected += fee_amount;
+        
+        // NOTE: This function is incomplete - it doesn't actually transfer any NFT
+        // The random selection and transfer logic needs to be implemented
+        
         Ok(())
     }
 }
 
 impl<'info> RedeemSpecificNft<'info> {
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
-        // Manual validation of all accounts
-        let user_fractional_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_fractional_account)?;
-        let vault_fractional_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_fractional_account)?;
-        let vault_specific_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_specific_nft_account)?;
-        let user_specific_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_specific_nft_account)?;
-        let fractional_mint = Account::<Mint>::try_from(&ctx.accounts.fractional_mint)?;
-        
-        // Validate token account owners
-        require!(user_fractional_account.owner == ctx.accounts.user.key(), VaultError::WrongCollection);
-        require!(vault_fractional_account.owner == ctx.accounts.vault_state.key(), VaultError::WrongCollection);
-        require!(vault_specific_nft_account.owner == ctx.accounts.vault_state.key(), VaultError::WrongCollection);
-        require!(user_specific_nft_account.owner == ctx.accounts.user.key(), VaultError::WrongCollection);
-        
-        // Validate mints
-        require!(user_fractional_account.mint == fractional_mint.key(), VaultError::WrongCollection);
-        require!(vault_fractional_account.mint == fractional_mint.key(), VaultError::WrongCollection);
-        require!(fractional_mint.key() == ctx.accounts.vault_state.fractional_mint, VaultError::WrongCollection);
-        require!(vault_specific_nft_account.mint == user_specific_nft_account.mint, VaultError::WrongCollection);
-        
         let collection_key = ctx.accounts.vault_state.collection_mint;
-        let bump = ctx.bumps["vault_state"];
+        let vault_bump = *ctx.bumps.get("vault_state").unwrap();
 
         // Calculate tokens required (1 NFT = 1,000,000 tokens + fee)
         let base_tokens_required = constants::TOKENS_PER_NFT;
@@ -504,13 +522,8 @@ impl<'info> RedeemSpecificNft<'info> {
 
         // Check user has enough tokens
         require!(
-            user_fractional_account.amount >= total_tokens_required,
+            ctx.accounts.user_fractional_account.amount >= total_tokens_required,
             VaultError::InsufficientTokens
-        );
-        // Check vault has the specific NFT
-        require!(
-            vault_specific_nft_account.amount > 0,
-            VaultError::NoNftsAvailable
         );
 
         // Burn tokens from user
@@ -528,7 +541,7 @@ impl<'info> RedeemSpecificNft<'info> {
         let seeds = &[
             b"vault",
             collection_key.as_ref(),
-            &[bump],
+            &[vault_bump],
         ];
         let signer = &[&seeds[..]];
         let transfer_ctx = CpiContext::new_with_signer(
@@ -542,13 +555,13 @@ impl<'info> RedeemSpecificNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
 
-        // Now mutably borrow vault_state for mutation
+        // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
         require!(vault_state.is_active, VaultError::VaultInactive);
-        require!(vault_state.total_deposits > 0, VaultError::NoNftsAvailable);
         vault_state.total_deposits -= 1;
         vault_state.total_fractions_minted -= base_tokens_required;
         vault_state.total_fees_collected += fee_amount;
+        
         Ok(())
     }
 }

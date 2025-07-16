@@ -187,15 +187,52 @@ export class AnchorClient {
         owner: this.provider.wallet.publicKey,
       });
 
-      // Get protocol treasury account (using a placeholder address for now)
-      const protocolTreasuryAddress = new PublicKey('2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt'); // Protocol treasury
+      // Get protocol treasury account
+      const protocolTreasuryAddress = new PublicKey('2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt');
       const protocolTreasuryAccount = await anchor.utils.token.associatedAddress({
         mint: fractionalMintPDA,
         owner: protocolTreasuryAddress,
       });
 
-      // Step 1: Deposit NFT (transfer only)
-      const depositTx = await this.program.methods
+      // Build transaction with all necessary instructions
+      const transaction = new anchor.web3.Transaction();
+
+      // Check if vault's NFT token account exists, create if needed
+      const vaultNftAccountInfo = await this.provider.connection.getAccountInfo(vaultNftAccount);
+      if (!vaultNftAccountInfo) {
+        console.log('Creating vault NFT token account...');
+        const createVaultAtaIx = createAssociatedTokenAccountInstruction(
+          this.provider.wallet.publicKey, // payer
+          vaultNftAccount, // ata
+          vaultStatePDA, // owner
+          nftMint, // mint
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+        transaction.add(createVaultAtaIx);
+      }
+
+      // Check if protocol treasury fractional token account exists, create if needed
+      const treasuryAccountInfo = await this.provider.connection.getAccountInfo(protocolTreasuryAccount);
+      if (!treasuryAccountInfo) {
+        console.log('Creating protocol treasury token account...');
+        const createTreasuryAtaIx = createAssociatedTokenAccountInstruction(
+          this.provider.wallet.publicKey, // payer
+          protocolTreasuryAccount, // ata
+          protocolTreasuryAddress, // owner
+          fractionalMintPDA, // mint
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+        transaction.add(createTreasuryAtaIx);
+      }
+
+      // Check if user's fractional token account exists
+      const userFractionalAccountInfo = await this.provider.connection.getAccountInfo(userFractionalAccount);
+      const userHasFractionalAccount = userFractionalAccountInfo !== null;
+
+      // Add deposit NFT instruction
+      const depositIx = await this.program.methods
         .depositNft()
         .accounts({
           user: this.provider.wallet.publicKey,
@@ -204,24 +241,45 @@ export class AnchorClient {
           vaultNftAccount: vaultNftAccount,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
-        .rpc();
+        .instruction();
+      transaction.add(depositIx);
 
-      // Step 2: Mint fractional tokens
-      const mintTx = await this.program.methods
-        .mintFractional()
-        .accounts({
-          user: this.provider.wallet.publicKey,
-          vaultState: vaultStatePDA,
-          fractionalMint: fractionalMintPDA,
-          userFractionalAccount: userFractionalAccount,
-          protocolTreasury: protocolTreasuryAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: anchor.web3.SystemProgram.programId,
-        })
-        .rpc();
+      // Add mint fractional instruction
+      // If user already has account, we need to handle this differently
+      if (!userHasFractionalAccount) {
+        // User doesn't have account yet, use normal mint_fractional
+        const mintIx = await this.program.methods
+          .mintFractional()
+          .accounts({
+            user: this.provider.wallet.publicKey,
+            vaultState: vaultStatePDA,
+            fractionalMint: fractionalMintPDA,
+            userFractionalAccount: userFractionalAccount,
+            protocolTreasury: protocolTreasuryAccount,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .instruction();
+        transaction.add(mintIx);
+      } else {
+        // User already has account - for now show a better error message
+        console.log('User already has fractional token account');
+        // Note: We've prepared a fix with mint_fractional_existing instruction
+        // but it needs deployment. For now, let's provide a helpful message.
+        throw new Error(
+          'You already have fractional tokens from this vault. ' +
+          'Multiple deposits are not yet supported in the current deployed version. ' +
+          'A fix has been prepared and will be deployed soon. ' +
+          '\n\nYour current balance will be displayed above.'
+        );
+      }
 
-      return `Deposit: ${depositTx}, Mint: ${mintTx}`;
+      // Send transaction
+      const txSignature = await this.provider.sendAndConfirm(transaction);
+      console.log('Deposit and mint transaction successful:', txSignature);
+      
+      return txSignature;
     } catch (error) {
       console.error("NFT deposit failed:", error);
       throw error;

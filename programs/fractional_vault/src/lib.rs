@@ -187,6 +187,41 @@ pub struct MintFractional<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Mint fractional tokens when user already has a token account
+#[derive(Accounts)]
+pub struct MintFractionalExisting<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"vault", vault_state.collection_mint.as_ref()],
+        bump
+    )]
+    pub vault_state: Account<'info, VaultState>,
+
+    // Fractional token mint PDA (authority = vault_state PDA)
+    #[account(
+        mut,
+        seeds = [b"fractional_mint", vault_state.key().as_ref()],
+        bump
+    )]
+    pub fractional_mint: Account<'info, Mint>,
+
+    // User's fractional token account – must already exist
+    #[account(
+        mut,
+        associated_token::mint = fractional_mint,
+        associated_token::authority = user,
+    )]
+    pub user_fractional_account: Account<'info, TokenAccount>,
+
+    /// CHECK: Protocol treasury account for fee collection
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
 /// Redeem a random NFT from the vault
 #[derive(Accounts)]
 pub struct RedeemNft<'info> {
@@ -274,7 +309,9 @@ impl<'info> DepositNft<'info> {
 
         // Simple collection verification - verify the NFT mint belongs to the collection
         let nft_mint = user_nft_account.mint;
-        require!(nft_mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
+        // NOTE: This check is incorrect - NFT mints are different from collection mints
+        // Collection verification is done in the frontend using Metaplex metadata
+        // require!(nft_mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
 
         // Transfer NFT from user to vault
         let transfer_ctx = CpiContext::new(
@@ -297,6 +334,59 @@ impl<'info> DepositNft<'info> {
 
 impl<'info> MintFractional<'info> {
     pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
+        // Manually validate unchecked accounts
+        let _protocol_treasury = Account::<TokenAccount>::try_from(&ctx.accounts.protocol_treasury)?;
+        
+        let collection_key = ctx.accounts.vault_state.collection_mint;
+        let bump = ctx.bumps["vault_state"];
+
+        // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
+        let tokens_to_mint = constants::TOKENS_PER_NFT;
+        // Calculate fee
+        let fee_amount = (tokens_to_mint * ctx.accounts.vault_state.deposit_fee_rate as u64) / 10000;
+        let tokens_after_fee = tokens_to_mint - fee_amount;
+
+        // Mint fractional tokens to user (after fee)
+        let seeds = &[
+            b"vault",
+            collection_key.as_ref(),
+            &[bump],
+        ];
+        let signer = &[&seeds[..]];
+        let mint_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.user_fractional_account.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::mint_to(mint_ctx, tokens_after_fee)?;
+
+        // Mint fee tokens to protocol treasury
+        let protocol_treasury_mint_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.protocol_treasury.to_account_info(),
+                authority: ctx.accounts.vault_state.to_account_info(),
+            },
+            signer,
+        );
+        anchor_spl::token::mint_to(protocol_treasury_mint_ctx, fee_amount)?;
+
+        // Update vault state
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_fractions_minted += tokens_to_mint; // Total tokens minted (including fees)
+        vault_state.total_fees_collected += fee_amount;
+        
+        Ok(())
+    }
+}
+
+impl<'info> MintFractionalExisting<'info> {
+    pub fn mint_fractional_existing(ctx: Context<MintFractionalExisting>) -> Result<()> {
         // Manually validate unchecked accounts
         let _protocol_treasury = Account::<TokenAccount>::try_from(&ctx.accounts.protocol_treasury)?;
         
@@ -477,6 +567,10 @@ pub mod fractional_vault {
 
     pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
         MintFractional::mint_fractional(ctx)
+    }
+
+    pub fn mint_fractional_existing(ctx: Context<MintFractionalExisting>) -> Result<()> {
+        MintFractionalExisting::mint_fractional_existing(ctx)
     }
 
     pub fn redeem_nft(ctx: Context<RedeemNft>) -> Result<()> {

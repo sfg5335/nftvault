@@ -30,7 +30,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("9MxmxCHSJ9jp6moeMUMXN9sfJhB9hgP8SYT8vhCs78MF");
+declare_id!("8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5");
 
 /// Constants for the fractional vault program
 pub mod constants {

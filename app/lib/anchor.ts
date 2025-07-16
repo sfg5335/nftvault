@@ -4,7 +4,7 @@ import { createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import { Metaplex } from '@metaplex-foundation/js';
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("9MxmxCHSJ9jp6moeMUMXN9sfJhB9hgP8SYT8vhCs78MF");
+const PROGRAM_ID = new PublicKey("8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -333,6 +333,32 @@ export class AnchorClient {
     } catch (error) {
       console.error("Redeem failed:", error);
       throw error;
+    }
+  }
+
+  // Get all vaults from the blockchain
+  async getAllVaults(): Promise<Array<{address: PublicKey, data: VaultState}>> {
+    try {
+      const vaults = await this.program.account.vaultState.all();
+      
+      return vaults.map(vault => ({
+        address: vault.publicKey,
+        data: {
+          collectionMint: vault.account.collectionMint,
+          creator: vault.account.creator,
+          fractionalMint: vault.account.fractionalMint,
+          totalDeposits: vault.account.totalDeposits.toNumber(),
+          totalFractionsMinted: vault.account.totalFractionsMinted.toNumber(),
+          depositFeeRate: vault.account.depositFeeRate,
+          randomRedeemFeeRate: vault.account.randomRedeemFeeRate,
+          specificRedeemFeeRate: vault.account.specificRedeemFeeRate,
+          totalFeesCollected: vault.account.totalFeesCollected.toNumber(),
+          isActive: vault.account.isActive,
+        }
+      }));
+    } catch (error) {
+      console.error("Error fetching all vaults:", error);
+      return [];
     }
   }
 

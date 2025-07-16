@@ -137,68 +137,65 @@ function PoolGrid() {
     try {
       const fetchedPools: Pool[] = []
 
-      // Add hard-coded AI collection pool
-      const hardcodedPool: Pool = {
-        id: "GTh4VxUx6PsWvMR4wF4hdsPiSjAhFUMZpWf3H5dHhd3W",
-        name: "Test Vault Collection",
-        symbol: "TVC",
-        image: "",
-        floorPrice: 0.5,
-        totalValue: 1250000, // $1.25M total value
-        nftCount: 10,
-        tokenPrice: 0.001,
-        volume24h: 25000,
-        change24h: 12.5,
-        isTrending: true,
-        collectionMint: "GTh4VxUx6PsWvMR4wF4hdsPiSjAhFUMZpWf3H5dHhd3W",
-        creator: "Test Collection Creator",
-        fractionalMint: "FractionalMintAddress123",
-        totalFractionsMinted: 10000000, // 10 NFTs * 1M tokens each
-        totalFeesCollected: 12500,
-        isActive: true
-      }
-      fetchedPools.push(hardcodedPool)
+      // Remove hardcoded pool - only show real created pools
+      // const hardcodedPool: Pool = {
+      //   id: "GTh4VxUx6PsWvMR4wF4hdsPiSjAhFUMZpWf3H5dHhd3W",
+      //   name: "Test Vault Collection",
+      //   symbol: "TVC",
+      //   image: "",
+      //   floorPrice: 0.5,
+      //   totalValue: 1250000, // $1.25M total value
+      //   nftCount: 10,
+      //   tokenPrice: 0.001,
+      //   volume24h: 25000,
+      //   change24h: 12.5,
+      //   isTrending: true,
+      //   collectionMint: "GTh4VxUx6PsWvMR4wF4hdsPiSjAhFUMZpWf3H5dHhd3W",
+      //   creator: "Test Collection Creator",
+      //   fractionalMint: "FractionalMintAddress123",
+      //   totalFractionsMinted: 10000000, // 10 NFTs * 1M tokens each
+      //   totalFeesCollected: 12500,
+      //   isActive: true
+      // }
+      // fetchedPools.push(hardcodedPool)
 
-      // Get created pools from localStorage
+      // Get created pools from localStorage for metadata (names, symbols, etc)
       const createdPools = PoolStorage.getCreatedPools()
+      const poolMetadata = new Map(
+        createdPools.map(pool => [pool.collectionMint, pool])
+      )
       
-      // Fetch vault data for each created pool
-      for (const createdPool of createdPools) {
-        try {
-          const collectionMint = new PublicKey(createdPool.collectionMint)
-          const vaultExists = await client.vaultExists(collectionMint)
-          
-          if (vaultExists) {
-            const vaultState = await client.getVaultState(collectionMint)
-            if (vaultState) {
-              // Convert vault state to pool format
-              const pool: Pool = {
-                id: createdPool.collectionMint,
-                name: createdPool.name,
-                symbol: createdPool.symbol,
-                image: createdPool.imageUrl || '',
-                floorPrice: 0,
-                totalValue: vaultState.totalFractionsMinted / 1000000,
-                nftCount: vaultState.totalDeposits,
-                tokenPrice: 0.001,
-                volume24h: 0,
-                change24h: 0,
-                isTrending: false,
-                collectionMint: vaultState.collectionMint.toString(),
-                creator: vaultState.creator.toString(),
-                fractionalMint: vaultState.fractionalMint.toString(),
-                totalFractionsMinted: vaultState.totalFractionsMinted,
-                totalFeesCollected: vaultState.totalFeesCollected,
-                isActive: vaultState.isActive
-              }
-              fetchedPools.push(pool)
-            }
-          } else {
-            console.warn(`Vault not found for collection ${createdPool.collectionMint}`)
-          }
-        } catch (err) {
-          console.error(`Error fetching vault for collection ${createdPool.collectionMint}:`, err)
+      // Fetch all vaults from blockchain
+      console.log('Fetching all vaults from blockchain...')
+      const allVaults = await client.getAllVaults()
+      console.log(`Found ${allVaults.length} vaults on blockchain`)
+      
+      // Convert blockchain vaults to pool format
+      for (const vault of allVaults) {
+        const collectionMintStr = vault.data.collectionMint.toString()
+        const metadata = poolMetadata.get(collectionMintStr)
+        
+        const pool: Pool = {
+          id: collectionMintStr,
+          name: metadata?.name || `Collection ${collectionMintStr.slice(0, 8)}...`,
+          symbol: metadata?.symbol || 'COLL',
+          image: metadata?.imageUrl || '',
+          floorPrice: 0,
+          totalValue: vault.data.totalFractionsMinted / 1000000, // Convert to tokens
+          nftCount: vault.data.totalDeposits,
+          tokenPrice: 0.001,
+          volume24h: 0,
+          change24h: 0,
+          isTrending: false,
+          collectionMint: collectionMintStr,
+          creator: vault.data.creator.toString(),
+          fractionalMint: vault.data.fractionalMint.toString(),
+          totalFractionsMinted: vault.data.totalFractionsMinted,
+          totalFeesCollected: vault.data.totalFeesCollected,
+          isActive: vault.data.isActive
         }
+        
+        fetchedPools.push(pool)
       }
 
       setPools(fetchedPools)
@@ -258,72 +255,6 @@ function PoolGrid() {
             >
               Create Your First Pool
             </a>
-            <button 
-              onClick={() => {
-                const collectionMint = "Aiikm9UC3GshTZNpNM3GAtZMh6udTCFM9ipNWRL6Go3u";
-                const existingPools = JSON.parse(localStorage.getItem('createdPools') || '[]');
-                const poolExists = existingPools.some((p: any) => p.collectionMint === collectionMint);
-                
-                if (!poolExists) {
-                  const newPool = {
-                    collectionMint: collectionMint,
-                    name: "AI Collection",
-                    symbol: "AIC",
-                    description: "AI-generated NFT collection",
-                    imageUrl: "",
-                    createdAt: new Date().toISOString(),
-                    txSignature: "existing_vault"
-                  };
-                  
-                  existingPools.push(newPool);
-                  localStorage.setItem('createdPools', JSON.stringify(existingPools));
-                  alert("Existing vault added! Refreshing page...");
-                  window.location.reload();
-                } else {
-                  alert("Vault already exists in tracking system");
-                }
-              }}
-              className="block w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 border border-white/20"
-            >
-              Add Existing AI Collection Vault
-            </button>
-            <button 
-              onClick={async () => {
-                if (!client) {
-                  alert("Wallet not connected");
-                  return;
-                }
-                
-                console.log("Checking for existing vaults on-chain...");
-                
-                // Test with some known collection mints
-                const testCollections = [
-                  "11111111111111111111111111111111",
-                  "So11111111111111111111111111111111111111112",
-                  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
-                ];
-                
-                for (const collectionMintStr of testCollections) {
-                  try {
-                    const collectionMint = new PublicKey(collectionMintStr);
-                    const vaultExists = await client.vaultExists(collectionMint);
-                    console.log(`Collection ${collectionMintStr}: Vault exists = ${vaultExists}`);
-                    
-                    if (vaultExists) {
-                      const vaultState = await client.getVaultState(collectionMint);
-                      console.log(`Vault state for ${collectionMintStr}:`, vaultState);
-                    }
-                  } catch (err) {
-                    console.log(`Error checking ${collectionMintStr}:`, err);
-                  }
-                }
-                
-                alert("Check browser console for vault discovery results");
-              }}
-              className="block w-full bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 font-semibold py-3 px-6 rounded-lg transition-all duration-200 border border-yellow-600/30"
-            >
-              Debug: Check for Existing Vaults
-            </button>
           </div>
         </div>
       </div>

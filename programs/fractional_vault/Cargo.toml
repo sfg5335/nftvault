@@ -10,5 +10,5 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 anchor-lang = "0.26.0"
 anchor-spl = "0.26.0"
-spl-token = "3.4.0"
-spl-associated-token-account = "1.1.0"
+spl-token = "3.5.0"
+spl-associated-token-account = "1.1.3"

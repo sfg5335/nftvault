@@ -245,7 +245,7 @@ export class AnchorClient {
       transaction.add(depositIx);
 
       // Add mint fractional instruction
-      // If user already has account, we need to handle this differently
+      // If user already has account, we can't use the normal mint_fractional
       if (!userHasFractionalAccount) {
         // User doesn't have account yet, use normal mint_fractional
         const mintIx = await this.program.methods
@@ -270,8 +270,8 @@ export class AnchorClient {
         throw new Error(
           'You already have fractional tokens from this vault. ' +
           'Multiple deposits are not yet supported in the current deployed version. ' +
-          'A fix has been prepared and will be deployed soon. ' +
-          '\n\nYour current balance will be displayed above.'
+          'A fix has been prepared and will be deployed when we have enough SOL. ' +
+          '\n\nYour current balance is displayed above.'
         );
       }
 

@@ -5,9 +5,10 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { getAccount } from '@solana/spl-token'
 import { useAnchor } from '../hooks/useAnchor'
-import { fetchNFTMetadata } from '../lib/nftMetadata'
+import { metadataCache } from '../lib/metadataCache'
 import { VaultNFTDisplay } from './VaultNFTDisplay'
-import { Shuffle, Target, Gift, AlertCircle } from 'lucide-react'
+import { NFTImage, ImageSkeleton } from './OptimizedImage'
+import { Shuffle, Target, Gift, AlertCircle, Loader2 } from 'lucide-react'
 
 interface PoolTradingProps {
   poolId: string
@@ -54,7 +55,7 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
     }
   }
 
-  // Fetch user's NFTs from this collection
+  // Fetch user's NFTs from this collection with optimized metadata loading
   const fetchUserNfts = async () => {
     if (!publicKey || !client) return
 
@@ -73,35 +74,45 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
         return amount.uiAmount === 1 && amount.decimals === 0
       })
 
+      console.log(`Found ${nftAccounts.length} NFT accounts in user wallet`)
+
+      if (nftAccounts.length === 0) {
+        setUserNfts([])
+        return
+      }
+
+      // Extract mint addresses
+      const mintAddresses = nftAccounts.map(account => 
+        account.account.data.parsed.info.mint
+      )
+
+      // Use batch metadata fetching for better performance
+      const metadataMap = await metadataCache.getMultipleMetadata(
+        mintAddresses, 
+        connection
+      )
+
       const collectionNfts: NFT[] = []
       
-      for (const account of nftAccounts) {
-        const mint = new PublicKey(account.account.data.parsed.info.mint)
-        
-        try {
-          // Fetch NFT metadata
-          const metadata = await fetchNFTMetadata(mint, connection)
+      for (const [mintAddress, metadata] of metadataMap) {
+        if (metadata) {
+          // Check if this NFT belongs to the current collection
+          const nftCollectionKey = metadata.collection?.key?.toString()
           
-          if (metadata) {
-            // Check if this NFT belongs to the current collection
-            const nftCollectionKey = metadata.collection?.key?.toString()
-            
-            // For NFTs without collection metadata, check if the mint itself is the collection
-            if (nftCollectionKey === poolId || mint.toString() === poolId) {
-              collectionNfts.push({
-                mint: mint.toString(),
-                name: metadata.name || `NFT ${mint.toString().slice(0, 8)}...`,
-                image: metadata.image || '',
-                symbol: metadata.symbol || 'NFT',
-                metadata
-              })
-            }
+          // For NFTs without collection metadata, check if the mint itself is the collection
+          if (nftCollectionKey === poolId || mintAddress === poolId) {
+            collectionNfts.push({
+              mint: mintAddress,
+              name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
+              image: metadata.image || '',
+              symbol: metadata.symbol || 'NFT',
+              metadata
+            })
           }
-        } catch (err) {
-          console.error(`Error fetching metadata for ${mint.toString()}:`, err)
         }
       }
 
+      console.log(`Found ${collectionNfts.length} NFTs from collection ${poolId}`)
       setUserNfts(collectionNfts)
     } catch (error) {
       console.error('Error fetching user NFTs:', error)
@@ -373,9 +384,19 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
           </div>
           
           {loadingNfts ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <span className="text-white/70 ml-3">Loading your NFTs...</span>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center py-8">
+                <div className="flex flex-col items-center space-y-3">
+                  <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+                  <span className="text-white/70 font-medium">Loading your NFTs...</span>
+                </div>
+              </div>
+              {/* Show skeleton grid while loading */}
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <ImageSkeleton key={i} className="w-full h-24" aspectRatio="auto" />
+                ))}
+              </div>
             </div>
           ) : userNfts.length > 0 ? (
             <div className="space-y-4">
@@ -384,28 +405,19 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
                   <div
                     key={nft.mint}
                     onClick={() => setSelectedNft(nft.mint)}
-                    className={`relative cursor-pointer rounded-lg border-2 transition-all duration-200 ${
+                    className={`relative cursor-pointer rounded-lg border-2 transition-all duration-200 hover:scale-105 ${
                       selectedNft === nft.mint
-                        ? 'border-blue-500 bg-blue-500/10'
+                        ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20'
                         : 'border-white/20 bg-white/5 hover:border-white/40'
                     }`}
                   >
-                    <div className="w-full h-24 flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800 rounded-t-lg">
-                      {nft.image ? (
-                        <img 
-                          src={nft.image} 
-                          alt={nft.name}
-                          className="w-full h-full object-cover rounded-t-lg"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                            e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                          }}
-                        />
-                      ) : null}
-                      <span className={`text-white/40 text-xs ${nft.image ? 'hidden' : ''}`}>
-                        {nft.symbol}
-                      </span>
-                    </div>
+                    <NFTImage
+                      nft={nft}
+                      className="w-full h-24"
+                      aspectRatio="auto"
+                      lazy={true}
+                      fallbackText={nft.symbol}
+                    />
                     <div className="p-2">
                       <p className="text-white text-xs font-medium truncate">{nft.name}</p>
                       <p className="text-white/40 text-xs font-mono">
@@ -413,7 +425,7 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
                       </p>
                     </div>
                     {selectedNft === nft.mint && (
-                      <div className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                      <div className="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
                         <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
@@ -426,15 +438,18 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
               <button
                 onClick={handleDeposit}
                 disabled={!selectedNft || depositing}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 hover:shadow-lg hover:shadow-blue-500/25"
               >
                 {depositing ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Depositing...</span>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Depositing NFT...</span>
                   </>
                 ) : (
-                  <span>{selectedNft ? 'Deposit Selected NFT' : 'Select an NFT to Deposit'}</span>
+                  <>
+                    <Gift className="w-4 h-4" />
+                    <span>{selectedNft ? 'Deposit Selected NFT' : 'Select an NFT to Deposit'}</span>
+                  </>
                 )}
               </button>
             </div>
@@ -553,12 +568,14 @@ export function PoolTrading({ poolId }: PoolTradingProps) {
                 !poolVaultState ||
                 poolVaultState.totalDeposits === 0
               }
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 hover:shadow-lg hover:shadow-purple-500/25"
             >
               {redeeming ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Redeeming...</span>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>
+                    {redeemType === 'random' ? 'Redeeming Random NFT...' : 'Redeeming Specific NFT...'}
+                  </span>
                 </>
               ) : (
                 <>

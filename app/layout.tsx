@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import '@solana/wallet-adapter-react-ui/styles.css'
 import { WalletProvider } from './components/WalletProvider'
+import { CacheMonitorToggle } from './components/CacheMonitor'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning={true}>
         <WalletProvider>
           {children}
+          <CacheMonitorToggle />
         </WalletProvider>
       </body>
     </html>

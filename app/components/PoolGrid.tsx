@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useAnchor } from '../hooks/useAnchor'
 import { PoolStorage } from '../lib/poolStorage'
 import Link from 'next/link'
+import { PublicKey } from '@solana/web3.js'
+import { fetchNFTMetadata } from '../lib/nftMetadata'
 
 interface Pool {
   id: string
@@ -44,35 +46,41 @@ function PoolCard({ pool }: { pool: Pool }) {
   }
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(word => word[0]).join('').toUpperCase()
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2)
   }
+
+  const isGenericName = pool.name.startsWith('Collection ') && pool.name.includes('...')
 
   return (
     <Link href={`/pool/${pool.id}`} className="block">
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-all duration-200 hover:border-white/20 group cursor-pointer">
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <span className="text-white font-bold text-lg">
-                {getInitials(pool.name)}
-              </span>
+          <div className="flex items-center space-x-3 flex-1">
+            <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+              {pool.image ? (
+                <img src={pool.image} alt={pool.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white font-bold text-lg">
+                  {getInitials(pool.name)}
+                </span>
+              )}
             </div>
-            <div>
-              <h3 className="font-semibold text-white group-hover:text-blue-400 transition-colors">
+            <div className="flex-1 min-w-0">
+              <h3 className={`font-semibold text-white group-hover:text-blue-400 transition-colors ${isGenericName ? 'text-sm' : ''}`}>
                 {pool.name}
               </h3>
               <p className="text-white/60 text-sm">{pool.symbol}</p>
               {pool.collectionMint && (
-                <p className="text-white/40 text-xs font-mono">
-                  {pool.collectionMint.slice(0, 8)}...{pool.collectionMint.slice(-8)}
+                <p className="text-white/40 text-xs font-mono mt-1 truncate" title={pool.collectionMint}>
+                  {pool.collectionMint}
                 </p>
               )}
             </div>
           </div>
-          <div className="flex flex-col items-end space-y-1">
+          <div className="flex flex-col items-end space-y-1 ml-2">
             {pool.isActive !== undefined && (
-              <span className={`px-2 py-1 rounded-full text-xs ${
+              <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${
                 pool.isActive 
                   ? 'bg-green-500/20 text-green-400' 
                   : 'bg-red-500/20 text-red-400'
@@ -150,13 +158,41 @@ function PoolGrid() {
         // Convert blockchain vaults to pool format
         for (const vault of allVaults) {
           const collectionMintStr = vault.data.collectionMint.toString()
-          const metadata = poolMetadata.get(collectionMintStr)
+          let metadata = poolMetadata.get(collectionMintStr)
           
           console.log(`Processing vault ${collectionMintStr}:`, {
             hasMetadata: !!metadata,
             totalDeposits: vault.data.totalDeposits,
             isActive: vault.data.isActive
           })
+          
+          // If no metadata in localStorage, try to fetch from blockchain
+          if (!metadata) {
+            try {
+              console.log(`Fetching metadata for collection ${collectionMintStr} from blockchain...`)
+              const connection = client.getConnection()
+              const collectionMetadata = await fetchNFTMetadata(collectionMintStr, connection)
+              
+              if (collectionMetadata) {
+                // Create metadata from blockchain data
+                metadata = {
+                  collectionMint: collectionMintStr,
+                  name: collectionMetadata.name || `Collection ${collectionMintStr.slice(0, 8)}...`,
+                  symbol: collectionMetadata.symbol || 'COLL',
+                  imageUrl: collectionMetadata.image || '',
+                  description: '',
+                  createdAt: new Date().toISOString(),
+                  txSignature: 'fetched-from-blockchain'
+                }
+                
+                // Optionally save to localStorage for future use
+                PoolStorage.addCreatedPool(metadata)
+                console.log(`Fetched and saved metadata for ${collectionMintStr}:`, metadata)
+              }
+            } catch (err) {
+              console.error(`Error fetching metadata for ${collectionMintStr}:`, err)
+            }
+          }
           
           const pool: Pool = {
             id: collectionMintStr,
@@ -302,12 +338,25 @@ function PoolGrid() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Active Pools ({pools.length})</h2>
-        <button 
-          onClick={fetchPools}
-          className="text-blue-400 hover:text-blue-300 text-sm"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => {
+              if (confirm('This will clear cached pool metadata and refetch from blockchain. Continue?')) {
+                PoolStorage.clearAllPools()
+                fetchPools()
+              }
+            }}
+            className="text-red-400 hover:text-red-300 text-sm"
+          >
+            Clear Cache
+          </button>
+          <button 
+            onClick={fetchPools}
+            className="text-blue-400 hover:text-blue-300 text-sm"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

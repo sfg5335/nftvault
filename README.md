@@ -8,8 +8,8 @@ This project implements a fractional NFT marketplace system similar to NFTX, whe
 
 1. **Deposit NFTs**: Users deposit their NFTs into a collection-specific vault
 2. **Receive Fractional Tokens**: Get tokens representing fractional ownership (1,000,000 tokens per NFT)
-3. **Redeem NFTs**: Use tokens to redeem random or specific NFTs with different fee structures
-4. **Fee System**: Configurable deposit, random redeem, and specific redeem fees
+3. **Redeem NFTs**: Use tokens to redeem NFTs
+4. **Fee System**: Flat fee system
 
 ## 🏗️ Architecture
 
@@ -19,7 +19,7 @@ This project implements a fractional NFT marketplace system similar to NFTX, whe
 ### Key Features
 - **Collection-based Vaults**: Each vault is specific to an NFT collection
 - **Fractional Token Minting**: 1,000,000 tokens minted per NFT (with 6 decimals)
-- **Redemption**: Specific NFT redemption (2.5% fee)
+- **Redemption**: Specific NFT redemption 
 - **PDA-based Security**: Uses Program Derived Addresses for secure account management
 - **Metaplex Integration**: Verifies NFT collection membership using Metaplex metadata
 
@@ -67,22 +67,16 @@ wallet = "~/.config/solana/id.json"
 #### `initialize_collection_vault(collection_mint: Pubkey)`
 - Creates a new vault for a specific NFT collection
 - Initializes fractional token mint with 6 decimals
-- Sets default fee rates (2.5% deposit, 2.5% random redeem, 7.5% specific redeem)
+- Sets default fee rates 
 
 #### `deposit_nft()`
 - Transfers NFT from user to vault (verifies collection membership)
-- Mints 1,000,000 fractional tokens to user (minus 2.5% deposit fee)
+- Mints 1,000,000 fractional tokens to user 
 - Mints deposit fee tokens to protocol treasury
 
-#### `redeem_random_nft(amount: u64)`
-- Burns fractional tokens (1,000,000 tokens + 2.5% fee)
-- Transfers random NFT to user
-- Mints fee tokens to protocol treasury
-
 #### `redeem_specific_nft(amount: u64)`
-- Burns fractional tokens (1,000,000 tokens + 7.5% fee)
+- Burns fractional tokens (1,000,000 tokens)
 - Transfers specific NFT to user
-- Mints fee tokens to protocol treasury
 
 ### Account Structures
 
@@ -120,7 +114,6 @@ npm test -- tests/misc/basic.test.ts
 - ✅ Vault initialization
 - ✅ NFT deposits with collection verification
 - ✅ Fractional token minting
-- ✅ Random NFT redemption
 - ✅ Specific NFT redemption
 - ✅ Fee calculations
 - ✅ Error handling
@@ -159,14 +152,9 @@ npm run test-vault     # Test vault functionality
 - **Token Decimals**: 6 decimal places
 
 ### Fee Structure
-- **Deposit Fee**: 2.5% (250 basis points)
-- **Random Redeem Fee**: 2.5% (250 basis points)
-- **Specific Redeem Fee**: 7.5% (750 basis points)
+- **Deposit Fee**: 0.015 Sol
+- **Specific Redeem Fee**: 0.025 Sol
 
-### Fee Calculation
-```rust
-let fee = (amount * fee_rate) / 10000; // fee_rate in basis points
-```
 
 ## 🚨 Error Handling
 

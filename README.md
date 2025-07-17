@@ -19,7 +19,7 @@ This project implements a fractional NFT marketplace system similar to NFTX, whe
 ### Key Features
 - **Collection-based Vaults**: Each vault is specific to an NFT collection
 - **Fractional Token Minting**: 1,000,000 tokens minted per NFT (with 6 decimals)
-- **Dual Redemption**: Random NFT redemption (2.5% fee) and specific NFT redemption (7.5% fee)
+- **Redemption**: Specific NFT redemption (2.5% fee)
 - **PDA-based Security**: Uses Program Derived Addresses for secure account management
 - **Metaplex Integration**: Verifies NFT collection membership using Metaplex metadata
 

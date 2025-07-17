@@ -84,6 +84,19 @@ function CreatePoolPageContent() {
     )
   }
   
+  // Show loading state while wallet is connecting and anchor is initializing
+  if (loading || !client) {
+    return (
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h1 className="text-2xl font-bold text-white mb-2">Initializing...</h1>
+          <p className="text-white/60">Setting up blockchain connection</p>
+        </div>
+      </div>
+    )
+  }
+  
   const [currentStep, setCurrentStep] = useState(1)
   const [collections, setCollections] = useState<CollectionInfo[]>([])
   const [selectedCollection, setSelectedCollection] = useState<CollectionInfo | null>(null)
@@ -105,6 +118,9 @@ function CreatePoolPageContent() {
     setError(null)
 
     try {
+      // Add a small delay to ensure client is fully ready
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
       const connection = client.getConnection()
       
       // Get all NFTs owned by the user

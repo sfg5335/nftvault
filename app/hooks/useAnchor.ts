@@ -21,21 +21,26 @@ export function useAnchor() {
     console.log('useAnchor - Wallet state:', { connected, publicKey: publicKey?.toString(), wallet: !!wallet, connection: !!connection })
     
     if (connected && publicKey && connection && wallet) {
-      try {
-        const provider = new anchor.AnchorProvider(
-          connection,
-          wallet.adapter as any,
-          { commitment: 'confirmed' }
-        )
-        const anchorClient = new AnchorClient(provider)
-        console.log('useAnchor - Created AnchorClient')
-        setClient(anchorClient)
-        setLoading(false)
-      } catch (error) {
-        console.error('Error initializing Anchor client:', error)
-        setError('Failed to initialize wallet connection')
-        setLoading(false)
-      }
+      // Add a small delay to ensure wallet is fully ready
+      const timer = setTimeout(() => {
+        try {
+          const provider = new anchor.AnchorProvider(
+            connection,
+            wallet.adapter as any,
+            { commitment: 'confirmed' }
+          )
+          const anchorClient = new AnchorClient(provider)
+          console.log('useAnchor - Created AnchorClient')
+          setClient(anchorClient)
+          setLoading(false)
+        } catch (error) {
+          console.error('Error initializing Anchor client:', error)
+          setError('Failed to initialize wallet connection')
+          setLoading(false)
+        }
+      }, 500) // 500ms delay to ensure wallet is ready
+      
+      return () => clearTimeout(timer)
     } else {
       setClient(null)
       setVaultState(null)

@@ -1,4 +1,4 @@
-fractional_vault v0.1.0 (/Users/phillip/Desktop/nftvault/programs/fractional_vault)
+fractional_vault v0.1.0 (/Users/phillip/Desktop/smol-markets/programs/fractional_vault)
 ├── anchor-lang v0.25.0
 │   ├── anchor-attribute-access-control v0.25.0 (proc-macro)
 │   │   ├── anchor-syn v0.25.0

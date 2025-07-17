@@ -1,4 +1,4 @@
-# NFT Vault - Working Snapshot Summary
+# smol.markets - Working Snapshot Summary
 **Date**: July 16, 2025  
 **Version**: v1.0-working-redemption  
 **Commit**: Check `git log -1`
@@ -40,7 +40,7 @@
 
 ## 💾 Backup Information
 - **Git Tag**: `v1.0-working-redemption`
-- **Physical Backup**: `/root/nftvault-2-backup-20250716-025255-working-redemption.tar.gz`
+- **Physical Backup**: `/root/smol-markets-2-backup-20250716-025255-working-redemption.tar.gz`
 - **Backup Size**: 464MB (excludes node_modules, target, .next)
 
 ## 🚨 Known Limitations
@@ -59,8 +59,8 @@ git checkout v1.0-working-redemption
 ### From Backup:
 ```bash
 cd /root
-tar -xzf nftvault-2-backup-20250716-025255-working-redemption.tar.gz
-cd nftvault-2
+tar -xzf smol-markets-2-backup-20250716-025255-working-redemption.tar.gz
+cd smol-markets-2
 npm install
 anchor build
 ```

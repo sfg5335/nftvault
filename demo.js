@@ -2,7 +2,7 @@ const anchor = require("@project-serum/anchor");
 const { Connection, Keypair, PublicKey, SystemProgram } = require("@solana/web3.js");
 
 async function main() {
-  console.log("Fractional NFT Vault Demo - Anchor 0.26.0");
+  console.log("smol.markets Demo - Anchor 0.26.0");
   console.log("=========================================\n");
 
   // Connect to local validator
@@ -28,7 +28,7 @@ async function main() {
   console.log("\nKey Features:");
   console.log("- ✅ No Token 2022 dependencies");
   console.log("- ✅ No Metaplex dependencies");
-  console.log("- ✅ Clean fractional NFT vault implementation");
+  console.log("- ✅ Clean fractional NFT marketplace implementation");
   console.log("- ✅ Compatible version stack");
 }
 

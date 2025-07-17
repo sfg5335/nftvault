@@ -2,7 +2,7 @@ const anchor = require("@project-serum/anchor");
 const { Connection, Keypair, PublicKey, SystemProgram } = require("@solana/web3.js");
 
 async function main() {
-  console.log("Fractional NFT Vault - Devnet Deployment Test");
+  console.log("smol.markets - Devnet Deployment Test");
   console.log("===========================================\n");
 
   // Connect to devnet

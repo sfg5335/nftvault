@@ -25,7 +25,7 @@ function HomeContent() {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center">
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center max-w-md">
-          <h1 className="text-4xl font-bold text-white mb-4">NFT Collection Vault</h1>
+          <h1 className="text-4xl font-bold text-white mb-4">smol.markets</h1>
           <p className="text-white/80 mb-8 text-lg">
             Fractionalize your NFT collections into tradeable tokens
           </p>

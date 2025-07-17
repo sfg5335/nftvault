@@ -11,9 +11,9 @@ export function Header() {
           <div className="flex items-center space-x-4 sm:space-x-8">
             <Link href="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">NV</span>
+                <span className="text-white font-bold text-sm">SM</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white">NFT Vault</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">smol.markets</h1>
             </Link>
             
             <nav className="hidden md:flex items-center space-x-6">

@@ -11,7 +11,7 @@ export function VaultCard({ vaultState }: VaultCardProps) {
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-white">Collection Vault</h2>
+        <h2 className="text-xl font-semibold text-white">Collection Pool</h2>
         <div className="flex items-center space-x-2">
           <Users className="w-5 h-5 text-blue-400" />
           <span className="text-sm text-gray-300">Shared Pool</span>

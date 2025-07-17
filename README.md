@@ -1,10 +1,10 @@
-# NFT Fractionalization Vault
+# smol.markets - NFT Fractionalization Platform
 
 A Solana-based NFT fractionalization platform built with Anchor where users can deposit NFTs into a vault and receive fractional tokens representing ownership. Users can then redeem these tokens for random or specific NFTs with configurable fees.
 
 ## 🎯 Overview
 
-This project implements a fractional NFT vault system similar to NFTX, where:
+This project implements a fractional NFT marketplace system similar to NFTX, where:
 
 1. **Deposit NFTs**: Users deposit their NFTs into a collection-specific vault
 2. **Receive Fractional Tokens**: Get tokens representing fractional ownership (1,000,000 tokens per NFT)
@@ -36,7 +36,7 @@ This project implements a fractional NFT vault system similar to NFTX, where:
 1. **Clone and setup**:
 ```bash
 git clone <repository>
-cd nftvault
+cd smol-markets
 npm install
 ```
 
@@ -184,7 +184,7 @@ pub enum VaultError {
 ## 📁 Project Structure
 
 ```
-nftvault/
+smol-markets/
 ├── programs/
 │   └── fractional_vault/     # Main program
 │       ├── Cargo.toml

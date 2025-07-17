@@ -7,14 +7,14 @@ export function DemoInfoCard() {
     <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-lg rounded-xl p-6 border border-purple-500/20">
       <div className="flex items-center space-x-3 mb-4">
         <Sparkles className="w-6 h-6 text-purple-400" />
-        <h2 className="text-xl font-semibold text-white">Shared Collection Vault</h2>
+        <h2 className="text-xl font-semibold text-white">Shared Collection Pool</h2>
       </div>
 
       <div className="space-y-3 text-sm text-gray-300">
         <div className="flex items-start space-x-2">
           <Info className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
           <p>
-            This is a <span className="text-purple-400 font-semibold">shared collection vault</span> where anyone can deposit NFTs from the same collection and receive fractional tokens. All fees go to the protocol treasury.
+            This is a <span className="text-purple-400 font-semibold">shared collection pool</span> where anyone can deposit NFTs from the same collection and receive fractional tokens. All fees go to the protocol treasury.
           </p>
         </div>
         

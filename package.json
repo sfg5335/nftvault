@@ -1,7 +1,7 @@
 {
-  "name": "nftvault",
+  "name": "smol-markets",
   "version": "1.0.0",
-  "description": "A Solana fractional NFT vault program built with Anchor",
+  "description": "A Solana fractional NFT marketplace built with Anchor",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

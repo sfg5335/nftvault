@@ -25,7 +25,7 @@ interface NFT {
 
 export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: PoolTradingProps) {
   const { publicKey } = useWallet()
-  const { client, depositNFT, redeemRandomNFT, redeemSpecificNFT } = useAnchor()
+  const { client, depositNFT, redeemSpecificNFT } = useAnchor()
   const [activeTab, setActiveTab] = useState<'deposit' | 'redeem' | 'trade'>('deposit')
   const [amount, setAmount] = useState('')
   const [userNfts, setUserNfts] = useState<NFT[]>([])
@@ -38,7 +38,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
   const [depositProgress, setDepositProgress] = useState<{ current: number; total: number } | null>(null)
   
   // Redemption state
-  const [redeemType, setRedeemType] = useState<'random' | 'specific'>('random')
+  const [redeemType, setRedeemType] = useState<'specific'>('specific')
   const [redeeming, setRedeeming] = useState(false)
 
   // Fetch vault state for this specific pool
@@ -172,7 +172,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
 
   const handleDeposit = async () => {
     if (!selectedNfts.size || !client || !publicKey) {
-      alert('Please select at least one NFT to deposit and ensure your wallet is connected')
+      console.log('Cannot deposit: No NFTs selected or wallet not connected')
       return
     }
 
@@ -210,15 +210,13 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           
           if (error instanceof Error) {
             errorMessage = error.message
-            // Handle common Solana errors
-            if (errorMessage.includes('insufficient funds')) {
-              errorMessage = 'Insufficient SOL for transaction fees'
-            } else if (errorMessage.includes('Account does not exist')) {
-              errorMessage = 'NFT account not found'
-            } else if (errorMessage.includes('User rejected')) {
-              errorMessage = 'Transaction cancelled'
-            } else if (errorMessage.includes('WrongCollection')) {
-              errorMessage = 'Wrong collection'
+            
+            // Check if this is actually a success
+            if (errorMessage.includes('This transaction has already been processed') || 
+                errorMessage.includes('Transaction simulation failed: This transaction has already been processed')) {
+              console.log(`NFT ${nftMint} deposit succeeded despite error message`);
+              successfulDeposits.push(nftMint);
+              continue; // Skip to next NFT
             }
           }
           
@@ -226,25 +224,18 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         }
       }
       
-      // Show results
-      let message = ''
+      // Log results
       if (successfulDeposits.length > 0) {
-        const totalTokens = successfulDeposits.length * 975000
-        message += `✅ Successfully deposited ${successfulDeposits.length} NFT${successfulDeposits.length > 1 ? 's' : ''}!\n\n`
-        message += `You received ${totalTokens.toLocaleString()} tokens (after 2.5% fee).\n\n`
+        const totalTokens = successfulDeposits.length * 1000000
+        console.log(`Successfully deposited ${successfulDeposits.length} NFTs, received ${totalTokens.toLocaleString()} tokens`)
         if (txSignatures.length > 0) {
-          message += `View on explorer:\nhttps://explorer.solana.com/tx/${txSignatures[0]}?cluster=devnet`
+          console.log(`Transaction: https://explorer.solana.com/tx/${txSignatures[0]}?cluster=devnet`)
         }
       }
       
       if (failedDeposits.length > 0) {
-        message += `\n\n❌ Failed to deposit ${failedDeposits.length} NFT${failedDeposits.length > 1 ? 's' : ''}:\n`
-        failedDeposits.forEach(({ mint, error }) => {
-          message += `\n• ${mint.slice(0, 8)}...${mint.slice(-8)}: ${error}`
-        })
+        console.error(`Failed to deposit ${failedDeposits.length} NFTs:`, failedDeposits)
       }
-      
-      alert(message)
       
       // Refresh data
       setSelectedNfts(new Set())
@@ -254,13 +245,6 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       
     } catch (error) {
       console.error('Error depositing NFTs:', error)
-      let errorMessage = 'Unknown error'
-      
-      if (error instanceof Error) {
-        errorMessage = error.message
-      }
-      
-      alert(`❌ Deposit failed: ${errorMessage}`)
     } finally {
       setDepositing(false)
       setDepositProgress(null)
@@ -269,34 +253,30 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
 
   const handleRedeem = async () => {
     if (!client || !publicKey || !poolVaultState) {
-      alert('Please ensure your wallet is connected')
+      console.log('Cannot redeem: Wallet not connected or pool state not loaded')
       return
     }
 
     // Check if vault has NFTs
     if (poolVaultState.totalDeposits === 0) {
-      alert('No NFTs available in the vault for redemption')
+      console.log('No NFTs available in the vault for redemption')
       return
     }
 
     // Check user balance
-    const requiredTokens = redeemType === 'random' ? 1025000 : 1075000 // Including fees
+    const requiredTokens = 1000000 // 1 million tokens per NFT
     if (userTokenBalance < requiredTokens) {
-      alert(`Insufficient token balance. You need ${requiredTokens.toLocaleString()} tokens but only have ${userTokenBalance.toLocaleString()}`)
+      console.log(`Insufficient token balance. Need ${requiredTokens.toLocaleString()}, have ${userTokenBalance.toLocaleString()}`)
       return
     }
 
     // For specific redemption, check if NFT is selected
     if (redeemType === 'specific' && selectedVaultNFTs.length === 0) {
-      alert('Please select at least one NFT for specific redemption')
+      console.log('No NFTs selected for specific redemption')
       return
     }
 
-    // Temporary: Block random redemption as it's not implemented in the smart contract
-    if (redeemType === 'random') {
-      alert('⚠️ Random redemption is not yet implemented in the smart contract.\n\nThe contract currently only burns tokens without transferring an NFT.\n\nPlease use specific redemption instead.')
-      return
-    }
+    // Only specific redemption is supported
 
     setRedeeming(true)
     const redeemProgress = { current: 0, total: selectedVaultNFTs.length }
@@ -316,8 +296,14 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         try {
           console.log(`Redeeming NFT ${i + 1}/${selectedVaultNFTs.length}: ${nftMint}`)
           const txSignature = await redeemSpecificNFT(collectionMint, new PublicKey(nftMint))
-          txSignatures.push(txSignature)
-          successfulRedeems.push(nftMint)
+          
+          // Check if it's a success indicator
+          if (txSignature === 'success' || txSignature) {
+            successfulRedeems.push(nftMint)
+            if (txSignature !== 'success') {
+              txSignatures.push(txSignature)
+            }
+          }
           
           // Wait a bit between transactions to avoid rate limits
           if (i < selectedVaultNFTs.length - 1) {
@@ -329,10 +315,12 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           
           if (error instanceof Error) {
             errorMessage = error.message
-            if (errorMessage.includes('InsufficientTokens')) {
-              errorMessage = 'Insufficient token balance'
-            } else if (errorMessage.includes('insufficient funds')) {
-              errorMessage = 'Insufficient SOL'
+            
+            // Check if this is actually a success
+            if (errorMessage.includes('This transaction has already been processed')) {
+              console.log(`NFT ${nftMint} redemption succeeded despite error message`)
+              successfulRedeems.push(nftMint)
+              continue
             }
           }
           
@@ -340,68 +328,27 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         }
       }
       
-      // Show results
-      let message = ''
+      // Log results
       if (successfulRedeems.length > 0) {
-        const totalBurned = successfulRedeems.length * 1075000
-        message += `✅ Successfully redeemed ${successfulRedeems.length} NFT${successfulRedeems.length > 1 ? 's' : ''}!\n\n`
-        message += `You burned ${totalBurned.toLocaleString()} tokens (including 7.5% fee).\n\n`
+        const totalBurned = successfulRedeems.length * 1000000
+        console.log(`Successfully redeemed ${successfulRedeems.length} NFTs, burned ${totalBurned.toLocaleString()} tokens`)
         if (txSignatures.length > 0) {
-          message += `View on explorer:\nhttps://explorer.solana.com/tx/${txSignatures[0]}?cluster=devnet`
+          console.log(`Transaction: https://explorer.solana.com/tx/${txSignatures[0]}?cluster=devnet`)
         }
       }
       
       if (failedRedeems.length > 0) {
-        message += `\n\n❌ Failed to redeem ${failedRedeems.length} NFT${failedRedeems.length > 1 ? 's' : ''}:\n`
-        failedRedeems.forEach(({ mint, error }) => {
-          message += `\n• ${mint.slice(0, 8)}...${mint.slice(-8)}: ${error}`
-        })
+        console.error(`Failed to redeem ${failedRedeems.length} NFTs:`, failedRedeems)
       }
       
-      alert(message)
-      
       // Refresh data
-      setSelectedVaultNFTs([])
+      onSelectVaultNFTs([])
       await fetchPoolVaultState()
       await fetchUserTokenBalance()
       await fetchUserNfts()
       
     } catch (error) {
       console.error('Error redeeming NFT:', error)
-      let errorMessage = 'Unknown error'
-      
-      if (error instanceof Error) {
-        errorMessage = error.message
-        
-        // Log the full error details
-        console.error('Full error details:', {
-          message: error.message,
-          name: error.name,
-          stack: error.stack,
-          error: error
-        })
-        
-        // Check for specific error types
-        if (errorMessage.includes('insufficient funds')) {
-          errorMessage = 'Insufficient SOL for transaction fees.'
-        } else if (errorMessage.includes('InsufficientTokens')) {
-          errorMessage = 'Insufficient fractional tokens for redemption.'
-        } else if (errorMessage.includes('NoNftsAvailable')) {
-          errorMessage = 'No NFTs available in the vault.'
-        } else if (errorMessage.includes('User rejected')) {
-          errorMessage = 'Transaction cancelled by user.'
-        } else if (errorMessage.includes('Simulation failed')) {
-          // Extract more specific error from simulation
-          const match = errorMessage.match(/Error processing Instruction \d+: (.+?)(?:\.|$)/)
-          if (match && match[1]) {
-            errorMessage = `Transaction simulation failed: ${match[1]}`
-          } else {
-            errorMessage = 'Transaction simulation failed. Check console for details.'
-          }
-        }
-      }
-      
-      alert(`❌ Redemption failed: ${errorMessage}`)
     } finally {
       setRedeeming(false)
     }
@@ -409,7 +356,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
 
   const handleTrade = () => {
     // TODO: Implement trading logic
-    alert('Trading feature coming soon!')
+    console.log('Trading feature not yet implemented')
   }
 
   return (
@@ -470,7 +417,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           <div>
             <h3 className="text-white font-semibold mb-2">Deposit NFTs</h3>
             <p className="text-white/60 text-sm mb-4">
-              Select one or more NFTs from this collection to deposit. Each NFT yields 975,000 tokens (after 2.5% fee).
+              Select one or more NFTs from this collection to deposit. Each NFT yields 1,000,000 tokens.
             </p>
             {selectedNfts.size > 0 && (
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
@@ -487,7 +434,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                 </div>
                 {selectedNfts.size > 0 && (
                   <div className="mt-2 text-xs text-blue-300">
-                    You will receive {(selectedNfts.size * 975000).toLocaleString()} tokens total
+                    You will receive {(selectedNfts.size * 1000000).toLocaleString()} tokens total
                   </div>
                 )}
               </div>
@@ -641,54 +588,18 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           
           {/* Redemption Type Selection */}
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => {
-                  setRedeemType('random')
-                  onSelectVaultNFTs([]) // Clear selection when switching to random
-                }}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  redeemType === 'random'
-                    ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                }`}
-              >
-                <Shuffle className="w-6 h-6 mx-auto mb-2" />
-                <div className="font-semibold">Random NFT</div>
-                <div className="text-xs mt-1">1,025,000 tokens</div>
-                <div className="text-xs text-white/40">2.5% fee</div>
-              </button>
-              
-              <button
-                onClick={() => setRedeemType('specific')}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  redeemType === 'specific'
-                    ? 'bg-purple-500/20 border-purple-500 text-purple-400'
-                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                }`}
-              >
-                <Target className="w-6 h-6 mx-auto mb-2" />
-                <div className="font-semibold">Specific NFT</div>
-                <div className="text-xs mt-1">1,075,000 tokens</div>
-                <div className="text-xs text-white/40">7.5% fee</div>
-              </button>
-            </div>
-            
-            {/* Random redemption warning */}
-            {redeemType === 'random' && (
-              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 mt-4">
-                <div className="flex items-start space-x-2">
-                  <AlertCircle className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-orange-300">
-                    <p className="font-semibold mb-1">⚠️ Random Redemption Not Available</p>
-                    <p className="text-xs">The smart contract's random redemption is incomplete - it only burns tokens without transferring an NFT. Please use specific redemption instead.</p>
-                  </div>
+            <div className="bg-purple-500/20 border-2 border-purple-500 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <Target className="w-6 h-6 text-purple-400" />
+                <div className="flex-1">
+                  <div className="font-semibold text-purple-400">Specific NFT Redemption</div>
+                  <div className="text-xs text-white/60 mt-1">Redeem 1,000,000 tokens per NFT</div>
                 </div>
               </div>
-            )}
+            </div>
             
-            {/* Show selection info for specific redemption */}
-            {redeemType === 'specific' && (
+            {/* Show selection info for redemption */}
+            {(
               <div className="mt-4 bg-gradient-to-r from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-lg p-4">
                 <div className="flex items-center space-x-3">
                   <div className={`p-2 rounded-lg ${selectedVaultNFTs.length > 0 ? 'bg-purple-500' : 'bg-purple-500/50'}`}>
@@ -704,7 +615,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                     <p className="text-purple-200/70 text-xs mt-1">
                       {selectedVaultNFTs.length === 0 
                         ? "Click on NFTs in the vault display to select them"
-                        : `You will burn ${(selectedVaultNFTs.length * 1075000).toLocaleString()} tokens total`
+                        : `You will burn ${(selectedVaultNFTs.length * 1000000).toLocaleString()} tokens total`
                       }
                     </p>
                   </div>
@@ -722,10 +633,9 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                 <div className="text-sm text-yellow-300">
                   <p className="font-semibold mb-1">Redemption Info:</p>
                   <ul className="space-y-1 text-xs">
-                    <li>• You will burn exactly 1,000,000 tokens + fee</li>
-                    <li>• <span className="line-through opacity-50">Random: Get any NFT from the vault (2.5% fee)</span> <span className="text-orange-400">Not implemented</span></li>
-                    <li>• Specific: Choose your NFT (7.5% fee)</li>
-                    <li>• Fees go to protocol treasury</li>
+                    <li>• Burn 1,000,000 tokens per NFT</li>
+                    <li>• Choose specific NFTs to redeem</li>
+                    <li>• 0.025 SOL redemption fee per NFT</li>
                   </ul>
                 </div>
               </div>
@@ -735,8 +645,8 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
               onClick={handleRedeem}
               disabled={
                 redeeming || 
-                userTokenBalance < (redeemType === 'random' ? 1025000 : 1075000) ||
-                (redeemType === 'specific' && selectedVaultNFTs.length === 0) ||
+                              userTokenBalance < 1000000 ||
+              selectedVaultNFTs.length === 0 ||
                 !poolVaultState ||
                 poolVaultState.totalDeposits === 0
               }
@@ -746,23 +656,18 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span>
-                    {redeemType === 'random' 
-                      ? 'Redeeming Random NFT...' 
-                      : `Redeeming ${selectedVaultNFTs.length} NFT${selectedVaultNFTs.length > 1 ? 's' : ''}...`
-                    }
+                    {`Redeeming ${selectedVaultNFTs.length} NFT${selectedVaultNFTs.length > 1 ? 's' : ''}...`}
                   </span>
                 </>
               ) : (
                 <>
                   <Gift className="w-5 h-5" />
                   <span>
-                    {userTokenBalance < (redeemType === 'random' ? 1025000 : selectedVaultNFTs.length * 1075000) 
+                    {userTokenBalance < selectedVaultNFTs.length * 1000000 
                       ? 'Insufficient Balance' 
-                      : redeemType === 'random' 
-                        ? 'Redeem Random NFT'
-                        : selectedVaultNFTs.length > 0 
-                          ? `Redeem ${selectedVaultNFTs.length} NFT${selectedVaultNFTs.length > 1 ? 's' : ''}`
-                          : 'Select NFTs to Redeem'
+                      : selectedVaultNFTs.length > 0 
+                        ? `Redeem ${selectedVaultNFTs.length} NFT${selectedVaultNFTs.length > 1 ? 's' : ''}`
+                        : 'Select NFTs to Redeem'
                     }
                   </span>
                 </>
@@ -794,10 +699,9 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
         <h4 className="text-blue-400 font-semibold mb-2">Pool Economics</h4>
         <ul className="text-white/70 text-sm space-y-1">
-          <li>• Deposit: 1 NFT → 975,000 tokens (2.5% fee)</li>
-          <li>• Random Redeem: 1,025,000 tokens → 1 NFT</li>
-          <li>• Specific Redeem: 1,075,000 tokens → 1 NFT</li>
-          <li>• Fees go to protocol treasury</li>
+          <li>• Deposit: 1 NFT → 1,000,000 tokens (0.015 SOL fee)</li>
+          <li>• Redeem: 1,000,000 tokens → 1 NFT (0.025 SOL fee)</li>
+      
         </ul>
       </div>
     </div>

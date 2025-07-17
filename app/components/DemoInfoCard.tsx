@@ -24,10 +24,10 @@ export function DemoInfoCard() {
             How it works:
           </h3>
           <ul className="space-y-2 text-xs">
-            <li>• <span className="text-green-400">Anyone deposits NFTs</span> from the same collection (2.5% protocol fee)</li>
+            <li>• <span className="text-green-400">Anyone deposits NFTs</span> from the same collection (0.015 SOL fee)</li>
             <li>• <span className="text-blue-400">Receive fractional tokens</span> representing ownership</li>
             <li>• <span className="text-orange-400">Trade tokens</span> on decentralized exchanges</li>
-            <li>• <span className="text-purple-400">Redeem tokens</span> for random NFTs (2.5% fee) or specific NFTs (7.5% fee)</li>
+            <li>• <span className="text-purple-400">Redeem tokens</span> for specific NFTs (0.025 SOL fee)</li>
           </ul>
         </div>
 
@@ -39,22 +39,18 @@ export function DemoInfoCard() {
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-green-400">2.5% → Protocol Treasury</span>
+              <span className="text-green-400">0.015 SOL → Protocol Treasury</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Random Redeem:</span>
-              <span className="text-blue-400">2.5% → Protocol Treasury</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Specific Redeem:</span>
-              <span className="text-purple-400">7.5% → Protocol Treasury</span>
+              <span className="text-gray-300">Redemption Fee:</span>
+              <span className="text-purple-400">0.025 SOL → Protocol Treasury</span>
             </div>
           </div>
         </div>
 
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
           <p className="text-xs text-blue-300">
-            <strong>Program ID:</strong> 6Eb6Tc694YyRnPoD6dGdZvPXMYNsdDfvjcsdb252somr
+            <strong>Program ID:</strong> E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM
           </p>
         </div>
       </div>

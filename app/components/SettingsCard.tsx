@@ -46,17 +46,7 @@ export function SettingsCard({ vaultState }: SettingsCardProps) {
           </div>
           
           <div className="space-y-3">
-            <div className="bg-white/5 rounded-lg p-3">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-300">Total Fees Collected</span>
-                <span className="text-green-400 font-semibold">
-                  {(vaultState.totalFeesCollected / 1000000).toFixed(1)}M tokens
-                </span>
-              </div>
-              <p className="text-xs text-gray-400">
-                All fees go to the protocol treasury
-              </p>
-            </div>
+
           </div>
         </div>
 
@@ -66,15 +56,11 @@ export function SettingsCard({ vaultState }: SettingsCardProps) {
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-green-400">{(vaultState.depositFeeRate / 100).toFixed(1)}%</span>
+              <span className="text-green-400">0.015 SOL</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Random Redeem:</span>
-              <span className="text-blue-400">{(vaultState.randomRedeemFeeRate / 100).toFixed(1)}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Specific Redeem:</span>
-              <span className="text-purple-400">{(vaultState.specificRedeemFeeRate / 100).toFixed(1)}%</span>
+              <span className="text-gray-300">Redeem Fee:</span>
+              <span className="text-blue-400">0.025 SOL</span>
             </div>
           </div>
         </div>

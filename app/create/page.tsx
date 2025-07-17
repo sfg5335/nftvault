@@ -40,8 +40,8 @@ export default function CreatePoolPage() {
   // Clear old localStorage data to prevent conflicts with new program ID
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('createdPools')
-      console.log('Cleared old vault tracking data from localStorage')
+      // Don't clear all pools, just log that we're ready
+      console.log('Create pool page loaded')
     }
   }, [])
 
@@ -118,8 +118,11 @@ function CreatePoolPageContent() {
         return amount.uiAmount === 1 && amount.decimals === 0
       })
 
+      console.log(`Found ${nftAccounts.length} NFTs in wallet`)
+
       // Group NFTs by collection
       const collectionMap = new Map<string, WalletNFT[]>()
+      const validCollections = new Set<string>()
       
       for (const account of nftAccounts) {
         const mint = new PublicKey(account.account.data.parsed.info.mint)
@@ -129,30 +132,54 @@ function CreatePoolPageContent() {
           const metadata = await fetchNFTMetadata(mint.toString(), connection)
           
           if (metadata) {
-            // Use the collection key if available, otherwise use the mint itself
-            const collectionKey = metadata.collection?.key?.toString() || mint.toString()
-            
-            const nft: WalletNFT = {
-              mint,
-              metadata,
-              collection: collectionKey
-            }
-            
-            if (!collectionMap.has(collectionKey)) {
+            // Only process NFTs that have verified collection metadata
+            if (metadata.collection?.key && metadata.collection?.verified) {
+              const collectionKey = metadata.collection.key.toString()
+              
+              const nft: WalletNFT = {
+                mint,
+                metadata,
+                collection: collectionKey
+              }
+              
+                          if (!collectionMap.has(collectionKey)) {
               collectionMap.set(collectionKey, [])
+              
+              // Check if this collection NFT exists and is valid
+              console.log(`Checking collection NFT: ${collectionKey}`)
+              const collectionMintPubkey = new PublicKey(collectionKey)
+              const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
+              
+              if (collectionMintInfo) {
+                // Verify it's a valid mint account (owned by Token Program)
+                const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+                if (collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+                  console.log(`✅ Collection ${collectionKey} is a valid mint`)
+                  validCollections.add(collectionKey)
+                } else {
+                  console.log(`❌ Collection ${collectionKey} exists but is not a valid mint`)
+                }
+              } else {
+                console.log(`❌ Collection NFT ${collectionKey} does not exist on-chain`)
+              }
             }
+            
             collectionMap.get(collectionKey)!.push(nft)
+            } else {
+              console.log(`NFT ${mint.toString()} has no verified collection, skipping`)
+            }
           }
         } catch (err) {
           console.error(`Error fetching metadata for ${mint.toString()}:`, err)
         }
       }
 
-      // Convert to CollectionInfo array
+      // Convert to CollectionInfo array - only include valid collections
       const collectionsArray: CollectionInfo[] = []
       
       for (const [collectionMint, nfts] of collectionMap) {
-        if (nfts.length > 0) {
+        // Only include collections that exist on-chain and are valid
+        if (nfts.length > 0 && validCollections.has(collectionMint)) {
           const sampleNFT = nfts[0]
           const collectionName = sampleNFT.metadata?.name?.split('#')[0].trim() || 'Unknown Collection'
           
@@ -166,11 +193,17 @@ function CreatePoolPageContent() {
           })
         }
       }
+      
+      console.log(`Found ${collectionsArray.length} valid collections out of ${collectionMap.size} total`)
 
       setCollections(collectionsArray)
       
       if (collectionsArray.length === 0) {
-        setError('No NFT collections found in your wallet. Please add some NFTs to your wallet first.')
+        if (collectionMap.size > 0) {
+          setError('Found NFTs in your wallet, but none have valid collection metadata that exists on-chain. Only NFTs with verified collection metadata can be used to create vaults.')
+        } else {
+          setError('No NFTs found in your wallet. Please add some NFTs with verified collection metadata to your wallet first.')
+        }
       }
     } catch (err) {
       console.error('Error loading collections:', err)
@@ -187,19 +220,73 @@ function CreatePoolPageContent() {
 
   const handleCreatePool = async () => {
     if (!selectedCollection || !client) return
+    
+    // Prevent double-submission
+    if (isCreating) {
+      console.log('Transaction already in progress, ignoring duplicate request')
+      return
+    }
 
+    let collectionMint: PublicKey
+    
     try {
       setIsCreating(true)
       setError(null)
       setTxSignature(null)
 
-      const collectionMint = new PublicKey(selectedCollection.mint)
+      collectionMint = new PublicKey(selectedCollection.mint)
+
+      // First verify the collection mint exists on-chain
+      const connection = client.getConnection()
+      const collectionMintInfo = await connection.getAccountInfo(collectionMint)
+      
+      if (!collectionMintInfo) {
+        setError('The collection mint does not exist on-chain. This might be an invalid collection.')
+        return
+      }
+      
+      // Verify it's a valid mint account (owned by Token Program)
+      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+      if (!collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+        setError('The collection address is not a valid mint account.')
+        return
+      }
 
       // Check if vault already exists
       const exists = await client.vaultExists(collectionMint)
       if (exists) {
-        alert('A vault for this collection already exists!')
-        return
+        console.log('Vault already exists for collection:', collectionMint.toString())
+        
+        // Try to fetch the vault state to confirm it's valid
+        try {
+          const vaultState = await client.getVaultState(collectionMint)
+          if (vaultState) {
+            console.log('Existing vault state:', vaultState)
+            
+            // Store the pool info
+            const newPool = {
+              collectionMint: collectionMint.toString(),
+              name: selectedCollection.name,
+              symbol: selectedCollection.symbol,
+              description: `Fractionalized ${selectedCollection.name} collection`,
+              imageUrl: selectedCollection.image,
+              createdAt: new Date().toISOString(),
+              txSignature: 'existing-vault',
+              depositedNFTs: vaultState.totalDeposits
+            }
+            PoolStorage.addCreatedPool(newPool)
+            
+            // Alert and redirect
+            alert('A vault for this collection already exists! Redirecting to the pool page...')
+            setTimeout(() => {
+              window.location.href = `/pool/${collectionMint.toString()}`
+            }, 1000)
+            return
+          }
+        } catch (err) {
+          console.error('Error fetching existing vault state:', err)
+          // Continue with initialization if we can't fetch the state
+        }
       }
 
       // Initialize the collection vault
@@ -242,6 +329,28 @@ function CreatePoolPageContent() {
           errorMessage = 'Insufficient SOL for transaction fees. Please add more SOL to your wallet.'
         } else if (message.includes('user rejected')) {
           errorMessage = 'Transaction was cancelled by user.'
+        } else if (message.includes('already been processed')) {
+          errorMessage = 'This transaction has already been submitted. Please wait for it to complete or refresh the page.'
+        } else if (message.includes('already exists')) {
+          errorMessage = 'A vault for this collection already exists. Redirecting to pool page...'
+          
+          // Store the pool info anyway
+          const newPool = {
+            collectionMint: collectionMint.toString(),
+            name: selectedCollection.name,
+            symbol: selectedCollection.symbol,
+            description: `Fractionalized ${selectedCollection.name} collection`,
+            imageUrl: selectedCollection.image,
+            createdAt: new Date().toISOString(),
+            txSignature: 'existing-vault',
+            depositedNFTs: 0
+          }
+          PoolStorage.addCreatedPool(newPool)
+          
+          // Redirect to the pool page
+          setTimeout(() => {
+            window.location.href = `/pool/${collectionMint.toString()}`
+          }, 1500)
         } else if (isSendTransactionErrorWithLogs(err)) {
           try {
             const logs = await err.getLogs()
@@ -464,7 +573,13 @@ function CreatePoolPageContent() {
                     Back
                   </button>
                   <button
-                    onClick={handleCreatePool}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (!isCreating) {
+                        handleCreatePool()
+                      }
+                    }}
                     disabled={isCreating || loading}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
                   >

@@ -67,7 +67,17 @@ export const IDL = {
           "isSigner": false
         },
         {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -94,11 +104,6 @@ export const IDL = {
         },
         {
           "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
           "isMut": true,
           "isSigner": false
         },
@@ -185,6 +190,11 @@ export const IDL = {
           "isSigner": false
         },
         {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -241,6 +251,11 @@ export const IDL = {
           "isSigner": false
         },
         {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -286,22 +301,6 @@ export const IDL = {
           },
           {
             "name": "totalFractionsMinted",
-            "type": "u64"
-          },
-          {
-            "name": "depositFeeRate",
-            "type": "u16"
-          },
-          {
-            "name": "randomRedeemFeeRate",
-            "type": "u16"
-          },
-          {
-            "name": "specificRedeemFeeRate",
-            "type": "u16"
-          },
-          {
-            "name": "totalFeesCollected",
             "type": "u64"
           },
           {
@@ -437,6 +436,6 @@ export const IDL = {
     }
   ],
   "metadata": {
-    "address": "2sztCkFATGcHNENyUqMxv7wnP9P4mKxNqcFLaH62Vz3g"
+    "address": "E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM"
   }
 }

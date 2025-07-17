@@ -5,7 +5,7 @@
 
 ## 🚀 Working Features
 
-### Smart Contract (Program ID: 8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5)
+### Smart Contract (Program ID: E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM)
 - ✅ **Vault Initialization**: Create collection-specific vaults
 - ✅ **NFT Deposit**: Deposit NFTs and receive fractional tokens (2.5% fee)
 - ✅ **Specific NFT Redemption**: Burn tokens to redeem specific NFT (7.5% fee)
@@ -66,7 +66,7 @@ anchor build
 ```
 
 ## 🔑 Important Addresses
-- **Program ID**: 8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5
+- **Program ID**: E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM
 - **Protocol Treasury**: 2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt
 - **Network**: Devnet
 

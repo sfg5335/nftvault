@@ -29,6 +29,12 @@ export function Header() {
               >
                 Create Pool
               </Link>
+              <Link 
+                href="/debug" 
+                className="text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 px-3 py-2 rounded-lg"
+              >
+                Debug
+              </Link>
             </nav>
           </div>
           

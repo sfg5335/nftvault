@@ -28,10 +28,7 @@ export function RedeemCard({ vaultState, onRedeemRandom, onRedeemSpecific, loadi
     }
   }
 
-  const randomFee = (parseInt(amount) * vaultState.randomRedeemFeeRate) / 10000
-  const specificFee = (parseInt(amount) * vaultState.specificRedeemFeeRate) / 10000
-  const totalCostRandom = parseInt(amount) + randomFee
-  const totalCostSpecific = parseInt(amount) + specificFee
+  const totalCost = parseInt(amount) // No token fees
 
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
@@ -59,7 +56,7 @@ export function RedeemCard({ vaultState, onRedeemRandom, onRedeemSpecific, loadi
                 <Shuffle className="w-4 h-4" />
                 <span className="text-sm font-medium">Random</span>
               </div>
-              <span className="text-xs text-gray-400 block mt-1">2.5% fee</span>
+              <span className="text-xs text-gray-400 block mt-1">0.025 SOL fee</span>
             </button>
             
             <button
@@ -74,7 +71,7 @@ export function RedeemCard({ vaultState, onRedeemRandom, onRedeemSpecific, loadi
                 <Target className="w-4 h-4" />
                 <span className="text-sm font-medium">Specific</span>
               </div>
-              <span className="text-xs text-gray-400 block mt-1">7.5% fee</span>
+              <span className="text-xs text-gray-400 block mt-1">0.025 SOL fee</span>
             </button>
           </div>
         </div>
@@ -109,19 +106,14 @@ export function RedeemCard({ vaultState, onRedeemRandom, onRedeemSpecific, loadi
               <span className="text-white">{(parseInt(amount) / 1000000).toFixed(1)}M</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">
-                {redeemType === 'random' ? 'Random' : 'Specific'} Fee 
-                ({redeemType === 'random' ? '2.5%' : '7.5%'}):
-              </span>
-              <span className="text-red-400">
-                +{(redeemType === 'random' ? randomFee : specificFee) / 1000000}M
-              </span>
+              <span className="text-gray-300">Redeem Fee:</span>
+              <span className="text-red-400">0.025 SOL</span>
             </div>
             <div className="border-t border-purple-500/20 pt-2">
               <div className="flex justify-between font-semibold">
                 <span className="text-purple-400">Total Cost:</span>
                 <span className="text-purple-400">
-                  {(redeemType === 'random' ? totalCostRandom : totalCostSpecific) / 1000000}M tokens
+                  {totalCost / 1000000}M tokens + 0.025 SOL
                 </span>
               </div>
             </div>
@@ -135,11 +127,11 @@ export function RedeemCard({ vaultState, onRedeemRandom, onRedeemSpecific, loadi
             <div className="text-xs text-blue-300">
               <p className="font-semibold mb-1">Redemption Options:</p>
               <ul className="space-y-1">
-                <li>• <span className="text-blue-400">Random:</span> Get any NFT from the pool (2.5% fee)</li>
-                <li>• <span className="text-purple-400">Specific:</span> Choose a specific NFT (7.5% fee)</li>
+                <li>• <span className="text-blue-400">Random:</span> Get any NFT from the pool (0.025 SOL fee)</li>
+                <li>• <span className="text-purple-400">Specific:</span> Choose a specific NFT (0.025 SOL fee)</li>
                 <li>• Burn exactly 1,000,000 tokens to redeem 1 NFT</li>
+                <li>• Pay 0.025 SOL fee for redemption</li>
                 <li>• NFTX-style fixed redemption cost</li>
-                <li>• Higher fee for specific selection</li>
               </ul>
             </div>
           </div>

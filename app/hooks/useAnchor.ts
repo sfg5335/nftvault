@@ -14,11 +14,13 @@ export function useAnchor() {
   const { connection } = useConnection()
   const [client, setClient] = useState<AnchorClient | null>(null)
   const [vaultState, setVaultState] = useState<VaultState | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start as loading until we know wallet state
   const [error, setError] = useState<string | null>(null)
 
   // Initialize client when wallet connects
   useEffect(() => {
+    console.log('useAnchor - Wallet state:', { connected, publicKey: publicKey?.toString(), wallet: !!wallet, connection: !!connection })
+    
     if (connected && publicKey && connection && wallet) {
       try {
         const provider = new anchor.AnchorProvider(
@@ -27,23 +29,27 @@ export function useAnchor() {
           { commitment: 'confirmed' }
         )
         const anchorClient = new AnchorClient(provider)
+        console.log('useAnchor - Created AnchorClient')
         setClient(anchorClient)
+        setLoading(false)
       } catch (error) {
         console.error('Error initializing Anchor client:', error)
         setError('Failed to initialize wallet connection')
+        setLoading(false)
       }
     } else {
       setClient(null)
       setVaultState(null)
+      // Only set loading to false if we're not connected and not trying to connect
+      if (!connected && !wallet) {
+        setLoading(false)
+      }
     }
   }, [connected, publicKey, connection, wallet])
 
-  // Fetch vault state when client is available
-  useEffect(() => {
-    if (client) {
-      fetchVaultState()
-    }
-  }, [client])
+  // Remove automatic vault state fetching for demo collection
+  // This was causing issues as it tried to fetch a non-existent demo vault
+  // Each component should fetch its own vault state as needed
 
   const fetchVaultState = async () => {
     if (!client) return
@@ -89,7 +95,8 @@ export function useAnchor() {
     setError(null)
     
     try {
-      const tx = await client.depositNFT(collectionMint, nftMint)
+      // Use collectionMint as vaultId since they're the same in this implementation
+      const tx = await client.depositNFT(collectionMint.toString(), nftMint)
       console.log('NFT deposited:', tx)
       await fetchVaultState()
       return tx

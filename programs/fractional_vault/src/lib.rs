@@ -30,25 +30,14 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("2sztCkFATGcHNENyUqMxv7wnP9P4mKxNqcFLaH62Vz3g");
+declare_id!("E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM");
 
 /// Constants for the fractional vault program
 pub mod constants {
     /// Each NFT yields exactly 1,000,000 tokens (with 6 decimals = 1_000_000_000_000)
     pub const TOKENS_PER_NFT: u64 = 1_000_000_000_000;
     
-    /// Fee rates in basis points (10000 = 100%)
-    pub const DEFAULT_DEPOSIT_FEE_RATE: u16 = 250; // 2.5%
-    pub const DEFAULT_RANDOM_REDEEM_FEE_RATE: u16 = 250; // 2.5%
-    pub const DEFAULT_SPECIFIC_REDEEM_FEE_RATE: u16 = 750; // 7.5%
-    
-    /// Protocol treasury address - fees are sent here
-    /// TODO: Replace with your actual treasury address
-    /// To set your treasury address:
-    /// 1. Create a new wallet: solana-keygen new --outfile treasury-keypair.json
-    /// 2. Get the public key: solana-keygen pubkey treasury-keypair.json
-    /// 3. Replace the address below with your treasury public key
-    /// 4. Fund the treasury wallet with SOL for transaction fees
+    /// Protocol treasury address - SOL fees are sent here
     pub const PROTOCOL_TREASURY: &str = "2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt";
 }
 
@@ -87,10 +76,6 @@ pub struct VaultState {
     pub fractional_mint: Pubkey,
     pub total_deposits: u64,
     pub total_fractions_minted: u64,
-    pub deposit_fee_rate: u16, // in basis points (250 = 2.5%)
-    pub random_redeem_fee_rate: u16, // in basis points (250 = 2.5%)
-    pub specific_redeem_fee_rate: u16, // in basis points (750 = 7.5%)
-    pub total_fees_collected: u64,
     pub is_active: bool,
 }
 
@@ -106,7 +91,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 32 + 8 + 8 + 2 + 2 + 2 + 8 + 1,
+        space = 8 + 32 + 32 + 32 + 8 + 8 + 1,
         seeds = [b"vault", collection_mint.key().as_ref()],
         bump
     )]
@@ -150,7 +135,11 @@ pub struct DepositNft<'info> {
     #[account(mut)]
     pub vault_nft_account: UncheckedAccount<'info>,
 
+    /// CHECK: Protocol treasury account for SOL fee
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
 }
 
 /// Mint fractional tokens after NFT deposit
@@ -183,9 +172,6 @@ pub struct MintFractional<'info> {
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
 
-    /// CHECK: Protocol treasury account for fee collection
-    #[account(mut)]
-    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -220,7 +206,7 @@ pub struct MintFractionalExisting<'info> {
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
 
-    /// CHECK: Protocol treasury account for fee collection
+    /// CHECK: Protocol treasury account for SOL fee
     #[account(mut)]
     pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
@@ -260,6 +246,9 @@ pub struct RedeemNft<'info> {
     )]
     pub fractional_mint: Account<'info, Mint>,
     
+    /// CHECK: Protocol treasury account for SOL fee
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -313,6 +302,9 @@ pub struct RedeemSpecificNft<'info> {
     )]
     pub fractional_mint: Account<'info, Mint>,
     
+    /// CHECK: Protocol treasury account for SOL fee
+    #[account(mut)]
+    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -365,9 +357,6 @@ pub struct MintFractionalMultiple<'info> {
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
 
-    /// CHECK: Protocol treasury account for fee collection
-    #[account(mut)]
-    pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -378,10 +367,6 @@ impl<'info> InitializeVault<'info> {
         self.vault_state.fractional_mint = self.fractional_mint.key();
         self.vault_state.total_deposits = 0;
         self.vault_state.total_fractions_minted = 0;
-        self.vault_state.deposit_fee_rate = constants::DEFAULT_DEPOSIT_FEE_RATE;
-        self.vault_state.random_redeem_fee_rate = constants::DEFAULT_RANDOM_REDEEM_FEE_RATE;
-        self.vault_state.specific_redeem_fee_rate = constants::DEFAULT_SPECIFIC_REDEEM_FEE_RATE;
-        self.vault_state.total_fees_collected = 0;
         self.vault_state.is_active = true;
         
         Ok(())
@@ -390,19 +375,9 @@ impl<'info> InitializeVault<'info> {
 
 impl<'info> DepositNft<'info> {
     pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
-        // Manually validate unchecked accounts
         let user_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_nft_account)?;
         let _vault_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_nft_account)?;
-        
-        // Validate user has the NFT
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
-
-        // Simple collection verification - verify the NFT mint belongs to the collection
-        let _nft_mint = user_nft_account.mint;
-        // NOTE: This check is incorrect - NFT mints are different from collection mints
-        // Collection verification is done in the frontend using Metaplex metadata
-        // require!(nft_mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
-
         // Transfer NFT from user to vault
         let transfer_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -413,30 +388,31 @@ impl<'info> DepositNft<'info> {
             },
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
-
-        // Update vault state
+        // Flat SOL fee: 0.015 SOL
+        let fee_lamports = 15_000_000u64;
+        let ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.user.key(),
+            &ctx.accounts.protocol_treasury.key(),
+            fee_lamports,
+        );
+        anchor_lang::solana_program::program::invoke(
+            &ix,
+            &[
+                ctx.accounts.user.to_account_info(),
+                ctx.accounts.protocol_treasury.to_account_info(),
+            ],
+        )?;
         let vault_state = &mut ctx.accounts.vault_state;
         vault_state.total_deposits += 1;
-        
         Ok(())
     }
 }
 
 impl<'info> MintFractional<'info> {
     pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
-        // Manually validate unchecked accounts
-        let _protocol_treasury = Account::<TokenAccount>::try_from(&ctx.accounts.protocol_treasury)?;
-        
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
-
-        // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
         let tokens_to_mint = constants::TOKENS_PER_NFT;
-        // Calculate fee
-        let fee_amount = (tokens_to_mint * ctx.accounts.vault_state.deposit_fee_rate as u64) / 10000;
-        let tokens_after_fee = tokens_to_mint - fee_amount;
-
-        // Mint fractional tokens to user (after fee)
         let seeds = &[
             b"vault",
             collection_key.as_ref(),
@@ -452,44 +428,18 @@ impl<'info> MintFractional<'info> {
             },
             signer,
         );
-        anchor_spl::token::mint_to(mint_ctx, tokens_after_fee)?;
-
-        // Mint fee tokens to protocol treasury
-        let protocol_treasury_mint_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.fractional_mint.to_account_info(),
-                to: ctx.accounts.protocol_treasury.to_account_info(),
-                authority: ctx.accounts.vault_state.to_account_info(),
-            },
-            signer,
-        );
-        anchor_spl::token::mint_to(protocol_treasury_mint_ctx, fee_amount)?;
-
-        // Update vault state
+        anchor_spl::token::mint_to(mint_ctx, tokens_to_mint)?;
         let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += tokens_to_mint; // Total tokens minted (including fees)
-        vault_state.total_fees_collected += fee_amount;
-        
+        vault_state.total_fractions_minted += tokens_to_mint;
         Ok(())
     }
 }
 
 impl<'info> MintFractionalExisting<'info> {
     pub fn mint_fractional_existing(ctx: Context<MintFractionalExisting>) -> Result<()> {
-        // Manually validate unchecked accounts
-        let _protocol_treasury = Account::<TokenAccount>::try_from(&ctx.accounts.protocol_treasury)?;
-        
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
-
-        // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
         let tokens_to_mint = constants::TOKENS_PER_NFT;
-        // Calculate fee
-        let fee_amount = (tokens_to_mint * ctx.accounts.vault_state.deposit_fee_rate as u64) / 10000;
-        let tokens_after_fee = tokens_to_mint - fee_amount;
-
-        // Mint fractional tokens to user (after fee)
         let seeds = &[
             b"vault",
             collection_key.as_ref(),
@@ -505,43 +455,17 @@ impl<'info> MintFractionalExisting<'info> {
             },
             signer,
         );
-        anchor_spl::token::mint_to(mint_ctx, tokens_after_fee)?;
-
-        // Mint fee tokens to protocol treasury
-        let protocol_treasury_mint_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.fractional_mint.to_account_info(),
-                to: ctx.accounts.protocol_treasury.to_account_info(),
-                authority: ctx.accounts.vault_state.to_account_info(),
-            },
-            signer,
-        );
-        anchor_spl::token::mint_to(protocol_treasury_mint_ctx, fee_amount)?;
-
-        // Update vault state
+        anchor_spl::token::mint_to(mint_ctx, tokens_to_mint)?;
         let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += tokens_to_mint; // Total tokens minted (including fees)
-        vault_state.total_fees_collected += fee_amount;
-        
+        vault_state.total_fractions_minted += tokens_to_mint;
         Ok(())
     }
 }
 
 impl<'info> RedeemNft<'info> {
     pub fn redeem_nft(ctx: Context<RedeemNft>) -> Result<()> {
-        // Calculate tokens required (1 NFT = 1,000,000 tokens + fee)
         let base_tokens_required = constants::TOKENS_PER_NFT;
-        let fee_amount = (base_tokens_required * ctx.accounts.vault_state.random_redeem_fee_rate as u64) / 10000;
-        let total_tokens_required = base_tokens_required + fee_amount;
-
-        // Check user has enough tokens
-        require!(
-            ctx.accounts.user_fractional_account.amount >= total_tokens_required,
-            VaultError::InsufficientTokens
-        );
-
-        // Burn tokens from user
+        require!(ctx.accounts.user_fractional_account.amount >= base_tokens_required, VaultError::InsufficientTokens);
         let burn_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             anchor_spl::token::Burn {
@@ -550,19 +474,26 @@ impl<'info> RedeemNft<'info> {
                 authority: ctx.accounts.user.to_account_info(),
             },
         );
-        anchor_spl::token::burn(burn_ctx, total_tokens_required)?;
-
-        // Update vault state
+        anchor_spl::token::burn(burn_ctx, base_tokens_required)?;
+        // Flat SOL fee: 0.025 SOL
+        let fee_lamports = 25_000_000u64;
+        let ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.user.key(),
+            &ctx.accounts.protocol_treasury.key(),
+            fee_lamports,
+        );
+        anchor_lang::solana_program::program::invoke(
+            &ix,
+            &[
+                ctx.accounts.user.to_account_info(),
+                ctx.accounts.protocol_treasury.to_account_info(),
+            ],
+        )?;
         let vault_state = &mut ctx.accounts.vault_state;
         require!(vault_state.is_active, VaultError::VaultInactive);
         require!(vault_state.total_deposits > 0, VaultError::NoNftsAvailable);
         vault_state.total_deposits -= 1;
         vault_state.total_fractions_minted -= base_tokens_required;
-        vault_state.total_fees_collected += fee_amount;
-        
-        // NOTE: This function is incomplete - it doesn't actually transfer any NFT
-        // The random selection and transfer logic needs to be implemented
-        
         Ok(())
     }
 }
@@ -572,14 +503,9 @@ impl<'info> RedeemSpecificNft<'info> {
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let vault_bump = *ctx.bumps.get("vault_state").unwrap();
 
-        // Calculate tokens required (1 NFT = 1,000,000 tokens + fee)
         let base_tokens_required = constants::TOKENS_PER_NFT;
-        let fee_amount = (base_tokens_required * ctx.accounts.vault_state.specific_redeem_fee_rate as u64) / 10000;
-        let total_tokens_required = base_tokens_required + fee_amount;
-
-        // Check user has enough tokens
         require!(
-            ctx.accounts.user_fractional_account.amount >= total_tokens_required,
+            ctx.accounts.user_fractional_account.amount >= base_tokens_required,
             VaultError::InsufficientTokens
         );
 
@@ -592,7 +518,7 @@ impl<'info> RedeemSpecificNft<'info> {
                 authority: ctx.accounts.user.to_account_info(),
             },
         );
-        anchor_spl::token::burn(burn_ctx, total_tokens_required)?;
+        anchor_spl::token::burn(burn_ctx, base_tokens_required)?;
 
         // Transfer specific NFT from vault to user
         let seeds = &[
@@ -612,12 +538,26 @@ impl<'info> RedeemSpecificNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
 
+        // Flat SOL fee: 0.025 SOL
+        let fee_lamports = 25_000_000u64;
+        let ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.user.key(),
+            &ctx.accounts.protocol_treasury.key(),
+            fee_lamports,
+        );
+        anchor_lang::solana_program::program::invoke(
+            &ix,
+            &[
+                ctx.accounts.user.to_account_info(),
+                ctx.accounts.protocol_treasury.to_account_info(),
+            ],
+        )?;
+
         // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
         require!(vault_state.is_active, VaultError::VaultInactive);
         vault_state.total_deposits -= 1;
         vault_state.total_fractions_minted -= base_tokens_required;
-        vault_state.total_fees_collected += fee_amount;
         
         Ok(())
     }
@@ -658,21 +598,14 @@ impl<'info> DepositMultipleNfts<'info> {
 
 impl<'info> MintFractionalMultiple<'info> {
     pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
-        // Manually validate unchecked accounts
-        let _protocol_treasury = Account::<TokenAccount>::try_from(&ctx.accounts.protocol_treasury)?;
-        
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
 
         // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
         let tokens_per_nft = constants::TOKENS_PER_NFT;
         let total_tokens_to_mint = tokens_per_nft * num_nfts as u64;
-        
-        // Calculate fee
-        let fee_amount = (total_tokens_to_mint * ctx.accounts.vault_state.deposit_fee_rate as u64) / 10000;
-        let tokens_after_fee = total_tokens_to_mint - fee_amount;
 
-        // Mint fractional tokens to user (after fee)
+        // Mint fractional tokens to user (no fees in tokens)
         let seeds = &[
             b"vault",
             collection_key.as_ref(),
@@ -688,26 +621,13 @@ impl<'info> MintFractionalMultiple<'info> {
             },
             signer,
         );
-        anchor_spl::token::mint_to(mint_ctx, tokens_after_fee)?;
-
-        // Mint fee tokens to protocol treasury
-        let protocol_treasury_mint_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.fractional_mint.to_account_info(),
-                to: ctx.accounts.protocol_treasury.to_account_info(),
-                authority: ctx.accounts.vault_state.to_account_info(),
-            },
-            signer,
-        );
-        anchor_spl::token::mint_to(protocol_treasury_mint_ctx, fee_amount)?;
+        anchor_spl::token::mint_to(mint_ctx, total_tokens_to_mint)?;
 
         // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
         vault_state.total_fractions_minted += total_tokens_to_mint;
-        vault_state.total_fees_collected += fee_amount;
         
-        msg!("Minted {} fractional tokens for {} NFTs", tokens_after_fee, num_nfts);
+        msg!("Minted {} fractional tokens for {} NFTs", total_tokens_to_mint, num_nfts);
         
         Ok(())
     }

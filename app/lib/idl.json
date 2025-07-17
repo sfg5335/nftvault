@@ -67,7 +67,17 @@
           "isSigner": false
         },
         {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -94,11 +104,6 @@
         },
         {
           "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
           "isMut": true,
           "isSigner": false
         },
@@ -185,6 +190,11 @@
           "isSigner": false
         },
         {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -241,6 +251,11 @@
           "isSigner": false
         },
         {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -257,6 +272,42 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "mintFractionalMultiple",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "fractionalMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "numNfts",
+          "type": "u8"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -286,22 +337,6 @@
           },
           {
             "name": "totalFractionsMinted",
-            "type": "u64"
-          },
-          {
-            "name": "depositFeeRate",
-            "type": "u16"
-          },
-          {
-            "name": "randomRedeemFeeRate",
-            "type": "u16"
-          },
-          {
-            "name": "specificRedeemFeeRate",
-            "type": "u16"
-          },
-          {
-            "name": "totalFeesCollected",
             "type": "u64"
           },
           {
@@ -434,9 +469,19 @@
       "code": 6008,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidTokenAmount",
+      "msg": "Invalid token amount"
+    },
+    {
+      "code": 6010,
+      "name": "NotImplemented",
+      "msg": "Not implemented due to Anchor framework limitations"
     }
   ],
   "metadata": {
-    "address": "8zytjbLBZ8psosMk5RUy3KPgQkAueyGGghko2BxFfvg5"
+    "address": "E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM"
   }
 }

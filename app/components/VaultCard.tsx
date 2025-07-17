@@ -57,28 +57,16 @@ export function VaultCard({ vaultState }: VaultCardProps) {
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-green-400">{(vaultState.depositFeeRate / 100).toFixed(1)}%</span>
+              <span className="text-green-400">0.015 SOL</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Random Redeem:</span>
-              <span className="text-blue-400">{(vaultState.randomRedeemFeeRate / 100).toFixed(1)}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Specific Redeem:</span>
-              <span className="text-purple-400">{(vaultState.specificRedeemFeeRate / 100).toFixed(1)}%</span>
+              <span className="text-gray-300">Redeem Fee:</span>
+              <span className="text-blue-400">0.025 SOL</span>
             </div>
           </div>
         </div>
 
-        {/* Fees Collected */}
-        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-300">Fees Collected</span>
-            <span className="text-yellow-400 font-semibold">
-              {(vaultState.totalFeesCollected / 1000000).toFixed(1)}M tokens
-            </span>
-          </div>
-        </div>
+
 
         {/* Status */}
         <div className="flex items-center justify-between">

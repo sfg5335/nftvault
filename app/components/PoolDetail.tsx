@@ -28,16 +28,23 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
   }, [client, poolId])
 
   const fetchPoolData = async () => {
-    if (!client) return
+    if (!client) {
+      console.log('Client not initialized yet')
+      return
+    }
 
     setLoading(true)
     setError(null)
 
     try {
+      console.log('Fetching pool data for:', poolId)
       const collectionMint = new PublicKey(poolId)
       
       // Check if vault exists
+      console.log('Checking if vault exists...')
       const vaultExists = await client.vaultExists(collectionMint)
+      console.log('Vault exists:', vaultExists)
+      
       if (!vaultExists) {
         setError('Vault not found for this collection')
         setLoading(false)
@@ -45,7 +52,10 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
       }
 
       // Fetch vault state from blockchain
+      console.log('Fetching vault state...')
       const state = await client.getVaultState(collectionMint)
+      console.log('Vault state:', state)
+      
       if (state) {
         setVaultState(state)
         
@@ -55,6 +65,9 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
         if (metadata) {
           setPoolMetadata(metadata)
         }
+      } else {
+        console.log('Vault state is null')
+        setError('Unable to load vault data')
       }
     } catch (err) {
       console.error('Error fetching pool data:', err)
@@ -204,15 +217,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
           </p>
         </div>
         
-        <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/60 text-sm">Fees Collected</span>
-            <Activity className="w-4 h-4 text-purple-400" />
-          </div>
-          <p className="text-2xl font-bold text-white">
-            {formatNumber(vaultState?.totalFeesCollected / 1000000 || 0)}
-          </p>
-        </div>
+
         
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
@@ -228,24 +233,14 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
       {/* Fee Structure */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
         <h2 className="text-xl font-bold text-white mb-4">Fee Structure</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white/5 rounded-lg p-4">
             <p className="text-white/60 text-sm mb-1">Deposit Fee</p>
-            <p className="text-white font-bold text-lg">
-              {vaultState?.depositFeeRate / 100 || 0}%
-            </p>
+            <p className="text-white font-bold text-lg">0.015 SOL</p>
           </div>
           <div className="bg-white/5 rounded-lg p-4">
-            <p className="text-white/60 text-sm mb-1">Random Redeem</p>
-            <p className="text-white font-bold text-lg">
-              {vaultState?.randomRedeemFeeRate / 100 || 0}%
-            </p>
-          </div>
-          <div className="bg-white/5 rounded-lg p-4">
-            <p className="text-white/60 text-sm mb-1">Specific Redeem</p>
-            <p className="text-white font-bold text-lg">
-              {vaultState?.specificRedeemFeeRate / 100 || 0}%
-            </p>
+            <p className="text-white/60 text-sm mb-1">Redeem Fee</p>
+            <p className="text-white font-bold text-lg">0.025 SOL</p>
           </div>
         </div>
       </div>

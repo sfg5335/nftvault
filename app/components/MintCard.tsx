@@ -20,8 +20,7 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
   // NFTX-style: Each NFT yields exactly 1,000,000 tokens
   const tokensPerNft = 1000000
   const totalTokens = parseInt(amount) * tokensPerNft
-  const depositFee = (totalTokens * vaultState.depositFeeRate) / 10000
-  const tokensToReceive = totalTokens - depositFee
+  const tokensToReceive = totalTokens // No token fees
 
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
@@ -65,8 +64,8 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
               <span className="text-white">{totalTokens.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Deposit Fee (2.5%):</span>
-              <span className="text-red-400">-{depositFee.toLocaleString()}</span>
+              <span className="text-gray-300">Deposit Fee:</span>
+              <span className="text-red-400">0.015 SOL per NFT</span>
             </div>
             <div className="border-t border-green-500/20 pt-2">
               <div className="flex justify-between font-semibold">
@@ -85,7 +84,8 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
               <p className="font-semibold mb-1">How it works:</p>
               <ul className="space-y-1">
                 <li>• Deposit your NFTs from this collection</li>
-                <li>• Receive exactly 1,000,000 tokens per NFT (minus 2.5% fee)</li>
+                <li>• Receive exactly 1,000,000 tokens per NFT (no token fees)</li>
+                <li>• Pay 0.015 SOL deposit fee per NFT</li>
                 <li>• Trade tokens on DEXs for liquidity</li>
                 <li>• Anyone can deposit into the shared pool</li>
                 <li>• NFTX-style fixed token economics</li>

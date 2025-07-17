@@ -7,7 +7,6 @@ import { getAccount } from '@solana/spl-token'
 import { useAnchor } from '../hooks/useAnchor'
 import { NFTImage, ImageSkeleton } from './OptimizedImage'
 import { Shuffle, Target, Gift, AlertCircle, Loader2, Check } from 'lucide-react'
-import { LoadingStates } from './LoadingStates'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
 
 interface PoolTradingProps {

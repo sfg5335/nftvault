@@ -140,7 +140,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
   const description = poolMetadata?.description || `Fractionalized NFT pool for collection ${poolId}`
 
   // Calculate derived values
-  const tokenPrice = 0.001 // Example price in SOL
+        const tokenPrice = 0 // Will be calculated from actual market data
   const totalValueLocked = vaultState.totalDeposits * 50 // Example: 50 SOL per NFT
   const marketCap = (vaultState.totalFractionsMinted / 1_000_000) * tokenPrice
 

@@ -16,10 +16,7 @@ export default function Home() {
 function HomeContent() {
   const { connected, publicKey, connecting, disconnecting } = useWallet()
 
-  // Debug logging
-  useEffect(() => {
-    console.log('Wallet state:', { connected, publicKey: publicKey?.toString(), connecting, disconnecting })
-  }, [connected, publicKey, connecting, disconnecting])
+
 
   if (!connected) {
     return (
@@ -30,13 +27,7 @@ function HomeContent() {
             Fractionalize your NFT collections into tradeable tokens
           </p>
           <div className="space-y-4">
-            {/* Debug info */}
-            <div className="text-white/60 text-sm mb-4">
-              <p>Debug: connected={connected.toString()}</p>
-              <p>Debug: connecting={connecting.toString()}</p>
-              <p>Debug: disconnecting={disconnecting.toString()}</p>
-              {publicKey && <p>Debug: publicKey={publicKey.toString()}</p>}
-            </div>
+
             
             <SimpleWalletButton />
             

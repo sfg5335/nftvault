@@ -22,9 +22,8 @@ export function RedeemCard({ vaultState, onRedeemRandom, onRedeemSpecific, loadi
       const placeholderNftMint = vaultState.collectionMint.toBase58(); // Use collection mint as placeholder
       await onRedeemRandom(placeholderNftMint, redeemAmount)
     } else {
-      // TODO: Replace with actual logic to select a specific NFT mint from the pool
-      const placeholderNftMint = vaultState.collectionMint.toBase58(); // Use collection mint as placeholder
-      await onRedeemSpecific(placeholderNftMint, redeemAmount)
+      // TODO: Implement specific NFT selection logic
+      await onRedeemSpecific('', redeemAmount)
     }
   }
 

@@ -171,9 +171,9 @@ function PoolGrid() {
             floorPrice: 0,
             totalValue: vault.data.totalFractionsMinted / 1000000, // Convert to tokens
             nftCount: vault.data.totalDeposits,
-            tokenPrice: 0.001,
-            volume24h: 0, // Placeholder, needs actual data
-            change24h: 0, // Placeholder, needs actual data
+            tokenPrice: 0,
+            volume24h: 0,
+            change24h: 0,
             isTrending: false,
             collectionMint: collectionMintStr,
             creator: vault.data.creator.toString(),
@@ -269,7 +269,7 @@ function PoolGrid() {
           </p>
           {client && (
             <p className="text-white/50 text-sm mb-6">
-              Try refreshing or check the debug page to add test metadata.
+              Try refreshing the page.
             </p>
           )}
           <div className="space-y-3">

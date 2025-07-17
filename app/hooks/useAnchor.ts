@@ -6,8 +6,7 @@ import { PublicKey } from '@solana/web3.js'
 import { AnchorClient, VaultState } from '../lib/anchor'
 import * as anchor from '@coral-xyz/anchor'
 
-// Mock collection mint for demo (replace with real collection)
-const DEMO_COLLECTION_MINT = new PublicKey('11111111111111111111111111111111')
+
 
 export function useAnchor() {
   const { publicKey, connected, wallet } = useWallet()
@@ -47,18 +46,14 @@ export function useAnchor() {
     }
   }, [connected, publicKey, connection, wallet])
 
-  // Remove automatic vault state fetching for demo collection
-  // This was causing issues as it tried to fetch a non-existent demo vault
-  // Each component should fetch its own vault state as needed
-
-  const fetchVaultState = async () => {
+  const fetchVaultState = async (collectionMint: PublicKey) => {
     if (!client) return
     
     setLoading(true)
     setError(null)
     
     try {
-      const state = await client.getVaultState(DEMO_COLLECTION_MINT)
+      const state = await client.getVaultState(collectionMint)
       setVaultState(state)
     } catch (err) {
       console.error('Error fetching vault state:', err)
@@ -77,7 +72,7 @@ export function useAnchor() {
     try {
       const tx = await client.initializeVault(collectionMint)
       console.log('Collection vault initialized:', tx)
-      await fetchVaultState()
+      await fetchVaultState(collectionMint)
       return tx
     } catch (err) {
       console.error('Error initializing collection vault:', err)
@@ -98,7 +93,7 @@ export function useAnchor() {
       // Use collectionMint as vaultId since they're the same in this implementation
       const tx = await client.depositNFT(collectionMint.toString(), nftMint)
       console.log('NFT deposited:', tx)
-      await fetchVaultState()
+      await fetchVaultState(collectionMint)
       return tx
     } catch (err) {
       console.error('Error depositing NFT:', err)
@@ -118,7 +113,7 @@ export function useAnchor() {
     try {
       const tx = await client.redeemRandomNFT(collectionMint, new PublicKey(nftMint))
       console.log('Random NFT redeemed:', tx)
-      await fetchVaultState()
+      await fetchVaultState(collectionMint)
       return tx
     } catch (err) {
       console.error('Error redeeming random NFT:', err)
@@ -138,7 +133,7 @@ export function useAnchor() {
     try {
       const tx = await client.redeemSpecificNFT(collectionMint, new PublicKey(nftMint))
       console.log('Specific NFT redeemed:', tx)
-      await fetchVaultState()
+      await fetchVaultState(collectionMint)
       return tx
     } catch (err) {
       console.error('Error redeeming specific NFT:', err)
@@ -160,6 +155,6 @@ export function useAnchor() {
     // UI must provide an NFT mint for random and specific redemption
     redeemRandomNFT, // (collectionMint: PublicKey, nftMint: string, amount: number)
     redeemSpecificNFT, // (collectionMint: PublicKey, nftMint: string, amount: number)
-    collectionMint: DEMO_COLLECTION_MINT,
+    fetchVaultState,
   }
 } 

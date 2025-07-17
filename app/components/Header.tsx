@@ -29,30 +29,12 @@ export function Header() {
               >
                 Create Pool
               </Link>
-              <Link 
-                href="/debug" 
-                className="text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 px-3 py-2 rounded-lg"
-              >
-                Debug
-              </Link>
+
             </nav>
           </div>
           
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <div className="hidden sm:flex items-center space-x-2">
-              <span className="bg-green-500/20 text-green-400 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
-                Devnet
-              </span>
-              <span className="bg-yellow-500/20 text-yellow-400 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
-                Demo
-              </span>
-            </div>
-            
-            {/* Mobile network indicators */}
-            <div className="flex sm:hidden items-center space-x-1">
-              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-            </div>
+
             
             <div className="relative z-[999999]">
               <WalletMultiButton className="!bg-blue-600 hover:!bg-blue-700 !text-white !rounded-lg !text-sm sm:!text-base !px-3 sm:!px-4 !py-2 !transition-all !duration-200" />

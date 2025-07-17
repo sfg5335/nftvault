@@ -59,13 +59,11 @@ function HomeContent() {
             </p>
           </div>
 
-          {/* Create Pool Section */}
-          <CreatePoolCard />
+
           
           {/* Existing Pools */}
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Active Pools</h2>
               <div className="flex space-x-2">
                 <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-colors">
                   All Collections

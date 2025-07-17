@@ -120,25 +120,6 @@ function PoolGrid() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    console.log('PoolGrid useEffect - client:', client, 'loading:', loading)
-    
-    // Only proceed if we have a client and it's not loading
-    if (!loading) {
-      if (client) {
-        // Add a small delay to ensure everything is initialized
-        const timer = setTimeout(() => {
-          fetchPools()
-        }, 100)
-        return () => clearTimeout(timer)
-      } else {
-        // Client is null and not loading, show appropriate message
-        console.log('No client available after loading complete')
-        setIsLoading(false)
-      }
-    }
-  }, [client, loading])
-
   const fetchPools = async () => {
     console.log('fetchPools called - client:', client)
     if (!client) {
@@ -225,6 +206,25 @@ function PoolGrid() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    console.log('PoolGrid useEffect - client:', client, 'loading:', loading)
+    
+    // Only proceed if we have a client and it's not loading
+    if (!loading) {
+      if (client) {
+        // Add a small delay to ensure everything is initialized
+        const timer = setTimeout(() => {
+          fetchPools()
+        }, 100)
+        return () => clearTimeout(timer)
+      } else {
+        // Client is null and not loading, show appropriate message
+        console.log('No client available after loading complete')
+        setIsLoading(false)
+      }
+    }
+  }, [client, loading])
 
   if (isLoading || loading) {
     return (

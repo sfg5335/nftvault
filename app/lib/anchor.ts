@@ -245,7 +245,7 @@ export class AnchorClient {
       // Parse the account to check the balance
       try {
         const userNftAccountData = await getAccount(this.provider.connection, userNftAccount, 'confirmed', TOKEN_PROGRAM_ID);
-        if (userNftAccountData.amount === 0n) {
+        if (userNftAccountData.amount === BigInt(0)) {
           throw new Error(`You don't own this NFT in your wallet.`);
         }
         console.log('User NFT balance:', userNftAccountData.amount.toString());

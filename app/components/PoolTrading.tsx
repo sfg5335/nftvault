@@ -295,7 +295,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         
         try {
           console.log(`Redeeming NFT ${i + 1}/${selectedVaultNFTs.length}: ${nftMint}`)
-          const txSignature = await redeemSpecificNFT(collectionMint, new PublicKey(nftMint))
+          const txSignature = await redeemSpecificNFT(collectionMint, nftMint)
           
           // Check if it's a success indicator
           if (txSignature === 'success' || txSignature) {

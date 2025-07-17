@@ -48,14 +48,16 @@ export default function DebugPage() {
         name: 'Test Collection 1',
         symbol: 'TC1',
         imageUrl: '',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        txSignature: 'test-signature-1'
       },
       {
         collectionMint: '7RXax9nzYTt3YPhc6A8zVcRcTdf9NJqKdcJzgmQQ4SW1',
         name: 'Test Collection 2', 
         symbol: 'TC2',
         imageUrl: '',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        txSignature: 'test-signature-2'
       }
     ]
     

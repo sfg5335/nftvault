@@ -64,6 +64,21 @@ function CreatePoolPageContent() {
   // Only initialize anchor client when wallet is connected
   const { loading, error, setError, client, initializeCollectionVault, depositNFT } = useAnchor()
   
+  // All hooks must be called before any conditional returns
+  const [currentStep, setCurrentStep] = useState(1)
+  const [collections, setCollections] = useState<CollectionInfo[]>([])
+  const [selectedCollection, setSelectedCollection] = useState<CollectionInfo | null>(null)
+  const [isLoadingCollections, setIsLoadingCollections] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [txSignature, setTxSignature] = useState<string | null>(null)
+  
+  // Load user's NFT collections when component mounts
+  useEffect(() => {
+    if (connected && publicKey && client) {
+      loadUserCollections()
+    }
+  }, [connected, publicKey, client])
+
   // Show connection prompt if not connected
   if (!connected) {
     return (
@@ -96,20 +111,6 @@ function CreatePoolPageContent() {
       </div>
     )
   }
-  
-  const [currentStep, setCurrentStep] = useState(1)
-  const [collections, setCollections] = useState<CollectionInfo[]>([])
-  const [selectedCollection, setSelectedCollection] = useState<CollectionInfo | null>(null)
-  const [isLoadingCollections, setIsLoadingCollections] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [txSignature, setTxSignature] = useState<string | null>(null)
-
-  // Load user's NFT collections when component mounts
-  useEffect(() => {
-    if (connected && publicKey && client) {
-      loadUserCollections()
-    }
-  }, [connected, publicKey, client])
 
   const loadUserCollections = async () => {
     if (!publicKey || !client) return
@@ -347,6 +348,15 @@ function CreatePoolPageContent() {
           errorMessage = 'Transaction was cancelled by user.'
         } else if (message.includes('already been processed')) {
           errorMessage = 'This transaction has already been submitted. Please wait for it to complete or refresh the page.'
+        } else if (message.includes('attempt to debit an account but found no record of a prior credit')) {
+          errorMessage = 'Program account not found or insufficient funds. Make sure you have enough SOL in your wallet for rent exemption (usually ~0.05 SOL).'
+          console.error('This error usually means:', {
+            1: 'The program ID in the IDL might not match the deployed program',
+            2: 'The wallet might not have enough SOL for rent exemption',
+            3: 'The program might not be properly deployed',
+            walletBalance: 'Check if your wallet has at least 0.1 SOL',
+            programId: '7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y'
+          })
         } else if (message.includes('already exists')) {
           errorMessage = 'A vault for this collection already exists. Redirecting to pool page...'
           

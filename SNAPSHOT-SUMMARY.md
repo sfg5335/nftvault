@@ -1,77 +1,68 @@
-# smol.markets - Working Snapshot Summary
-**Date**: July 16, 2025  
-**Version**: v1.0-working-redemption  
-**Commit**: Check `git log -1`
+# NFT Fractionalization Platform - Project Snapshot
 
-## 🚀 Working Features
+## ✅ Current Implementation Status
 
-### Smart Contract (Program ID: E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM)
-- ✅ **Vault Initialization**: Create collection-specific vaults
-- ✅ **NFT Deposit**: Deposit NFTs and receive fractional tokens (2.5% fee)
-- ✅ **Specific NFT Redemption**: Burn tokens to redeem specific NFT (7.5% fee)
-- ⚠️ **Random Redemption**: Partially implemented (burns tokens but doesn't transfer NFT)
+### Core Functionality
 
-### Frontend Features
-- ✅ **Pool Creation**: Create new NFT collection vaults
-- ✅ **NFT Deposit UI**: Select and deposit NFTs from wallet
-- ✅ **Vault NFT Display**: View all NFTs currently in the vault
-- ✅ **Specific Redemption**: Select and redeem specific NFTs
-- ✅ **Portfolio View**: See token balances across all vaults
-- ✅ **Transaction Feedback**: Success/error messages with explorer links
+- ✅ **Initialize Vault**: Create a collection-specific vault with creator as authority
+- ✅ **NFT Deposit**: Deposit NFTs and receive fractional tokens
+- ✅ **Specific NFT Redemption**: Burn tokens to redeem a specific NFT from the vault
+- ⚠️ **Multiple NFT Deposits**: Commented out due to Anchor framework limitations
 
-## 📁 Key Files Modified
+### Fee Structure
+- **Deposit Fee**: 0.015 SOL flat fee
+- **Redemption Fee**: 0.025 SOL flat fee
 
-### Smart Contract
-- `programs/fractional_vault/src/lib.rs` - Fixed PDA constraints and bump access
+All fees are collected in SOL and sent to the protocol treasury.
 
-### Frontend Components
-- `app/components/VaultNFTDisplay.tsx` - NEW: Displays vault NFTs with selection
-- `app/components/PoolTrading.tsx` - Updated with redemption logic
-- `app/components/PoolDetail.tsx` - Added vault NFT gallery section
-- `app/lib/anchor.ts` - Fixed redemption methods and account creation
-- `app/hooks/useAnchor.ts` - Updated redemption hooks
+### Security & Architecture
 
-## 🔧 Recent Fixes
-1. Fixed `RedeemSpecificNft` struct missing PDA constraints
-2. Fixed bump seed access (`ctx.bumps.get("vault_state")`)
-3. Added proper account validation in Anchor
-4. Created vault fractional token account before redemption
-5. Added comprehensive error handling and logging
+- ✅ **PDA-based Authority**: Vault PDAs control token minting and NFT custody
+- ✅ **SPL Token Integration**: Standard token operations for fractional tokens
+- ✅ **Collection Verification**: Manual verification (Metaplex-independent)
+- ✅ **Comprehensive Error Handling**: Custom error types for all edge cases
 
-## 💾 Backup Information
-- **Git Tag**: `v1.0-working-redemption`
-- **Physical Backup**: `/root/smol-markets-2-backup-20250716-025255-working-redemption.tar.gz`
-- **Backup Size**: 464MB (excludes node_modules, target, .next)
+### Token Economics
 
-## 🚨 Known Limitations
-1. Random redemption doesn't actually transfer NFTs (needs implementation)
-2. No trading functionality implemented yet
-3. No governance for fee adjustments
-4. Protocol treasury is hardcoded
+- **1 NFT = 1,000,000 tokens** (with 6 decimals)
+- No token fees - all fees are in SOL
+- Predictable token supply based on deposited NFTs
 
-## 📝 To Restore This Snapshot
+## 🚧 Known Issues & Limitations
 
-### From Git:
-```bash
-git checkout v1.0-working-redemption
+1. Multiple NFT deposits are disabled due to Anchor lifetime constraints
+2. The frontend needs better error handling for edge cases
+3. No governance mechanism for protocol parameters
+
+## 📊 Contract State
+
+```rust
+pub struct VaultState {
+    pub collection_mint: Pubkey,        // Collection identifier
+    pub creator: Pubkey,                // Vault creator
+    pub fractional_mint: Pubkey,        // Fractional token mint
+    pub total_deposits: u64,            // NFTs in vault
+    pub total_fractions_minted: u64,    // Tokens minted
+    pub is_active: bool,                // Vault status
+}
 ```
 
-### From Backup:
-```bash
-cd /root
-tar -xzf smol-markets-2-backup-20250716-025255-working-redemption.tar.gz
-cd smol-markets-2
-npm install
-anchor build
-```
+## 🔧 Testing
 
-## 🔑 Important Addresses
-- **Program ID**: E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM
-- **Protocol Treasury**: 2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt
-- **Network**: Devnet
+- ✅ Unit tests for core functionality
+- ✅ Integration tests on devnet
+- ⚠️ Edge case testing incomplete
 
-## 📊 Token Economics
-- **Tokens per NFT**: 1,000,000 (with 6 decimals)
-- **Deposit Fee**: 2.5%
-- **Random Redeem Fee**: 2.5%
-- **Specific Redeem Fee**: 7.5% 
+## 📈 Performance Metrics
+
+- **Gas Efficiency**: Optimized for minimal transaction costs
+- **Scalability**: Each vault handles one collection independently
+- **Security**: No critical vulnerabilities identified
+
+## 🎯 Next Steps
+
+1. Enable batch NFT deposits when Anchor supports it
+2. Implement analytics dashboard
+3. Add liquidity pool integration
+4. Improve frontend UX/UI
+5. Add governance features 

@@ -21,7 +21,6 @@ interface Pool {
   creator: string
   fractionalMint: string
   totalFractionsMinted: number
-  totalFeesCollected: number
   isActive: boolean
 }
 
@@ -103,10 +102,6 @@ function PoolCard({ pool }: { pool: Pool }) {
               <p className="text-white/60 text-sm">Tokens Minted</p>
               <p className="text-white font-semibold">{formatTokenAmount(pool.totalFractionsMinted)}</p>
             </div>
-            <div>
-              <p className="text-white/60 text-sm">Fees Collected</p>
-              <p className="text-white font-semibold">{formatTokenAmount(pool.totalFeesCollected || 0)}</p>
-            </div>
           </div>
         )}
       </div>
@@ -179,7 +174,6 @@ function PoolGrid() {
             creator: vault.data.creator.toString(),
             fractionalMint: vault.data.fractionalMint.toString(),
             totalFractionsMinted: vault.data.totalFractionsMinted,
-            totalFeesCollected: vault.data.totalFeesCollected,
             isActive: vault.data.isActive
           }
           

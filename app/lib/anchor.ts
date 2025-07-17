@@ -6,7 +6,7 @@ import { Metaplex } from '@metaplex-foundation/js';
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM");
+const PROGRAM_ID = new PublicKey("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -17,7 +17,6 @@ export interface VaultState {
   fractionalMint: PublicKey;
   totalDeposits: number;
   totalFractionsMinted: number;
-  totalFeesCollected: number;
   isActive: boolean;
 }
 
@@ -30,7 +29,9 @@ export class AnchorClient {
 
   constructor(provider: anchor.AnchorProvider) {
     this.provider = provider;
+    console.log('Initializing AnchorClient with program ID:', PROGRAM_ID.toString());
     this.program = new anchor.Program(IDL as any, PROGRAM_ID, provider);
+    console.log('Program initialized successfully:', this.program.programId.toString());
   }
 
   // Derive PDAs for vault
@@ -72,9 +73,25 @@ export class AnchorClient {
   // Initialize vault
   async initializeVault(collectionMint: PublicKey): Promise<string> {
     try {
+      console.log('=== INITIALIZING VAULT ===');
+      console.log('Collection mint:', collectionMint.toString());
+      console.log('Program ID:', PROGRAM_ID.toString());
+      console.log('Wallet:', this.provider.wallet.publicKey.toString());
+      
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
       const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
-      // Removed fractionalMintAuthorityPDA as it's not in the IDL
+      
+      console.log('Derived PDAs:');
+      console.log('- Vault State PDA:', vaultStatePDA.toString());
+      console.log('- Fractional Mint PDA:', fractionalMintPDA.toString());
+      
+      // Check wallet balance
+      const balance = await this.provider.connection.getBalance(this.provider.wallet.publicKey);
+      console.log('Wallet balance:', balance / 1e9, 'SOL');
+      
+      if (balance < 0.05 * 1e9) {
+        throw new Error('Insufficient SOL balance. Need at least 0.05 SOL for rent exemption.');
+      }
 
       const tx = await this.program.methods
         .initializeVault()
@@ -90,6 +107,7 @@ export class AnchorClient {
         })
         .rpc();
 
+      console.log('Vault initialization successful! TX:', tx);
       return tx;
     } catch (error) {
       console.error("Vault initialization failed:", error);
@@ -113,7 +131,6 @@ export class AnchorClient {
         fractionalMint: vaultState.fractionalMint,
         totalDeposits: vaultState.totalDeposits.toNumber(),
         totalFractionsMinted: vaultState.totalFractionsMinted.toNumber(),
-        totalFeesCollected: vaultState.totalFeesCollected ? vaultState.totalFeesCollected.toNumber() : 0,
         isActive: vaultState.isActive,
       };
       
@@ -368,51 +385,6 @@ export class AnchorClient {
     }
   }
 
-  // Redeem random NFT
-  async redeemRandomNFT(collectionMint: PublicKey, nftMint: PublicKey): Promise<string> {
-    try {
-      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
-      const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
-
-      // Get user's fractional token account
-      const userFractionalAccount = await getAssociatedTokenAddress(
-        fractionalMintPDA,
-        this.provider.wallet.publicKey,
-        false,
-        TOKEN_PROGRAM_ID
-      );
-
-      // Get vault's fractional token account
-      const vaultFractionalAccount = await getAssociatedTokenAddress(
-        fractionalMintPDA,
-        vaultStatePDA,
-        true, // allowOwnerOffCurve must be true for PDAs
-        TOKEN_PROGRAM_ID
-      );
-
-      // Note: The smart contract's random redemption is incomplete - it doesn't transfer any NFT
-      // It only burns tokens and updates the vault state
-      const tx = await this.program.methods
-        .redeemNft()
-        .accounts({
-          user: this.provider.wallet.publicKey,
-          vaultState: vaultStatePDA,
-          userFractionalAccount: userFractionalAccount,
-          vaultFractionalAccount: vaultFractionalAccount,
-          fractionalMint: fractionalMintPDA,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          systemProgram: anchor.web3.SystemProgram.programId,
-        })
-        .rpc();
-
-      return tx;
-    } catch (error) {
-      console.error("Random redeem failed:", error);
-      throw error;
-    }
-  }
-
   // Redeem specific NFT
   async redeemSpecificNFT(collectionMint: PublicKey, nftMint: PublicKey): Promise<string> {
     try {
@@ -630,8 +602,7 @@ export class AnchorClient {
           creator: vault.account.creator,
           fractionalMint: vault.account.fractionalMint,
           totalDeposits: vault.account.totalDeposits.toNumber(),
-          totalFractionsMinted: vault.account.totalFractionsMinted.toNumber(),
-          totalFeesCollected: vault.account.totalFeesCollected ? vault.account.totalFeesCollected.toNumber() : 0,
+          totalFractionsMinted: vault.account.totalFractionsMinted ? vault.account.totalFractionsMinted.toNumber() : 0,
           isActive: vault.account.isActive,
         }
       }));

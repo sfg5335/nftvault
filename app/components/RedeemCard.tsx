@@ -1,156 +1,126 @@
 'use client'
 
 import { useState } from 'react'
-import { VaultState } from '../lib/anchor'
-import { Gift, Shuffle, Target, AlertCircle } from 'lucide-react'
+import { Target, AlertCircle } from 'lucide-react'
 
 interface RedeemCardProps {
-  vaultState: VaultState
-  onRedeemRandom: (nftMint: string, amount: number) => Promise<void>
-  onRedeemSpecific: (nftMint: string, amount: number) => Promise<void>
-  loading?: boolean
+  vaultState: any
+  onRedeemSpecific: (nftMint: string) => Promise<void>
+  loading: boolean
 }
 
-export function RedeemCard({ vaultState, onRedeemRandom, onRedeemSpecific, loading }: RedeemCardProps) {
-  const [amount, setAmount] = useState('1000000') // 1M tokens
-  const [redeemType, setRedeemType] = useState<'random' | 'specific'>('random')
+export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCardProps) {
+  const [amount, setAmount] = useState('')
+  const [selectedNft, setSelectedNft] = useState('')
 
   const handleRedeem = async () => {
-    const redeemAmount = parseInt(amount)
-    if (redeemType === 'random') {
-      // TODO: Replace with actual logic to select a random NFT mint from the pool
-      const placeholderNftMint = vaultState.collectionMint.toBase58(); // Use collection mint as placeholder
-      await onRedeemRandom(placeholderNftMint, redeemAmount)
-    } else {
-      // TODO: Implement specific NFT selection logic
-      await onRedeemSpecific('', redeemAmount)
+    // For specific redemption, user must select an NFT
+    if (!selectedNft) {
+      alert('Please select an NFT to redeem')
+      return
     }
+    await onRedeemSpecific(selectedNft)
   }
 
-  const totalCost = parseInt(amount) // No token fees
+  const redeemAmount = parseInt(amount) || 0
+  const totalCost = redeemAmount // No token fees
+  const solFee = 0.025 // Flat 0.025 SOL fee
 
   return (
-    <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-      <div className="flex items-center space-x-3 mb-6">
-        <Gift className="w-6 h-6 text-purple-400" />
-        <h2 className="text-xl font-semibold text-white">Redeem NFT</h2>
-      </div>
-
+    <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
+      <h3 className="text-xl font-bold text-white mb-4">Redeem NFT</h3>
+      
       <div className="space-y-4">
-        {/* Redemption Type Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-3">
-            Redemption Type
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setRedeemType('random')}
-              className={`p-3 rounded-lg border transition-colors ${
-                redeemType === 'random'
-                  ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
-                  : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Shuffle className="w-4 h-4" />
-                <span className="text-sm font-medium">Random</span>
-              </div>
-              <span className="text-xs text-gray-400 block mt-1">0.025 SOL fee</span>
-            </button>
-            
-            <button
-              onClick={() => setRedeemType('specific')}
-              className={`p-3 rounded-lg border transition-colors ${
-                redeemType === 'specific'
-                  ? 'bg-purple-500/20 border-purple-500/40 text-purple-400'
-                  : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Target className="w-4 h-4" />
-                <span className="text-sm font-medium">Specific</span>
-              </div>
-              <span className="text-xs text-gray-400 block mt-1">0.025 SOL fee</span>
-            </button>
+        {/* Redemption Type - Only Specific */}
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <Target className="w-5 h-5 text-blue-400" />
+            <div>
+              <span className="text-sm font-medium">Specific NFT</span>
+              <p className="text-xs text-white/60 mt-1">Choose the exact NFT you want</p>
+            </div>
           </div>
+        </div>
+
+        {/* NFT Selection for Specific Redeem */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-white/70 mb-2">
+            Select NFT to Redeem
+          </label>
+          <select 
+            value={selectedNft}
+            onChange={(e) => setSelectedNft(e.target.value)}
+            className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+          >
+            <option value="">Choose an NFT from the pool...</option>
+            {/* NFT options would be populated here */}
+          </select>
         </div>
 
         {/* Token Amount */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Tokens to Burn
+          <label className="block text-sm font-medium text-white/70 mb-2">
+            Number of NFTs
           </label>
           <input
             type="number"
-            min="1000000"
+            min="1"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            placeholder="1000000"
+            placeholder="1"
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500"
           />
-          <p className="text-xs text-gray-400 mt-1">
-            Minimum: 1,000,000 tokens (1M)
-          </p>
         </div>
 
-        {/* Fee Breakdown */}
-        <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-white mb-3 flex items-center">
-            <Target className="w-4 h-4 text-purple-400 mr-1" />
-            Fee Breakdown
-          </h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Tokens to Burn:</span>
-              <span className="text-white">{(parseInt(amount) / 1000000).toFixed(1)}M</span>
+        {/* Cost Breakdown */}
+        {redeemAmount > 0 && (
+          <div className="bg-white/5 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-white/70">Token Cost</span>
+              <span className="text-white">{totalCost.toLocaleString()} tokens</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Redeem Fee:</span>
-              <span className="text-red-400">0.025 SOL</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/70">SOL Fee</span>
+              <span className="text-white">{solFee} SOL</span>
             </div>
-            <div className="border-t border-purple-500/20 pt-2">
-              <div className="flex justify-between font-semibold">
-                <span className="text-purple-400">Total Cost:</span>
-                <span className="text-purple-400">
-                  {totalCost / 1000000}M tokens + 0.025 SOL
-                </span>
+            <div className="border-t border-white/10 pt-2 flex justify-between font-semibold">
+              <span className="text-white">Total</span>
+              <div className="text-right">
+                <div className="text-white">{totalCost.toLocaleString()} tokens</div>
+                <div className="text-sm text-white/70">+ {solFee} SOL</div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Info Alert */}
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-          <div className="flex items-start space-x-2">
-            <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-blue-300">
-              <p className="font-semibold mb-1">Redemption Options:</p>
-              <ul className="space-y-1">
-                <li>• <span className="text-blue-400">Random:</span> Get any NFT from the pool (0.025 SOL fee)</li>
-                <li>• <span className="text-purple-400">Specific:</span> Choose a specific NFT (0.025 SOL fee)</li>
-                <li>• Burn exactly 1,000,000 tokens to redeem 1 NFT</li>
-                <li>• Pay 0.025 SOL fee for redemption</li>
-                <li>• NFTX-style fixed redemption cost</li>
+        {/* Info Box */}
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-white/80 space-y-1">
+              <p>Redemption Details:</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>• <span className="text-blue-400">Specific:</span> Choose the exact NFT from the pool (0.025 SOL fee)</li>
+                <li>• Each NFT requires 1,000,000 tokens to redeem</li>
+                <li>• SOL fees go to the protocol treasury</li>
               </ul>
             </div>
           </div>
         </div>
 
+        {/* Redeem Button */}
         <button
           onClick={handleRedeem}
-          disabled={loading || !amount || parseInt(amount) < 1000000 || vaultState.totalDeposits === 0}
-          className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+          disabled={loading || !selectedNft || redeemAmount <= 0}
+          className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
         >
           {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Redeeming...</span>
-            </>
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              <span>Processing...</span>
+            </div>
           ) : (
-            <>
-              <Gift className="w-4 h-4" />
-              <span>Redeem {redeemType === 'random' ? 'Random' : 'Specific'} NFT</span>
-            </>
+            <span>Redeem Specific NFT</span>
           )}
         </button>
       </div>

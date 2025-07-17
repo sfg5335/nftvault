@@ -14,12 +14,12 @@ interface Pool {
   tokenPrice: number
   volume24h: number
   change24h: number
-  isTrending: boolean
-  collectionMint?: string
+  isTrending?: boolean
+  collectionMint: string
   creator?: string
   fractionalMint?: string
+  totalDeposits?: number
   totalFractionsMinted?: number
-  totalFeesCollected?: number
   isActive?: boolean
 }
 
@@ -125,8 +125,8 @@ export function PoolCard({ pool }: PoolCardProps) {
             <p className="text-white font-semibold">{formatCurrency(pool.totalValue)}</p>
           </div>
           <div>
-            <p className="text-white/60 text-sm">NFTs</p>
-            <p className="text-white font-semibold">{pool.nftCount}</p>
+            <p className="text-white/60 text-sm">NFTs in Pool</p>
+            <p className="text-white font-semibold">{pool.nftCount || pool.totalDeposits || 0}</p>
           </div>
         </div>
 
@@ -134,12 +134,8 @@ export function PoolCard({ pool }: PoolCardProps) {
         {pool.totalFractionsMinted !== undefined && (
           <div className="grid grid-cols-2 gap-4 mb-4 pt-4 border-t border-white/10">
             <div>
-              <p className="text-white/60 text-sm">Tokens Minted</p>
-              <p className="text-white font-semibold">{formatTokenAmount(pool.totalFractionsMinted)}</p>
-            </div>
-            <div>
-              <p className="text-white/60 text-sm">Fees Collected</p>
-              <p className="text-white font-semibold">{formatTokenAmount(pool.totalFeesCollected || 0)}</p>
+              <p className="text-white/60 text-sm">Total Minted</p>
+              <p className="text-white font-semibold">{formatTokenAmount(pool.totalFractionsMinted || 0)}</p>
             </div>
           </div>
         )}

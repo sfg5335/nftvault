@@ -5,9 +5,10 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { Connection, PublicKey } from '@solana/web3.js'
 import { getAccount } from '@solana/spl-token'
 import { useAnchor } from '../hooks/useAnchor'
-import { metadataCache } from '../lib/metadataCache'
 import { NFTImage, ImageSkeleton } from './OptimizedImage'
 import { Shuffle, Target, Gift, AlertCircle, Loader2, Check } from 'lucide-react'
+import { LoadingStates } from './LoadingStates'
+import { fetchNFTMetadata } from '../lib/nftMetadata'
 
 interface PoolTradingProps {
   poolId: string
@@ -87,29 +88,35 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         account.account.data.parsed.info.mint
       )
 
-      // Use batch metadata fetching for better performance
-      const metadataMap = await metadataCache.getMultipleMetadata(
-        mintAddresses, 
-        connection
-      )
+      console.log(`Fetching metadata for ${mintAddresses.length} NFTs...`)
 
       const collectionNfts: NFT[] = []
       
-      for (const [mintAddress, metadata] of metadataMap) {
-        if (metadata) {
-          // Check if this NFT belongs to the current collection
-          const nftCollectionKey = metadata.collection?.key?.toString()
+      // Fetch metadata for each NFT directly
+      for (const mintAddress of mintAddresses) {
+        try {
+          const metadata = await fetchNFTMetadata(mintAddress, connection)
           
-          // For NFTs without collection metadata, check if the mint itself is the collection
-          if (nftCollectionKey === poolId || mintAddress === poolId) {
-            collectionNfts.push({
-              mint: mintAddress,
-              name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
-              image: metadata.image || '',
-              symbol: metadata.symbol || 'NFT',
-              metadata
-            })
+          if (metadata) {
+            // Check if this NFT belongs to the current collection
+            const nftCollectionKey = metadata.collection?.key
+            
+            console.log(`NFT ${mintAddress}: collection=${nftCollectionKey}, poolId=${poolId}`)
+            
+            // For NFTs without collection metadata, check if the mint itself is the collection
+            if (nftCollectionKey === poolId || mintAddress === poolId) {
+              collectionNfts.push({
+                mint: mintAddress,
+                name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
+                image: metadata.image || '',
+                symbol: metadata.symbol || 'NFT',
+                metadata
+              })
+              console.log(`Added NFT ${metadata.name} to collection`)
+            }
           }
+        } catch (err) {
+          console.error(`Error fetching metadata for ${mintAddress}:`, err)
         }
       }
 
@@ -251,7 +258,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     }
   }
 
-  const handleRedeem = async () => {
+  const handleRedeemSpecific = async () => {
     if (!client || !publicKey || !poolVaultState) {
       console.log('Cannot redeem: Wallet not connected or pool state not loaded')
       return
@@ -267,12 +274,6 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     const requiredTokens = 1000000 // 1 million tokens per NFT
     if (userTokenBalance < requiredTokens) {
       console.log(`Insufficient token balance. Need ${requiredTokens.toLocaleString()}, have ${userTokenBalance.toLocaleString()}`)
-      return
-    }
-
-    // For specific redemption, check if NFT is selected
-    if (redeemType === 'specific' && selectedVaultNFTs.length === 0) {
-      console.log('No NFTs selected for specific redemption')
       return
     }
 
@@ -295,7 +296,9 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         
         try {
           console.log(`Redeeming NFT ${i + 1}/${selectedVaultNFTs.length}: ${nftMint}`)
-          const txSignature = await redeemSpecificNFT(collectionMint, nftMint)
+          
+          const nftMintPubkey = new PublicKey(nftMint)
+          const txSignature = await redeemSpecificNFT(collectionMint, nftMintPubkey)
           
           // Check if it's a success indicator
           if (txSignature === 'success' || txSignature) {
@@ -642,7 +645,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
             </div>
             
             <button
-              onClick={handleRedeem}
+              onClick={handleRedeemSpecific}
               disabled={
                 redeeming || 
                               userTokenBalance < 1000000 ||

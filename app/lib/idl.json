@@ -162,57 +162,6 @@
       "args": []
     },
     {
-      "name": "redeemNft",
-      "accounts": [
-        {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "vaultFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "fractionalMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "associatedTokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "redeemSpecificNft",
       "accounts": [
         {
@@ -482,6 +431,6 @@
     }
   ],
   "metadata": {
-    "address": "E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM"
+    "address": "7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y"
   }
 }

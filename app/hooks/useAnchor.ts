@@ -109,36 +109,15 @@ export function useAnchor() {
     }
   }
 
-  const redeemRandomNFT = async (collectionMint: PublicKey, nftMint: string): Promise<string> => {
-    if (!client) throw new Error('Client not initialized')
-    
+  const redeemSpecificNFT = async (collectionMint: PublicKey, nftMint: PublicKey): Promise<string> => {
     setLoading(true)
     setError(null)
     
     try {
-      const tx = await client.redeemRandomNFT(collectionMint, new PublicKey(nftMint))
-      console.log('Random NFT redeemed:', tx)
-      await fetchVaultState(collectionMint)
-      return tx
-    } catch (err) {
-      console.error('Error redeeming random NFT:', err)
-      setError('Failed to redeem random NFT')
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const redeemSpecificNFT = async (collectionMint: PublicKey, nftMint: string): Promise<string> => {
-    if (!client) throw new Error('Client not initialized')
-    
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const tx = await client.redeemSpecificNFT(collectionMint, new PublicKey(nftMint))
+      if (!client) throw new Error('Anchor client not initialized')
+      
+      const tx = await client.redeemSpecificNFT(collectionMint, nftMint)
       console.log('Specific NFT redeemed:', tx)
-      await fetchVaultState(collectionMint)
       return tx
     } catch (err) {
       console.error('Error redeeming specific NFT:', err)
@@ -150,16 +129,13 @@ export function useAnchor() {
   }
 
   return {
-    client,
-    vaultState,
     loading,
     error,
     setError,
+    client,
     initializeCollectionVault,
     depositNFT,
-    // UI must provide an NFT mint for random and specific redemption
-    redeemRandomNFT, // (collectionMint: PublicKey, nftMint: string, amount: number)
-    redeemSpecificNFT, // (collectionMint: PublicKey, nftMint: string, amount: number)
-    fetchVaultState,
+    // UI must provide an NFT mint for specific redemption
+    redeemSpecificNFT, // (collectionMint: PublicKey, nftMint: PublicKey)
   }
 } 

@@ -30,7 +30,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM");
+declare_id!("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
 
 /// Constants for the fractional vault program
 pub mod constants {
@@ -210,48 +210,6 @@ pub struct MintFractionalExisting<'info> {
     #[account(mut)]
     pub protocol_treasury: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
-}
-
-/// Redeem a random NFT from the vault
-#[derive(Accounts)]
-pub struct RedeemNft<'info> {
-    #[account(mut)]
-    pub user: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"vault", vault_state.collection_mint.as_ref()],
-        bump
-    )]
-    pub vault_state: Account<'info, VaultState>,
-    
-    #[account(
-        mut,
-        associated_token::mint = vault_state.fractional_mint,
-        associated_token::authority = user
-    )]
-    pub user_fractional_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        mut,
-        associated_token::mint = vault_state.fractional_mint,
-        associated_token::authority = vault_state
-    )]
-    pub vault_fractional_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        mut,
-        seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump
-    )]
-    pub fractional_mint: Account<'info, Mint>,
-    
-    /// CHECK: Protocol treasury account for SOL fee
-    #[account(mut)]
-    pub protocol_treasury: UncheckedAccount<'info>,
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub system_program: Program<'info, System>,
 }
 
 /// Redeem a specific NFT from the vault
@@ -462,42 +420,6 @@ impl<'info> MintFractionalExisting<'info> {
     }
 }
 
-impl<'info> RedeemNft<'info> {
-    pub fn redeem_nft(ctx: Context<RedeemNft>) -> Result<()> {
-        let base_tokens_required = constants::TOKENS_PER_NFT;
-        require!(ctx.accounts.user_fractional_account.amount >= base_tokens_required, VaultError::InsufficientTokens);
-        let burn_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::Burn {
-                mint: ctx.accounts.fractional_mint.to_account_info(),
-                from: ctx.accounts.user_fractional_account.to_account_info(),
-                authority: ctx.accounts.user.to_account_info(),
-            },
-        );
-        anchor_spl::token::burn(burn_ctx, base_tokens_required)?;
-        // Flat SOL fee: 0.025 SOL
-        let fee_lamports = 25_000_000u64;
-        let ix = anchor_lang::solana_program::system_instruction::transfer(
-            &ctx.accounts.user.key(),
-            &ctx.accounts.protocol_treasury.key(),
-            fee_lamports,
-        );
-        anchor_lang::solana_program::program::invoke(
-            &ix,
-            &[
-                ctx.accounts.user.to_account_info(),
-                ctx.accounts.protocol_treasury.to_account_info(),
-            ],
-        )?;
-        let vault_state = &mut ctx.accounts.vault_state;
-        require!(vault_state.is_active, VaultError::VaultInactive);
-        require!(vault_state.total_deposits > 0, VaultError::NoNftsAvailable);
-        vault_state.total_deposits -= 1;
-        vault_state.total_fractions_minted -= base_tokens_required;
-        Ok(())
-    }
-}
-
 impl<'info> RedeemSpecificNft<'info> {
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
         let collection_key = ctx.accounts.vault_state.collection_mint;
@@ -651,10 +573,6 @@ pub mod fractional_vault {
 
     pub fn mint_fractional_existing(ctx: Context<MintFractionalExisting>) -> Result<()> {
         MintFractionalExisting::mint_fractional_existing(ctx)
-    }
-
-    pub fn redeem_nft(ctx: Context<RedeemNft>) -> Result<()> {
-        RedeemNft::redeem_nft(ctx)
     }
 
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {

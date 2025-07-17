@@ -8,8 +8,8 @@ async function main() {
   // Connect to devnet
   const connection = new Connection("https://api.devnet.solana.com", "confirmed");
   
-  // Your new program ID on devnet
-  const programId = new PublicKey("E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM");
+  // Replace with your actual program ID
+  const programId = new PublicKey("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
   console.log("Program ID:", programId.toString());
   
   // Get program info

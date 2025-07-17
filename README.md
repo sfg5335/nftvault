@@ -1,6 +1,6 @@
 # smol.markets - NFT Fractionalization Platform
 
-A Solana-based NFT fractionalization platform built with Anchor where users can deposit NFTs into a vault and receive fractional tokens representing ownership. Users can then redeem these tokens for random or specific NFTs with configurable fees.
+A Solana-based NFT fractionalization platform built with Anchor where users can deposit NFTs into a vault and receive fractional tokens representing ownership. Users can then redeem these tokens for specific NFTs from the vault.
 
 ## 🎯 Overview
 
@@ -8,8 +8,8 @@ This project implements a fractional NFT marketplace system similar to NFTX, whe
 
 1. **Deposit NFTs**: Users deposit their NFTs into a collection-specific vault
 2. **Receive Fractional Tokens**: Get tokens representing fractional ownership (1,000,000 tokens per NFT)
-3. **Redeem NFTs**: Use tokens to redeem NFTs
-4. **Fee System**: Flat fee system
+3. **Redeem NFTs**: Use tokens to redeem specific NFTs from the vault
+4. **Fee System**: Flat SOL fee system
 
 ## 🏗️ Architecture
 
@@ -83,16 +83,12 @@ wallet = "~/.config/solana/id.json"
 #### `VaultState`
 ```rust
 pub struct VaultState {
-    pub collection_mint: Pubkey,           // Collection NFT mint
-    pub creator: Pubkey,                   // Vault creator
-    pub fractional_mint: Pubkey,           // Fractional token mint
-    pub total_deposits: u64,               // Total NFTs in vault
-    pub total_fractions_minted: u64,       // Total tokens minted
-    pub deposit_fee_rate: u16,             // Deposit fee rate (basis points)
-    pub random_redeem_fee_rate: u16,       // Random redeem fee rate (basis points)
-    pub specific_redeem_fee_rate: u16,     // Specific redeem fee rate (basis points)
-    pub total_fees_collected: u64,         // Total fees collected
-    pub is_active: bool,                   // Vault status
+    pub collection_mint: Pubkey,         // Collection the vault is for
+    pub creator: Pubkey,                 // Vault creator
+    pub fractional_mint: Pubkey,         // Fractional token mint
+    pub total_deposits: u64,             // Total NFTs deposited
+    pub total_fractions_minted: u64,     // Total fractional tokens minted
+    pub is_active: bool,                 // Vault active status
 }
 ```
 
@@ -152,72 +148,12 @@ npm run test-vault     # Test vault functionality
 - **Token Decimals**: 6 decimal places
 
 ### Fee Structure
-- **Deposit Fee**: 0.015 Sol
-- **Specific Redeem Fee**: 0.025 Sol
+- **Deposit Fee**: 0.015 SOL (flat fee)
+- **Specific Redeem Fee**: 0.025 SOL (flat fee)
 
+All fees are paid in SOL to the protocol treasury: `2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt`
 
 ## 🚨 Error Handling
 
 ### Custom Errors
-```rust
-pub enum VaultError {
-    VaultInactive,        // Vault is not active
-    NoNftsInVault,        // No NFTs available for redemption
-    Unauthorized,         // Unauthorized access
-    WrongCollection,      // NFT doesn't belong to collection
-    InvalidTokenAmount,   // Invalid token amount for redemption
-}
 ```
-
-## 📁 Project Structure
-
-```
-smol-markets/
-├── programs/
-│   └── fractional_vault/     # Main program
-│       ├── Cargo.toml
-│       └── src/
-│           └── lib.rs        # Program logic
-├── tests/
-│   ├── misc/                 # Test files
-│   └── misc.ts              # Test utilities
-├── scripts/                  # Utility scripts
-├── app/                      # Frontend application
-├── Anchor.toml              # Anchor configuration
-├── Cargo.toml               # Workspace configuration
-└── package.json             # Node.js dependencies
-```
-
-## 🔮 Future Enhancements
-
-- [ ] Governance mechanisms for fee rate updates
-- [ ] Multiple vault support per collection
-- [ ] Liquidity pool integration
-- [ ] Advanced NFT selection algorithms
-- [ ] Analytics and monitoring
-- [ ] Frontend application improvements
-
-## 📝 License
-
-This project is licensed under the MIT License.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite (`npm test`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
-
-## 📞 Support
-
-For questions, issues, or support, please open an issue on GitHub.
-
-## 🔗 Related Links
-
-- [Anchor Framework](https://www.anchor-lang.com/)
-- [Solana Documentation](https://docs.solana.com/)
-- [Metaplex Documentation](https://docs.metaplex.com/) 

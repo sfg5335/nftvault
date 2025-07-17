@@ -162,57 +162,6 @@ export const IDL = {
       "args": []
     },
     {
-      "name": "redeemNft",
-      "accounts": [
-        {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "vaultFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "fractionalMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "associatedTokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "redeemSpecificNft",
       "accounts": [
         {
@@ -272,6 +221,42 @@ export const IDL = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "mintFractionalMultiple",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "fractionalMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "numNfts",
+          "type": "u8"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -433,9 +418,19 @@ export const IDL = {
       "code": 6008,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidTokenAmount",
+      "msg": "Invalid token amount"
+    },
+    {
+      "code": 6010,
+      "name": "NotImplemented",
+      "msg": "Not implemented due to Anchor framework limitations"
     }
   ],
   "metadata": {
-    "address": "E3ie5YRxFazfov1vnUSAnrEZHbZvQN6DuC45WssANxvM"
+    "address": "7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y"
   }
-}
+};

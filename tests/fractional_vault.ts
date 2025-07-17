@@ -119,13 +119,16 @@ describe("fractional_vault", () => {
 
     // Verify vault state
     const vaultAccount = await program.account.vaultState.fetch(vaultState);
-    assert.equal(vaultAccount.collectionMint.toString(), collectionMint.publicKey.toString());
-    assert.equal(vaultAccount.creator.toString(), creator.publicKey.toString());
-    assert.equal(vaultAccount.fractionalMint.toString(), fractionalMint.toString());
-    assert.equal(vaultAccount.totalDeposits.toNumber(), 0);
-    assert.equal(vaultAccount.isActive, true);
+    assert.ok(vaultAccount.collectionMint.equals(collectionMint.publicKey));
+    assert.ok(vaultAccount.creator.equals(creator.publicKey));
+    assert.ok(vaultAccount.fractionalMint.equals(fractionalMint));
+    assert.strictEqual(vaultAccount.totalDeposits.toNumber(), 0);
+    assert.strictEqual(vaultAccount.totalFractionsMinted.toNumber(), 0);
+    assert.strictEqual(vaultAccount.isActive, true);
     
     console.log("Vault initialized successfully!");
+    console.log("Vault PDA:", vaultState.toBase58());
+    console.log("Fractional Mint:", fractionalMint.toBase58());
   });
 
   it("Query token accounts using Helius API", async () => {
@@ -181,9 +184,7 @@ describe("fractional_vault", () => {
       creator: vaultAccount.creator.toString(),
       fractionalMint: vaultAccount.fractionalMint.toString(),
       totalDeposits: vaultAccount.totalDeposits.toString(),
-      depositFeeRate: vaultAccount.depositFeeRate,
-      randomRedeemFeeRate: vaultAccount.randomRedeemFeeRate,
-      specificRedeemFeeRate: vaultAccount.specificRedeemFeeRate,
+      totalFractionsMinted: vaultAccount.totalFractionsMinted.toString(),
       isActive: vaultAccount.isActive,
     });
   });

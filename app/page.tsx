@@ -21,16 +21,6 @@ function HomeContent() {
   if (!connected) {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
-        {/* Mascot Image - Absolutely positioned */}
-        <div className="hidden md:block absolute left-[250px] top-1/2 -translate-y-1/2">
-          <img 
-            src="/mascot.png?v=1.4.3" 
-            alt="smol.markets mascot" 
-            style={{ width: '192px', height: '192px' }}
-            className="rounded-full object-cover"
-          />
-        </div>
-        
         {/* Connection Card - Truly centered */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center max-w-md">
           <h1 className="text-4xl font-bold text-white mb-4">smol.markets</h1>

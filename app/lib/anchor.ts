@@ -6,7 +6,7 @@ import { Metaplex } from '@metaplex-foundation/js';
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
+const PROGRAM_ID = new PublicKey("C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -317,6 +317,8 @@ export class AnchorClient {
           userNftAccount: userNftAccount,
           vaultNftAccount: vaultNftAccount,
           protocolTreasury: protocolTreasuryAddress,
+          nftMint: nftMint,
+          collectionMint: new PublicKey(vaultId), // vaultId is the collection mint
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })

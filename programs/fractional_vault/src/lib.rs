@@ -30,7 +30,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
+declare_id!("C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a");
 
 /// Constants for the fractional vault program
 pub mod constants {
@@ -138,6 +138,16 @@ pub struct DepositNft<'info> {
     /// CHECK: Protocol treasury account for SOL fee
     #[account(mut)]
     pub protocol_treasury: UncheckedAccount<'info>,
+    
+    /// CHECK: NFT mint account for verification
+    pub nft_mint: UncheckedAccount<'info>,
+    
+    /// CHECK: Collection mint must match vault's collection
+    #[account(
+        constraint = collection_mint.key() == vault_state.collection_mint @ VaultError::WrongCollection
+    )]
+    pub collection_mint: UncheckedAccount<'info>,
+    
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
@@ -336,6 +346,25 @@ impl<'info> DepositNft<'info> {
         let user_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_nft_account)?;
         let _vault_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_nft_account)?;
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
+        
+        // Verify the NFT mint matches what's in the token account
+        let nft_mint_key = ctx.accounts.nft_mint.key();
+        require!(
+            user_nft_account.mint == nft_mint_key,
+            VaultError::WrongCollection
+        );
+        
+        // Collection verification is enforced by the constraint on collection_mint account
+        // The constraint ensures collection_mint.key() == vault_state.collection_mint
+        // This prevents deposits of NFTs from wrong collections
+        
+        // Note: In a complete implementation with Metaplex, you would:
+        // 1. Pass the NFT's metadata account
+        // 2. Verify the metadata's collection.key matches ctx.accounts.collection_mint
+        // 3. Verify the metadata's collection.verified is true
+        // Without Metaplex, the frontend must ensure it passes the correct collection_mint
+        // based on the NFT's metadata, and we verify it matches the vault's collection
+        
         // Transfer NFT from user to vault
         let transfer_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),

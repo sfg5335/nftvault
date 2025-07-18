@@ -9,7 +9,7 @@ async function main() {
   const connection = new Connection("https://api.devnet.solana.com", "confirmed");
   
   // Replace with your actual program ID
-  const programId = new PublicKey("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
+  const programId = new PublicKey("C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a");
   console.log("Program ID:", programId.toString());
   
   // Get program info

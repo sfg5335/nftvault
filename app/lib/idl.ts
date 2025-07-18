@@ -72,6 +72,16 @@ export const IDL = {
           "isSigner": false
         },
         {
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "collectionMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -431,6 +441,6 @@ export const IDL = {
     }
   ],
   "metadata": {
-    "address": "7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y"
+    "address": "C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a"
   }
 };

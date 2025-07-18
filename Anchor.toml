@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-fractional_vault = "7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y"
+fractional_vault = "C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a"
 
 [registry]
 url = "https://api.apr.dev"

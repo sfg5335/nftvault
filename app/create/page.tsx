@@ -355,7 +355,7 @@ function CreatePoolPageContent() {
             2: 'The wallet might not have enough SOL for rent exemption',
             3: 'The program might not be properly deployed',
             walletBalance: 'Check if your wallet has at least 0.1 SOL',
-            programId: '7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y'
+            programId: 'C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a'
           })
         } else if (message.includes('already exists')) {
           errorMessage = 'A vault for this collection already exists. Redirecting to pool page...'

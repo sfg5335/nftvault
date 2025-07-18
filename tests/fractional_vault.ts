@@ -165,7 +165,11 @@ describe("fractional_vault", () => {
           vaultState: vaultState,
           userNftAccount: userNftAccount,
           vaultNftAccount: vaultNftAccount,
+          protocolTreasury: creator.publicKey, // Using creator as treasury for test
+          nftMint: nftMint.publicKey,
+          collectionMint: collectionMint.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
         },
         signers: [user],
       });

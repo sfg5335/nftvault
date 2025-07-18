@@ -22,7 +22,7 @@ function HomeContent() {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
         {/* Mascot Image - Absolutely positioned */}
-        <div className="hidden md:block absolute left-[250px] top-1/2 -translate-y-1/2">
+        <div className="absolute left-[250px] top-1/2 -translate-y-1/2">
           <img 
             src="/images/mascot.png?v=1.4.3" 
             alt="smol.markets mascot" 
@@ -60,7 +60,7 @@ function HomeContent() {
       <StatsBar />
       
       {/* Mascot Image - Absolutely positioned */}
-      <div className="hidden lg:block fixed left-8 top-1/2 -translate-y-1/2 z-10">
+      <div className="fixed left-8 top-1/2 -translate-y-1/2 z-10">
         <img 
           src="/images/mascot.png?v=1.4.3" 
           alt="smol.markets mascot" 

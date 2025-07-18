@@ -8,6 +8,7 @@ import { CreatePoolCard } from './components/CreatePoolCard'
 import { Header } from './components/Header'
 import { StatsBar } from './components/StatsBar'
 import { useEffect } from 'react'
+import Image from 'next/image'
 
 export default function Home() {
   return <HomeContent />
@@ -20,7 +21,21 @@ function HomeContent() {
 
   if (!connected) {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
+      <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
+        {/* Mascot Image - Absolutely positioned */}
+        <div className="hidden md:block absolute left-[250px] top-1/2 -translate-y-1/2">
+          <div className="relative w-48 h-48">
+            <Image 
+              src="/mascot.png" 
+              alt="smol.markets mascot" 
+              width={192}
+              height={192}
+              className="rounded-full"
+            />
+          </div>
+        </div>
+        
+        {/* Connection Card - Truly centered */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center max-w-md">
           <h1 className="text-4xl font-bold text-white mb-4">smol.markets</h1>
           <p className="text-white/80 mb-8 text-lg">
@@ -41,12 +56,25 @@ function HomeContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative">
       {/* Header */}
       <Header />
       
       {/* Stats Bar */}
       <StatsBar />
+      
+      {/* Mascot Image - Absolutely positioned */}
+      <div className="hidden lg:block fixed left-8 top-1/2 -translate-y-1/2 z-10">
+        <div className="relative w-96 h-96">
+          <Image 
+            src="/mascot.png" 
+            alt="smol.markets mascot" 
+            width={384}
+            height={384}
+            className="rounded-full opacity-90"
+          />
+        </div>
+      </div>
       
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

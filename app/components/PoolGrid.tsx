@@ -73,7 +73,7 @@ function PoolCard({ pool }: { pool: Pool }) {
               <p className="text-white/60 text-sm">{pool.symbol}</p>
               {pool.collectionMint && (
                 <p className="text-white/40 text-xs font-mono mt-1 truncate" title={pool.collectionMint}>
-                  {pool.collectionMint}
+                  {pool.collectionMint.slice(0, 5)}..
                 </p>
               )}
             </div>

@@ -30,7 +30,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a");
+declare_id!("FwGJrJtXBG2ZswbvvE2Ubg1xJ3yZgjHTyNAYexQgR3jE");
 
 /// Constants for the fractional vault program
 pub mod constants {
@@ -126,14 +126,20 @@ pub struct DepositNft<'info> {
     pub vault_state: Account<'info, VaultState>,
 
     // User's NFT token account (must hold the NFT)
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub user_nft_account: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        constraint = user_nft_account.owner == user.key(),
+        constraint = user_nft_account.mint == nft_mint.key(),
+    )]
+    pub user_nft_account: Account<'info, TokenAccount>,
 
-    // Vault's NFT token account (authority = vault_state PDA)
-    /// CHECK: Validated in handler
-    #[account(mut)]
-    pub vault_nft_account: UncheckedAccount<'info>,
+    // Vault's NFT token account – must be the ATA owned by the vault PDA for the same mint
+    #[account(
+        mut,
+        constraint = vault_nft_account.owner == vault_state.key() @ VaultError::WrongCollection,
+        constraint = vault_nft_account.mint == nft_mint.key() @ VaultError::WrongCollection,
+    )]
+    pub vault_nft_account: Account<'info, TokenAccount>,
 
     /// CHECK: Protocol treasury account for SOL fee
     #[account(mut)]
@@ -169,7 +175,8 @@ pub struct MintFractional<'info> {
     #[account(
         mut,
         seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump
+        bump,
+        constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
 
@@ -204,7 +211,8 @@ pub struct MintFractionalExisting<'info> {
     #[account(
         mut,
         seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump
+        bump,
+        constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
 
@@ -266,7 +274,8 @@ pub struct RedeemSpecificNft<'info> {
     #[account(
         mut,
         seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump
+        bump,
+        constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
     
@@ -313,7 +322,8 @@ pub struct MintFractionalMultiple<'info> {
     #[account(
         mut,
         seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump
+        bump,
+        constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
 
@@ -343,8 +353,8 @@ impl<'info> InitializeVault<'info> {
 
 impl<'info> DepositNft<'info> {
     pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
-        let user_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_nft_account)?;
-        let _vault_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_nft_account)?;
+        let user_nft_account = &ctx.accounts.user_nft_account;
+        // amount check after Anchor's automatic validation
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
         
         // Verify the NFT mint matches what's in the token account
@@ -365,6 +375,10 @@ impl<'info> DepositNft<'info> {
         // Without Metaplex, the frontend must ensure it passes the correct collection_mint
         // based on the NFT's metadata, and we verify it matches the vault's collection
         
+        // Update vault state BEFORE external calls for atomicity
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_deposits += 1;
+
         // Transfer NFT from user to vault
         let transfer_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -375,6 +389,7 @@ impl<'info> DepositNft<'info> {
             },
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
+        
         // Flat SOL fee: 0.015 SOL
         let fee_lamports = 15_000_000u64;
         let ix = anchor_lang::solana_program::system_instruction::transfer(
@@ -389,8 +404,6 @@ impl<'info> DepositNft<'info> {
                 ctx.accounts.protocol_treasury.to_account_info(),
             ],
         )?;
-        let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_deposits += 1;
         Ok(())
     }
 }
@@ -460,6 +473,12 @@ impl<'info> RedeemSpecificNft<'info> {
             VaultError::InsufficientTokens
         );
 
+        // Update vault state BEFORE external calls for atomicity
+        let vault_state = &mut ctx.accounts.vault_state;
+        require!(vault_state.is_active, VaultError::VaultInactive);
+        vault_state.total_deposits -= 1;
+        vault_state.total_fractions_minted -= base_tokens_required;
+
         // Burn tokens from user
         let burn_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -503,12 +522,6 @@ impl<'info> RedeemSpecificNft<'info> {
                 ctx.accounts.protocol_treasury.to_account_info(),
             ],
         )?;
-
-        // Update vault state
-        let vault_state = &mut ctx.accounts.vault_state;
-        require!(vault_state.is_active, VaultError::VaultInactive);
-        vault_state.total_deposits -= 1;
-        vault_state.total_fractions_minted -= base_tokens_required;
         
         Ok(())
     }

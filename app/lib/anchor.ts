@@ -6,7 +6,7 @@ import { Metaplex } from '@metaplex-foundation/js';
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("C9gS3LeLkmXSsokdNT3DJKLUGKwGonmPEr9333kiNo9a");
+const PROGRAM_ID = new PublicKey("FwGJrJtXBG2ZswbvvE2Ubg1xJ3yZgjHTyNAYexQgR3jE");
 
 // Network configuration
 export const NETWORK = "devnet";

@@ -67,6 +67,16 @@
           "isSigner": false
         },
         {
+          "name": "nftMetadata",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "protocolTreasury",
           "isMut": true,
           "isSigner": false
@@ -431,6 +441,6 @@
     }
   ],
   "metadata": {
-    "address": "7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y"
+    "address": "DKkV5YimB3gjBLhtLMGRzkv5PeR4FZ9PXjMLHwd9umdr"
   }
 }

@@ -1,12 +1,15 @@
+# ⚠️ CRITICAL: DO NOT CHANGE THESE VERSIONS
+# This project requires specific versions due to compatibility constraints
+# Changing versions may break the build or cause runtime errors
 [toolchain]
-anchor_version = "0.26.0"
+anchor_version = "0.26.0"  # DO NOT CHANGE - Required for compatibility
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-fractional_vault = "7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y"
+fractional_vault = "DKkV5YimB3gjBLhtLMGRzkv5PeR4FZ9PXjMLHwd9umdr"
 
 [registry]
 url = "https://api.apr.dev"

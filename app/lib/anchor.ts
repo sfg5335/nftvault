@@ -6,7 +6,7 @@ import { Metaplex } from '@metaplex-foundation/js';
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
+const PROGRAM_ID = new PublicKey("DKkV5YimB3gjBLhtLMGRzkv5PeR4FZ9PXjMLHwd9umdr");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -308,6 +308,17 @@ export class AnchorClient {
       const userFractionalAccountInfo = await this.provider.connection.getAccountInfo(userFractionalAccount);
       const userHasFractionalAccount = userFractionalAccountInfo !== null;
 
+      // Get NFT metadata account (for collection verification)
+      const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+      const [nftMetadataPDA] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from('metadata'),
+          METADATA_PROGRAM_ID.toBuffer(),
+          nftMint.toBuffer()
+        ],
+        METADATA_PROGRAM_ID
+      );
+
       // Add deposit NFT instruction
       const depositIx = await this.program.methods
         .depositNft()
@@ -316,6 +327,8 @@ export class AnchorClient {
           vaultState: vaultStatePDA,
           userNftAccount: userNftAccount,
           vaultNftAccount: vaultNftAccount,
+          nftMetadata: nftMetadataPDA,
+          nftMint: nftMint,
           protocolTreasury: protocolTreasuryAddress,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,

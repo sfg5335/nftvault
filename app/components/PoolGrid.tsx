@@ -22,7 +22,7 @@ interface Pool {
   collectionMint: string
   creator: string
   fractionalMint: string
-  totalFractionsMinted: number
+  totalFractionsMinted: string;
   isActive: boolean
 }
 
@@ -108,7 +108,7 @@ function PoolCard({ pool }: { pool: Pool }) {
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
             <div>
               <p className="text-white/60 text-sm">Tokens Minted</p>
-              <p className="text-white font-semibold">{formatTokenAmount(pool.totalFractionsMinted)}</p>
+              <p className="text-white font-semibold">{formatTokenAmount(Number(pool.totalFractionsMinted))}</p>
             </div>
           </div>
         )}
@@ -200,8 +200,8 @@ function PoolGrid() {
             symbol: metadata?.symbol || 'COLL',
             image: metadata?.imageUrl || '',
             floorPrice: 0,
-            totalValue: vault.data.totalFractionsMinted / 1000000, // Convert to tokens
-            nftCount: vault.data.totalDeposits,
+            totalValue: Number(vault.data.totalFractionsMinted) / 1000000, // Convert to tokens
+            nftCount: Number(vault.data.totalDeposits),
             tokenPrice: 0,
             volume24h: 0,
             change24h: 0,
@@ -209,9 +209,9 @@ function PoolGrid() {
             collectionMint: collectionMintStr,
             creator: vault.data.creator.toString(),
             fractionalMint: vault.data.fractionalMint.toString(),
-            totalFractionsMinted: vault.data.totalFractionsMinted,
-            isActive: vault.data.isActive
-          }
+            totalFractionsMinted: vault.data.totalFractionsMinted.toString(),
+            isActive: vault.data.isActive,
+          };
           
           fetchedPools.push(pool)
         }

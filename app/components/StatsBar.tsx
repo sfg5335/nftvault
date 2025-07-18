@@ -33,9 +33,9 @@ export function StatsBar() {
         if (vault.data.isActive) {
           activePools++
         }
-        totalNFTs += vault.data.totalDeposits
-        totalValue += vault.data.totalFractionsMinted / 1000000 // Convert to token units
-        totalTokens += vault.data.totalFractionsMinted
+        totalNFTs += Number(vault.data.totalDeposits)
+        totalValue += Number(vault.data.totalFractionsMinted) / 1000000 // Convert to token units
+        totalTokens += Number(vault.data.totalFractionsMinted)
       }
       
       setStats({

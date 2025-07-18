@@ -18,8 +18,8 @@ interface Pool {
   collectionMint: string
   creator?: string
   fractionalMint?: string
-  totalDeposits?: number
-  totalFractionsMinted?: number
+  totalDeposits?: string
+  totalFractionsMinted?: string
   isActive?: boolean
 }
 
@@ -126,7 +126,7 @@ export function PoolCard({ pool }: PoolCardProps) {
           </div>
           <div>
             <p className="text-white/60 text-sm">NFTs in Pool</p>
-            <p className="text-white font-semibold">{pool.nftCount || pool.totalDeposits || 0}</p>
+            <p className="text-white font-semibold">{pool.nftCount || Number(pool.totalDeposits) || 0}</p>
           </div>
         </div>
 
@@ -135,7 +135,7 @@ export function PoolCard({ pool }: PoolCardProps) {
           <div className="grid grid-cols-2 gap-4 mb-4 pt-4 border-t border-white/10">
             <div>
               <p className="text-white/60 text-sm">Total Minted</p>
-              <p className="text-white font-semibold">{formatTokenAmount(pool.totalFractionsMinted || 0)}</p>
+              <p className="text-white font-semibold">{formatTokenAmount(Number(pool.totalFractionsMinted) || 0)}</p>
             </div>
           </div>
         )}

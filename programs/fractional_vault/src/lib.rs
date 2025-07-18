@@ -76,6 +76,7 @@ pub struct VaultState {
     pub fractional_mint: Pubkey,
     pub total_deposits: u64,
     pub total_fractions_minted: u64,
+    pub pending_mints: u64,
     pub is_active: bool,
 }
 
@@ -91,7 +92,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 32 + 8 + 8 + 1,
+        space = 8 + 32 + 32 + 32 + 8 + 8 + 8 + 1,
         seeds = [b"vault", collection_mint.key().as_ref()],
         bump
     )]
@@ -325,6 +326,7 @@ impl<'info> InitializeVault<'info> {
         self.vault_state.fractional_mint = self.fractional_mint.key();
         self.vault_state.total_deposits = 0;
         self.vault_state.total_fractions_minted = 0;
+        self.vault_state.pending_mints = 0;
         self.vault_state.is_active = true;
         
         Ok(())
@@ -334,8 +336,24 @@ impl<'info> InitializeVault<'info> {
 impl<'info> DepositNft<'info> {
     pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
         let user_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.user_nft_account)?;
-        let _vault_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_nft_account)?;
+        let vault_nft_account = Account::<TokenAccount>::try_from(&ctx.accounts.vault_nft_account)?;
+        
+        require!(user_nft_account.mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
+        require!(user_nft_account.owner == ctx.accounts.user.key(), VaultError::WrongCollection);
+        require!(vault_nft_account.mint == ctx.accounts.vault_state.collection_mint, VaultError::WrongCollection);
+        require!(vault_nft_account.owner == ctx.accounts.vault_state.key(), VaultError::WrongCollection);
+
+        let treasury_pubkey = ctx.accounts.protocol_treasury.key();
+        let expected_treasury_pubkey: Pubkey = constants::PROTOCOL_TREASURY.parse().unwrap();
+        require!(treasury_pubkey == expected_treasury_pubkey, VaultError::WrongCollection);
+
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
+
+        // Update vault state first for atomicity
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_deposits = vault_state.total_deposits.checked_add(1).unwrap();
+        vault_state.pending_mints = vault_state.pending_mints.checked_add(1).unwrap();
+
         // Transfer NFT from user to vault
         let transfer_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -360,14 +378,17 @@ impl<'info> DepositNft<'info> {
                 ctx.accounts.protocol_treasury.to_account_info(),
             ],
         )?;
-        let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_deposits += 1;
+        
         Ok(())
     }
 }
 
 impl<'info> MintFractional<'info> {
     pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
+        let vault_state = &mut ctx.accounts.vault_state;
+        require!(vault_state.pending_mints >= 1, VaultError::InvalidTokenAmount);
+        vault_state.pending_mints = vault_state.pending_mints.checked_sub(1).unwrap();
+
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
         let tokens_to_mint = constants::TOKENS_PER_NFT;
@@ -388,13 +409,17 @@ impl<'info> MintFractional<'info> {
         );
         anchor_spl::token::mint_to(mint_ctx, tokens_to_mint)?;
         let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += tokens_to_mint;
+        vault_state.total_fractions_minted = vault_state.total_fractions_minted.checked_add(tokens_to_mint).unwrap();
         Ok(())
     }
 }
 
 impl<'info> MintFractionalExisting<'info> {
     pub fn mint_fractional_existing(ctx: Context<MintFractionalExisting>) -> Result<()> {
+        let vault_state = &mut ctx.accounts.vault_state;
+        require!(vault_state.pending_mints >= 1, VaultError::InvalidTokenAmount);
+        vault_state.pending_mints = vault_state.pending_mints.checked_sub(1).unwrap();
+
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
         let tokens_to_mint = constants::TOKENS_PER_NFT;
@@ -415,7 +440,7 @@ impl<'info> MintFractionalExisting<'info> {
         );
         anchor_spl::token::mint_to(mint_ctx, tokens_to_mint)?;
         let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += tokens_to_mint;
+        vault_state.total_fractions_minted = vault_state.total_fractions_minted.checked_add(tokens_to_mint).unwrap();
         Ok(())
     }
 }
@@ -430,6 +455,12 @@ impl<'info> RedeemSpecificNft<'info> {
             ctx.accounts.user_fractional_account.amount >= base_tokens_required,
             VaultError::InsufficientTokens
         );
+
+        // Update vault state first for atomicity
+        let vault_state = &mut ctx.accounts.vault_state;
+        require!(vault_state.is_active, VaultError::VaultInactive);
+        vault_state.total_deposits = vault_state.total_deposits.checked_sub(1).unwrap();
+        vault_state.total_fractions_minted = vault_state.total_fractions_minted.checked_sub(base_tokens_required).unwrap();
 
         // Burn tokens from user
         let burn_ctx = CpiContext::new(
@@ -460,6 +491,11 @@ impl<'info> RedeemSpecificNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
 
+        // Check protocol treasury
+        let treasury_pubkey = ctx.accounts.protocol_treasury.key();
+        let expected_treasury_pubkey: Pubkey = constants::PROTOCOL_TREASURY.parse().unwrap();
+        require!(treasury_pubkey == expected_treasury_pubkey, VaultError::WrongCollection);
+
         // Flat SOL fee: 0.025 SOL
         let fee_lamports = 25_000_000u64;
         let ix = anchor_lang::solana_program::system_instruction::transfer(
@@ -474,12 +510,6 @@ impl<'info> RedeemSpecificNft<'info> {
                 ctx.accounts.protocol_treasury.to_account_info(),
             ],
         )?;
-
-        // Update vault state
-        let vault_state = &mut ctx.accounts.vault_state;
-        require!(vault_state.is_active, VaultError::VaultInactive);
-        vault_state.total_deposits -= 1;
-        vault_state.total_fractions_minted -= base_tokens_required;
         
         Ok(())
     }
@@ -520,12 +550,16 @@ impl<'info> DepositMultipleNfts<'info> {
 
 impl<'info> MintFractionalMultiple<'info> {
     pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
+        let vault_state = &mut ctx.accounts.vault_state;
+        require!(vault_state.pending_mints >= num_nfts as u64, VaultError::InvalidTokenAmount);
+        vault_state.pending_mints = vault_state.pending_mints.checked_sub(num_nfts as u64).unwrap();
+
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let bump = ctx.bumps["vault_state"];
 
         // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
         let tokens_per_nft = constants::TOKENS_PER_NFT;
-        let total_tokens_to_mint = tokens_per_nft * num_nfts as u64;
+        let total_tokens_to_mint = tokens_per_nft.checked_mul(num_nfts as u64).unwrap();
 
         // Mint fractional tokens to user (no fees in tokens)
         let seeds = &[
@@ -547,7 +581,7 @@ impl<'info> MintFractionalMultiple<'info> {
 
         // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += total_tokens_to_mint;
+        vault_state.total_fractions_minted = vault_state.total_fractions_minted.checked_add(total_tokens_to_mint).unwrap();
         
         msg!("Minted {} fractional tokens for {} NFTs", total_tokens_to_mint, num_nfts);
         

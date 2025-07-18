@@ -6,7 +6,8 @@ import { Metaplex } from '@metaplex-foundation/js';
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("7ENXsZ7Fi6vpcD3u3CiZCycCAcHS4JAAZLoV4CVxuR5Y");
+const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID!);
+const PROTOCOL_TREASURY_ADDRESS = new PublicKey(process.env.NEXT_PUBLIC_PROTOCOL_TREASURY_ADDRESS!);
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -15,8 +16,8 @@ export interface VaultState {
   collectionMint: PublicKey;
   creator: PublicKey;
   fractionalMint: PublicKey;
-  totalDeposits: number;
-  totalFractionsMinted: number;
+  totalDeposits: string;
+  totalFractionsMinted: string;
   isActive: boolean;
 }
 
@@ -45,27 +46,6 @@ export class AnchorClient {
   getFractionalMintPDA(vaultState: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
       [Buffer.from("fractional_mint"), vaultState.toBuffer()],
-      PROGRAM_ID
-    );
-  }
-
-  getFractionalMintAuthorityPDA(): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [Buffer.from("fractional_mint_authority")],
-      PROGRAM_ID
-    );
-  }
-
-  getVaultAuthorityPDA(): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [Buffer.from("vault_authority")],
-      PROGRAM_ID
-    );
-  }
-
-  getProtocolTreasuryPDA(): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [Buffer.from("protocol_treasury")],
       PROGRAM_ID
     );
   }
@@ -129,8 +109,8 @@ export class AnchorClient {
         collectionMint: vaultState.collectionMint,
         creator: vaultState.creator,
         fractionalMint: vaultState.fractionalMint,
-        totalDeposits: vaultState.totalDeposits.toNumber(),
-        totalFractionsMinted: vaultState.totalFractionsMinted.toNumber(),
+        totalDeposits: vaultState.totalDeposits.toString(),
+        totalFractionsMinted: vaultState.totalFractionsMinted.toString(),
         isActive: vaultState.isActive,
       };
       
@@ -171,6 +151,13 @@ export class AnchorClient {
 
   async depositNFT(vaultId: string, nftMint: PublicKey): Promise<string> {
     try {
+      // Validate vaultId is a valid PublicKey
+      try {
+        new PublicKey(vaultId);
+      } catch (e) {
+        throw new Error("Invalid vault ID format. Must be a base58 public key.");
+      }
+
       console.log('Starting deposit NFT process...');
       console.log('Vault ID:', vaultId);
       console.log('NFT Mint:', nftMint.toString());
@@ -240,10 +227,9 @@ export class AnchorClient {
         TOKEN_PROGRAM_ID
       );
 
-      const protocolTreasuryAddress = new PublicKey("2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt");
       const protocolTreasuryAccount = await getAssociatedTokenAddress(
         fractionalMintPDA,
-        protocolTreasuryAddress,
+        PROTOCOL_TREASURY_ADDRESS,
         false,
         TOKEN_PROGRAM_ID
       );
@@ -296,7 +282,7 @@ export class AnchorClient {
         const createTreasuryAtaIx = createAssociatedTokenAccountInstruction(
           this.provider.wallet.publicKey, // payer
           protocolTreasuryAccount, // ata
-          protocolTreasuryAddress, // owner
+          PROTOCOL_TREASURY_ADDRESS, // owner
           fractionalMintPDA, // mint
           TOKEN_PROGRAM_ID,
           ASSOCIATED_TOKEN_PROGRAM_ID
@@ -316,7 +302,7 @@ export class AnchorClient {
           vaultState: vaultStatePDA,
           userNftAccount: userNftAccount,
           vaultNftAccount: vaultNftAccount,
-          protocolTreasury: protocolTreasuryAddress,
+          protocolTreasury: PROTOCOL_TREASURY_ADDRESS,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -364,23 +350,6 @@ export class AnchorClient {
       return txSignature;
     } catch (error) {
       console.error("NFT deposit failed:", error);
-      
-      // Check if this is actually a success that's being reported as an error
-      if (error instanceof Error) {
-        // If the transaction was already processed, it actually succeeded
-        if (error.message.includes('This transaction has already been processed') || 
-            error.message.includes('Transaction simulation failed: This transaction has already been processed')) {
-          console.log('Transaction was already processed - treating as success');
-          // Try to extract the signature from the error message if possible
-          const match = error.message.match(/[1-9A-HJ-NP-Za-km-z]{87,88}/);
-          if (match) {
-            return match[0];
-          }
-          // Return a placeholder if we can't extract the signature
-          return 'transaction-already-processed';
-        }
-      }
-      
       throw error;
     }
   }
@@ -527,13 +496,6 @@ export class AnchorClient {
     } catch (error: any) {
       console.error("Specific redeem failed:", error);
       
-      // Check if this is actually a success (transaction already processed)
-      if (error.message && error.message.includes('This transaction has already been processed')) {
-        console.log('Transaction was already processed - treating as success');
-        // Extract signature from error if possible, otherwise return a success indicator
-        return 'success';
-      }
-      
       // Try to extract transaction logs from the error
       if (error.logs) {
         console.error("Transaction logs:", error.logs);
@@ -601,8 +563,8 @@ export class AnchorClient {
           collectionMint: vault.account.collectionMint,
           creator: vault.account.creator,
           fractionalMint: vault.account.fractionalMint,
-          totalDeposits: vault.account.totalDeposits.toNumber(),
-          totalFractionsMinted: vault.account.totalFractionsMinted ? vault.account.totalFractionsMinted.toNumber() : 0,
+          totalDeposits: vault.account.totalDeposits.toString(),
+          totalFractionsMinted: vault.account.totalFractionsMinted ? vault.account.totalFractionsMinted.toString() : '0',
           isActive: vault.account.isActive,
         }
       }));

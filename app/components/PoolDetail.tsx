@@ -141,8 +141,8 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
 
   // Calculate derived values
         const tokenPrice = 0 // Will be calculated from actual market data
-  const totalValueLocked = vaultState.totalDeposits * 50 // Example: 50 SOL per NFT
-  const marketCap = (vaultState.totalFractionsMinted / 1_000_000) * tokenPrice
+  const totalValueLocked = Number(vaultState.totalDeposits) * 50 // Example: 50 SOL per NFT
+  const marketCap = (Number(vaultState.totalFractionsMinted) / 1_000_000) * tokenPrice
 
   return (
     <div className="space-y-6">
@@ -179,7 +179,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
                   {vaultState?.isActive ? 'Active' : 'Inactive'}
                 </span>
                 <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
-                  {vaultState?.totalDeposits || 0} NFTs
+                  {Number(vaultState?.totalDeposits) || 0} NFTs
                 </span>
               </div>
             </div>
@@ -204,7 +204,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
             <span className="text-white/60 text-sm">Total NFTs</span>
             <Coins className="w-4 h-4 text-blue-400" />
           </div>
-          <p className="text-2xl font-bold text-white">{vaultState?.totalDeposits || 0}</p>
+          <p className="text-2xl font-bold text-white">{Number(vaultState?.totalDeposits) || 0}</p>
         </div>
         
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
@@ -213,7 +213,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
             <TrendingUp className="w-4 h-4 text-green-400" />
           </div>
           <p className="text-2xl font-bold text-white">
-            {formatNumber(vaultState?.totalFractionsMinted / 1000000 || 0)}
+            {formatNumber(Number(vaultState?.totalFractionsMinted) / 1000000 || 0)}
           </p>
         </div>
         

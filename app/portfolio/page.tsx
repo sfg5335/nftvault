@@ -417,7 +417,7 @@ async function fetchPools(client: any): Promise<Pool[]> {
       const metadata = poolMetadata.get(collectionMintStr)
       
       // Only include active vaults with deposits
-      if (vault.data.isActive && vault.data.totalDeposits > 0) {
+      if (vault.data.isActive && Number(vault.data.totalDeposits) > 0) {
         pools.push({
           id: collectionMintStr,
           name: metadata?.name || `Collection ${collectionMintStr.slice(0, 8)}...`,

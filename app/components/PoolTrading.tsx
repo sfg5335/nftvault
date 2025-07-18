@@ -264,7 +264,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     }
 
     // Check if vault has NFTs
-    if (poolVaultState.totalDeposits === 0) {
+    if (Number(poolVaultState.totalDeposits) === 0) {
       console.log('No NFTs available in the vault for redemption')
       return
     }
@@ -650,7 +650,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                               userTokenBalance < 1000000 ||
               selectedVaultNFTs.length === 0 ||
                 !poolVaultState ||
-                poolVaultState.totalDeposits === 0
+                Number(poolVaultState.totalDeposits) === 0
               }
               className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 hover:shadow-lg hover:shadow-purple-500/25"
             >

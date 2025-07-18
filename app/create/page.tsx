@@ -289,7 +289,7 @@ function CreatePoolPageContent() {
               imageUrl: selectedCollection.image,
               createdAt: new Date().toISOString(),
               txSignature: 'existing-vault',
-              depositedNFTs: vaultState.totalDeposits
+              depositedNFTs: Number(vaultState.totalDeposits)
             }
             PoolStorage.addCreatedPool(newPool)
             

@@ -34,7 +34,7 @@ export function VaultCard({ vaultState }: VaultCardProps) {
               <Coins className="w-4 h-4 text-green-400 mr-1" />
               <span className="text-sm text-gray-300">NFTs</span>
             </div>
-            <p className="text-xl font-bold text-white">{vaultState.totalDeposits}</p>
+            <p className="text-xl font-bold text-white">{Number(vaultState.totalDeposits)}</p>
           </div>
           
           <div className="text-center">
@@ -43,7 +43,7 @@ export function VaultCard({ vaultState }: VaultCardProps) {
               <span className="text-sm text-gray-300">Tokens</span>
             </div>
             <p className="text-xl font-bold text-white">
-              {(vaultState.totalFractionsMinted / 1000000).toFixed(1)}M
+              {(Number(vaultState.totalFractionsMinted) / 1000000).toFixed(1)}M
             </p>
           </div>
         </div>

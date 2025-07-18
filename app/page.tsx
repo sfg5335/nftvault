@@ -23,15 +23,12 @@ function HomeContent() {
       <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
         {/* Mascot Image - Absolutely positioned */}
         <div className="hidden md:block absolute left-[250px] top-1/2 -translate-y-1/2">
-          <div className="relative w-48 h-48">
-            <img 
-              src="/images/mascot.png?v=1.4.20.1" 
-              alt="smol.markets mascot" 
-              width={192}
-              height={192}
-              className="rounded-full"
-            />
-          </div>
+          <img 
+            src="/mascot.png" 
+            alt="smol.markets mascot" 
+            style={{ width: '192px', height: '192px' }}
+            className="rounded-full object-cover"
+          />
         </div>
         
         {/* Connection Card - Truly centered */}
@@ -64,15 +61,12 @@ function HomeContent() {
       
       {/* Mascot Image - Absolutely positioned */}
       <div className="hidden lg:block fixed left-8 top-1/2 -translate-y-1/2 z-10">
-        <div className="relative w-96 h-96">
-          <img 
-            src="/images/mascot.png?v=1.4.20.1" 
-            alt="smol.markets mascot" 
-            width={384}
-            height={384}
-            className="rounded-full opacity-90"
-          />
-        </div>
+        <img 
+          src="/mascot.png" 
+          alt="smol.markets mascot" 
+          style={{ width: '384px', height: '384px' }}
+          className="rounded-full opacity-90 object-cover"
+        />
       </div>
       
       {/* Main Content */}

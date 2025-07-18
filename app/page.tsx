@@ -8,7 +8,6 @@ import { CreatePoolCard } from './components/CreatePoolCard'
 import { Header } from './components/Header'
 import { StatsBar } from './components/StatsBar'
 import { useEffect } from 'react'
-import Image from 'next/image'
 
 export default function Home() {
   return <HomeContent />
@@ -25,7 +24,7 @@ function HomeContent() {
         {/* Mascot Image - Absolutely positioned */}
         <div className="hidden md:block absolute left-[250px] top-1/2 -translate-y-1/2">
           <div className="relative w-48 h-48">
-            <Image 
+            <img 
               src="/images/mascot.png?v=1.4.20.1" 
               alt="smol.markets mascot" 
               width={192}
@@ -66,7 +65,7 @@ function HomeContent() {
       {/* Mascot Image - Absolutely positioned */}
       <div className="hidden lg:block fixed left-8 top-1/2 -translate-y-1/2 z-10">
         <div className="relative w-96 h-96">
-          <Image 
+          <img 
             src="/images/mascot.png?v=1.4.20.1" 
             alt="smol.markets mascot" 
             width={384}

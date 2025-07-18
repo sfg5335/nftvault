@@ -24,7 +24,7 @@ function HomeContent() {
         {/* Mascot Image - Absolutely positioned */}
         <div className="hidden md:block absolute left-[250px] top-1/2 -translate-y-1/2">
           <img 
-            src="/mascot.png" 
+            src="/images/mascot.png?v=1.4.3" 
             alt="smol.markets mascot" 
             style={{ width: '192px', height: '192px' }}
             className="rounded-full object-cover"
@@ -62,7 +62,7 @@ function HomeContent() {
       {/* Mascot Image - Absolutely positioned */}
       <div className="hidden lg:block fixed left-8 top-1/2 -translate-y-1/2 z-10">
         <img 
-          src="/mascot.png" 
+          src="/images/mascot.png?v=1.4.3" 
           alt="smol.markets mascot" 
           style={{ width: '384px', height: '384px' }}
           className="rounded-full opacity-90 object-cover"

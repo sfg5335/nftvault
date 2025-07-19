@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchor } from '../hooks/useAnchor'
 import { PoolStorage } from '../lib/poolStorage'
-import { TrendingUp, Users, Coins, Activity, Lock, ExternalLink } from 'lucide-react'
+import { TrendingUp, Users, Coins, Activity, Lock, ExternalLink, Copy, Check } from 'lucide-react'
 import { VaultNFTDisplay } from './VaultNFTDisplay'
 
 interface PoolDetailProps {
@@ -20,6 +20,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
   const [poolMetadata, setPoolMetadata] = useState<any>(null)
   const [imageError, setImageError] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
 
   useEffect(() => {
     if (client && poolId) {
@@ -105,6 +106,16 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
     return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2)
   }
 
+  const copyToClipboard = async (address: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(address)
+      setCopiedAddress(label)
+      setTimeout(() => setCopiedAddress(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -136,8 +147,9 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
 
   const poolName = poolMetadata?.name || `Collection ${poolId.slice(0, 8)}...`
   const poolSymbol = poolMetadata?.symbol || 'POOL'
+  const sNFTSymbol = `s${poolSymbol}` // sNFT token symbol with "s" prefix
   const poolImage = poolMetadata?.imageUrl || ''
-  const description = poolMetadata?.description || `Fractionalized NFT pool for collection ${poolId}`
+  const description = poolMetadata?.description || `Fractionalized NFT pool for ${poolName} collection. Each NFT yields 1,000,000 ${sNFTSymbol} tokens.`
 
   // Calculate derived values
         const tokenPrice = 0 // Will be calculated from actual market data
@@ -172,7 +184,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
                 {poolMetadata?.name || `Pool ${poolId.slice(0, 8)}...`}
               </h1>
               <p className="text-white/60 mt-1">
-                Symbol: {poolMetadata?.symbol || 'VAULT'}
+                sNFT Token: {sNFTSymbol} • Collection: {poolMetadata?.symbol || 'VAULT'}
               </p>
               <div className="flex items-center space-x-2 mt-2">
                 <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
@@ -209,7 +221,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
         
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-white/60 text-sm">Tokens Minted</span>
+            <span className="text-white/60 text-sm">sNFT Tokens Minted</span>
             <TrendingUp className="w-4 h-4 text-green-400" />
           </div>
           <p className="text-2xl font-bold text-white">
@@ -221,11 +233,11 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
         
         <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-white/60 text-sm">Creator</span>
-            <Users className="w-4 h-4 text-orange-400" />
+            <span className="text-white/60 text-sm">Token Address</span>
+            <Coins className="w-4 h-4 text-purple-400" />
           </div>
-          <p className="text-sm font-mono text-white truncate">
-            {vaultState?.creator.toString().slice(0, 8)}...
+          <p className="text-sm font-mono text-white">
+            {vaultState?.fractionalMint.toString().slice(0, 5)}...{vaultState?.fractionalMint.toString().slice(-5)}
           </p>
         </div>
       </div>
@@ -273,23 +285,49 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
       {/* Pool Info */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
         <h2 className="text-xl font-bold text-white mb-4">Pool Information</h2>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between">
+        <div className="space-y-4 text-sm">
+          {/* Collection Mint */}
+          <div className="space-y-2">
             <span className="text-white/60">Collection Mint</span>
-            <span className="text-white font-mono">{poolId.slice(0, 16)}...</span>
+            <div className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+              <span className="text-white font-mono text-xs break-all">{poolId}</span>
+              <button
+                onClick={() => copyToClipboard(poolId, 'collection')}
+                className="ml-3 p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+                title="Copy address"
+              >
+                {copiedAddress === 'collection' ? (
+                  <Check className="w-4 h-4 text-green-400" />
+                ) : (
+                  <Copy className="w-4 h-4 text-white/60" />
+                )}
+              </button>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span className="text-white/60">Fractional Mint</span>
-            <span className="text-white font-mono">
-              {vaultState?.fractionalMint.toString().slice(0, 16)}...
-            </span>
+
+          {/* sNFT Token Contract */}
+          <div className="space-y-2">
+            <span className="text-white/60">{sNFTSymbol} Contract Address</span>
+            <div className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+              <span className="text-white font-mono text-xs break-all">
+                {vaultState?.fractionalMint.toString()}
+              </span>
+              <button
+                onClick={() => copyToClipboard(vaultState?.fractionalMint.toString() || '', 'token')}
+                className="ml-3 p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+                title="Copy address"
+              >
+                {copiedAddress === 'token' ? (
+                  <Check className="w-4 h-4 text-green-400" />
+                ) : (
+                  <Copy className="w-4 h-4 text-white/60" />
+                )}
+              </button>
+            </div>
           </div>
+
           <div className="flex justify-between">
-            <span className="text-white/60">Token Decimals</span>
-            <span className="text-white">6</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-white/60">Tokens per NFT</span>
+            <span className="text-white/60">{sNFTSymbol} Tokens per NFT</span>
             <span className="text-white">1,000,000</span>
           </div>
         </div>

@@ -48,7 +48,7 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
         <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-white mb-3 flex items-center">
             <Coins className="w-4 h-4 text-green-400 mr-1" />
-            Fee Breakdown
+            sNFT Token Breakdown
           </h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -56,11 +56,11 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
               <span className="text-white">{amount}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Tokens per NFT:</span>
+              <span className="text-gray-300">sNFT Tokens per NFT:</span>
               <span className="text-white">{tokensPerNft.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Total Tokens:</span>
+              <span className="text-gray-300">Total sNFT Tokens:</span>
               <span className="text-white">{totalTokens.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
@@ -69,7 +69,7 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
             </div>
             <div className="border-t border-green-500/20 pt-2">
               <div className="flex justify-between font-semibold">
-                <span className="text-green-400">Tokens You'll Receive:</span>
+                <span className="text-green-400">sNFT Tokens You'll Receive:</span>
                 <span className="text-green-400">{tokensToReceive.toLocaleString()}</span>
               </div>
             </div>

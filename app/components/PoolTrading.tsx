@@ -577,28 +577,11 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
             <p className="text-white/60 text-sm mb-4">
               Burn tokens to redeem NFTs from the vault
             </p>
-            {/* User guide */}
-            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg p-3 mb-4">
-              <p className="text-white/80 text-xs">
-                <span className="font-semibold">How to redeem:</span><br/>
-                1. Choose redemption type below<br/>
-                2. For specific NFTs, select one from the vault display<br/>
-                3. Click redeem to exchange your tokens for the NFT
-              </p>
-            </div>
+
           </div>
           
           {/* Redemption Type Selection */}
           <div className="space-y-3">
-            <div className="bg-purple-500/20 border-2 border-purple-500 rounded-lg p-4">
-              <div className="flex items-center space-x-3">
-                <Target className="w-6 h-6 text-purple-400" />
-                <div className="flex-1">
-                  <div className="font-semibold text-purple-400">Specific NFT Redemption</div>
-                  <div className="text-xs text-white/60 mt-1">Redeem 1,000,000 tokens per NFT</div>
-                </div>
-              </div>
-            </div>
             
             {/* Show selection info for redemption */}
             {(
@@ -627,21 +610,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                 </div>
               </div>
             )}
-            
-            {/* Redemption Info */}
-            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mt-4">
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-yellow-300">
-                  <p className="font-semibold mb-1">Redemption Info:</p>
-                  <ul className="space-y-1 text-xs">
-                    <li>• Burn 1,000,000 tokens per NFT</li>
-                    <li>• Choose specific NFTs to redeem</li>
-                    <li>• 0.025 SOL redemption fee per NFT</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+
             
             <button
               onClick={handleRedeemSpecific}
@@ -685,7 +654,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           <div>
             <h3 className="text-white font-semibold mb-2">Trade Tokens</h3>
             <p className="text-white/60 text-sm mb-4">
-              Trading functionality coming soon! You'll be able to buy and sell fractional tokens on DEXs.
+              Trading functionality coming soon! You'll be able to buy and sell sNFT tokens on DEXs.
             </p>
           </div>
           

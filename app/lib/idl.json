@@ -23,7 +23,19 @@
         {
           "name": "fractionalMint",
           "isMut": true,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "Pre-generated vanity mint that will be used for sNFT tokens",
+            "This mint should end in \"smol\" for branding purposes - not yet initialized"
+          ]
+        },
+        {
+          "name": "mintKeypair",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "The keypair for the sNFT mint (must sign the transaction)"
+          ]
         },
         {
           "name": "systemProgram",
@@ -273,7 +285,7 @@
     {
       "name": "VaultState",
       "docs": [
-        "State account for the vault"
+        "State account for the vault - manages sNFT (smol NFT) fractionalization"
       ],
       "type": {
         "kind": "struct",
@@ -441,6 +453,6 @@
     }
   ],
   "metadata": {
-    "address": "FwGJrJtXBG2ZswbvvE2Ubg1xJ3yZgjHTyNAYexQgR3jE"
+    "address": "AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR"
   }
 }

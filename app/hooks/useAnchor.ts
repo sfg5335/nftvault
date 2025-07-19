@@ -69,16 +69,31 @@ export function useAnchor() {
   }
 
   const initializeCollectionVault = async (collectionMint: PublicKey): Promise<string> => {
-    if (!client) throw new Error('Client not initialized')
-    
     setLoading(true)
     setError(null)
     
     try {
-      const tx = await client.initializeVault(collectionMint)
-      console.log('Collection vault initialized:', tx)
+      console.log('🚀 Calling server-side vault creation...')
+      
+      const response = await fetch('/api/create-vault', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          collectionMint: collectionMint.toString()
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Server vault creation failed')
+      }
+      
+      console.log('✅ Server vault creation successful:', result)
       await fetchVaultState(collectionMint)
-      return tx
+      return result.transactionSignature
     } catch (err) {
       console.error('Error initializing collection vault:', err)
       setError('Failed to initialize collection vault')

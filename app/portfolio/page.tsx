@@ -278,7 +278,7 @@ function PortfolioContent() {
                           </div>
                           
                           <h3 className="text-xl font-semibold text-white mb-1">{pool.name}</h3>
-                          <p className="text-white/60 text-sm mb-4">{pool.symbol}</p>
+                          <p className="text-white/60 text-sm mb-4">s{pool.symbol} • {balance.toLocaleString()} sNFTs</p>
                           
                           <div className="flex items-center justify-between">
                             <Link

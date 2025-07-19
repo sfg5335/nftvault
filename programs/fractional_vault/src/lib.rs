@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{Mint, Token, TokenAccount, Transfer, SetAuthority};
 use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::spl_token::instruction::AuthorityType;
 
 // Manual collection verification without Metaplex dependency
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
@@ -30,11 +31,12 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("FwGJrJtXBG2ZswbvvE2Ubg1xJ3yZgjHTyNAYexQgR3jE");
+declare_id!("AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR");
 
-/// Constants for the fractional vault program
+/// Constants for the sNFT (smol NFT) fractional vault program
 pub mod constants {
-    /// Each NFT yields exactly 1,000,000 tokens (with 6 decimals = 1_000_000_000_000)
+    /// Each NFT yields exactly 1,000,000 sNFT tokens (with 6 decimals = 1_000_000_000_000)
+    /// These are called sNFTs (smol NFTs) - if the collection is WASSIE, tokens are sWASSIE
     pub const TOKENS_PER_NFT: u64 = 1_000_000_000_000;
     
     /// Protocol treasury address - SOL fees are sent here
@@ -68,15 +70,15 @@ pub enum VaultError {
     NotImplemented,
 }
 
-/// State account for the vault
+/// State account for the vault - manages sNFT (smol NFT) fractionalization
 #[account]
 pub struct VaultState {
     pub collection_mint: Pubkey,
     pub creator: Pubkey,
-    pub fractional_mint: Pubkey,
-    pub total_deposits: u64,
-    pub total_fractions_minted: u64,
-    pub is_active: bool,
+    pub fractional_mint: Pubkey,         // sNFT mint (vanity address ending in "smol")
+    pub total_deposits: u64,             // Total NFTs deposited
+    pub total_fractions_minted: u64,     // Total sNFT tokens minted
+    pub is_active: bool,                 // Vault active status
 }
 
 /// Initialize a new vault
@@ -97,15 +99,17 @@ pub struct InitializeVault<'info> {
     )]
     pub vault_state: Account<'info, VaultState>,
     
+    /// Pre-generated vanity mint that will be used for sNFT tokens
+    /// This mint should end in "smol" for branding purposes - not yet initialized
+    /// CHECK: This account will be manually created and initialized as a mint in the instruction
     #[account(
-        init,
-        payer = creator,
-        mint::decimals = 6,
-        mint::authority = vault_state,
-        seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump
+        mut,
+        constraint = fractional_mint.key() == mint_keypair.key() @ VaultError::WrongCollection
     )]
-    pub fractional_mint: Account<'info, Mint>,
+    pub fractional_mint: UncheckedAccount<'info>,
+    
+    /// The keypair for the sNFT mint (must sign the transaction)
+    pub mint_keypair: Signer<'info>,
     
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
@@ -158,7 +162,7 @@ pub struct DepositNft<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Mint fractional tokens after NFT deposit
+/// Mint sNFT tokens after NFT deposit
 #[derive(Accounts)]
 pub struct MintFractional<'info> {
     #[account(mut)]
@@ -171,16 +175,14 @@ pub struct MintFractional<'info> {
     )]
     pub vault_state: Account<'info, VaultState>,
 
-    // Fractional token mint PDA (authority = vault_state PDA)
+    // sNFT token mint (authority = vault_state PDA)
     #[account(
         mut,
-        seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump,
         constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
 
-    // User's fractional token account – create if it doesn't exist
+    // User's sNFT token account – create if it doesn't exist
     #[account(
         init,
         payer = user,
@@ -194,7 +196,7 @@ pub struct MintFractional<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Mint fractional tokens when user already has a token account
+/// Mint sNFT tokens when user already has a token account
 #[derive(Accounts)]
 pub struct MintFractionalExisting<'info> {
     #[account(mut)]
@@ -207,16 +209,14 @@ pub struct MintFractionalExisting<'info> {
     )]
     pub vault_state: Account<'info, VaultState>,
 
-    // Fractional token mint PDA (authority = vault_state PDA)
+    // sNFT token mint (authority = vault_state PDA)
     #[account(
         mut,
-        seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump,
         constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
 
-    // User's fractional token account – must already exist
+    // User's sNFT token account – must already exist
     #[account(
         mut,
         associated_token::mint = fractional_mint,
@@ -273,8 +273,6 @@ pub struct RedeemSpecificNft<'info> {
     
     #[account(
         mut,
-        seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump,
         constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
@@ -318,11 +316,9 @@ pub struct MintFractionalMultiple<'info> {
     )]
     pub vault_state: Account<'info, VaultState>,
 
-    // Fractional token mint PDA (authority = vault_state PDA)
+    // Fractional token mint (authority = vault_state PDA)
     #[account(
         mut,
-        seeds = [b"fractional_mint", vault_state.key().as_ref()],
-        bump,
         constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
@@ -340,6 +336,7 @@ pub struct MintFractionalMultiple<'info> {
 
 impl<'info> InitializeVault<'info> {
     pub fn initialize_vault(&mut self) -> Result<()> {
+        // Initialize vault state
         self.vault_state.collection_mint = self.collection_mint.key();
         self.vault_state.creator = self.creator.key();
         self.vault_state.fractional_mint = self.fractional_mint.key();
@@ -347,6 +344,59 @@ impl<'info> InitializeVault<'info> {
         self.vault_state.total_fractions_minted = 0;
         self.vault_state.is_active = true;
         
+        // Create the mint account
+        let rent = Rent::get()?;
+        let mint_space = 82u64; // Size of a mint account
+        let create_account_ix = anchor_lang::solana_program::system_instruction::create_account(
+            &self.creator.key(),
+            &self.fractional_mint.key(),
+            rent.minimum_balance(mint_space as usize),
+            mint_space,
+            &anchor_spl::token::ID,
+        );
+        
+        anchor_lang::solana_program::program::invoke_signed(
+            &create_account_ix,
+            &[
+                self.creator.to_account_info(),
+                self.fractional_mint.to_account_info(),
+                self.system_program.to_account_info(),
+            ],
+            &[], // No seeds needed for creating the account
+        )?;
+        
+        // Initialize the mint
+        let init_mint_ix = anchor_spl::token::spl_token::instruction::initialize_mint(
+            &anchor_spl::token::ID,
+            &self.fractional_mint.key(),
+            &self.creator.key(), // Initial mint authority
+            None, // No freeze authority
+            6, // 6 decimals
+        )?;
+        
+        anchor_lang::solana_program::program::invoke(
+            &init_mint_ix,
+            &[
+                self.fractional_mint.to_account_info(),
+                self.rent.to_account_info(),
+            ],
+        )?;
+        
+        // Transfer mint authority from creator to vault PDA
+        let set_authority_ctx = CpiContext::new(
+            self.token_program.to_account_info(),
+            SetAuthority {
+                current_authority: self.creator.to_account_info(),
+                account_or_mint: self.fractional_mint.to_account_info(),
+            },
+        );
+        
+        anchor_spl::token::set_authority(
+            set_authority_ctx,
+            AuthorityType::MintTokens,
+            Some(self.vault_state.key()),
+        )?;
+
         Ok(())
     }
 }

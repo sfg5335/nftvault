@@ -355,7 +355,7 @@ function CreatePoolPageContent() {
             2: 'The wallet might not have enough SOL for rent exemption',
             3: 'The program might not be properly deployed',
             walletBalance: 'Check if your wallet has at least 0.1 SOL',
-            programId: 'FwGJrJtXBG2ZswbvvE2Ubg1xJ3yZgjHTyNAYexQgR3jE'
+            programId: 'AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR'
           })
         } else if (message.includes('already exists')) {
           errorMessage = 'A vault for this collection already exists. Redirecting to pool page...'
@@ -585,7 +585,7 @@ function CreatePoolPageContent() {
                       <li>• A vault will be created for the {selectedCollection.name} collection</li>
                       <li>• The vault will be ready to receive NFT deposits</li>
                       <li>• You can deposit your {selectedCollection.nftCount} NFT{selectedCollection.nftCount > 1 ? 's' : ''} from the pool page</li>
-                      <li>• Each NFT deposited will mint 1,000,000 fractional tokens</li>
+                      <li>• Each NFT deposited will mint 1,000,000 sNFT tokens (like s{selectedCollection.symbol})</li>
                       <li>• The pool will be visible to all users on the platform</li>
                     </ul>
                   </div>

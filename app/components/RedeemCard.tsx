@@ -76,8 +76,8 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
         {redeemAmount > 0 && (
           <div className="bg-white/5 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-white/70">Token Cost</span>
-              <span className="text-white">{totalCost.toLocaleString()} tokens</span>
+              <span className="text-white/70">sNFT Token Cost</span>
+              <span className="text-white">{totalCost.toLocaleString()} sNFTs</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-white/70">SOL Fee</span>
@@ -86,7 +86,7 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
             <div className="border-t border-white/10 pt-2 flex justify-between font-semibold">
               <span className="text-white">Total</span>
               <div className="text-right">
-                <div className="text-white">{totalCost.toLocaleString()} tokens</div>
+                <div className="text-white">{totalCost.toLocaleString()} sNFTs</div>
                 <div className="text-sm text-white/70">+ {solFee} SOL</div>
               </div>
             </div>

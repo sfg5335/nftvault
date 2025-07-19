@@ -40,7 +40,7 @@ export function VaultCard({ vaultState }: VaultCardProps) {
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
               <TrendingUp className="w-4 h-4 text-purple-400 mr-1" />
-              <span className="text-sm text-gray-300">Tokens</span>
+              <span className="text-sm text-gray-300">sNFTs</span>
             </div>
             <p className="text-xl font-bold text-white">
               {(vaultState.totalFractionsMinted / 1000000).toFixed(1)}M

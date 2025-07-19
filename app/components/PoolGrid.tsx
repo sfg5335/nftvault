@@ -37,12 +37,7 @@ function PoolCard({ pool }: { pool: Pool }) {
   }
 
   const formatTokenAmount = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`
-    } else if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}K`
-    }
-    return amount.toFixed(0)
+    return amount.toLocaleString()
   }
 
   const getInitials = (name: string) => {
@@ -72,9 +67,16 @@ function PoolCard({ pool }: { pool: Pool }) {
               </h3>
               <p className="text-white/60 text-sm">{pool.symbol}</p>
               {pool.collectionMint && (
-                <p className="text-white/40 text-xs font-mono mt-1 truncate" title={pool.collectionMint}>
-                  {pool.collectionMint.slice(0, 5)}..
-                </p>
+                <div className="space-y-1 mt-1">
+                  <p className="text-white/40 text-xs font-mono" title={`NFT Collection: ${pool.collectionMint}`}>
+                    NFT: {pool.collectionMint.slice(0, 5)}...{pool.collectionMint.slice(-5)}
+                  </p>
+                  {pool.fractionalMint && (
+                    <p className="text-white/40 text-xs font-mono" title={`Token Address: ${pool.fractionalMint}`}>
+                      Token: {pool.fractionalMint.slice(0, 5)}...{pool.fractionalMint.slice(-5)}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -107,7 +109,7 @@ function PoolCard({ pool }: { pool: Pool }) {
         {pool.totalFractionsMinted !== undefined && (
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
             <div>
-              <p className="text-white/60 text-sm">Tokens Minted</p>
+              <p className="text-white/60 text-sm">sNFTs Minted</p>
               <p className="text-white font-semibold">{formatTokenAmount(pool.totalFractionsMinted)}</p>
             </div>
           </div>
@@ -209,7 +211,7 @@ function PoolGrid() {
             collectionMint: collectionMintStr,
             creator: vault.data.creator.toString(),
             fractionalMint: vault.data.fractionalMint.toString(),
-            totalFractionsMinted: vault.data.totalFractionsMinted,
+            totalFractionsMinted: vault.data.totalFractionsMinted / 1000000, // Convert from smallest unit to tokens
             isActive: vault.data.isActive
           }
           

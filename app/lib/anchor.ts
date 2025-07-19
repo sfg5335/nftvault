@@ -1,12 +1,12 @@
 import * as anchor from '@coral-xyz/anchor'
 import { Program, AnchorProvider } from '@coral-xyz/anchor'
-import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Connection } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, getAccount, getAssociatedTokenAddress, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
-import { Metaplex } from '@metaplex-foundation/js';
+import { PublicKey, SystemProgram, Keypair, SYSVAR_RENT_PUBKEY, Connection } from '@solana/web3.js'
+import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount } from '@solana/spl-token'
+// VanityKeypair management is now handled server-side
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("FwGJrJtXBG2ZswbvvE2Ubg1xJ3yZgjHTyNAYexQgR3jE");
+const PROGRAM_ID = new PublicKey("AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -42,12 +42,7 @@ export class AnchorClient {
     );
   }
 
-  getFractionalMintPDA(vaultState: PublicKey): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-      [Buffer.from("fractional_mint"), vaultState.toBuffer()],
-      PROGRAM_ID
-    );
-  }
+
 
   getFractionalMintAuthorityPDA(): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
@@ -70,50 +65,7 @@ export class AnchorClient {
     );
   }
 
-  // Initialize vault
-  async initializeVault(collectionMint: PublicKey): Promise<string> {
-    try {
-      console.log('=== INITIALIZING VAULT ===');
-      console.log('Collection mint:', collectionMint.toString());
-      console.log('Program ID:', PROGRAM_ID.toString());
-      console.log('Wallet:', this.provider.wallet.publicKey.toString());
-      
-      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
-      const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
-      
-      console.log('Derived PDAs:');
-      console.log('- Vault State PDA:', vaultStatePDA.toString());
-      console.log('- Fractional Mint PDA:', fractionalMintPDA.toString());
-      
-      // Check wallet balance
-      const balance = await this.provider.connection.getBalance(this.provider.wallet.publicKey);
-      console.log('Wallet balance:', balance / 1e9, 'SOL');
-      
-      if (balance < 0.05 * 1e9) {
-        throw new Error('Insufficient SOL balance. Need at least 0.05 SOL for rent exemption.');
-      }
-
-      const tx = await this.program.methods
-        .initializeVault()
-        .accounts({
-          creator: this.provider.wallet.publicKey,
-          collectionMint: collectionMint,
-          vaultState: vaultStatePDA,
-          fractionalMint: fractionalMintPDA,
-          // Removed fractionalMintAuthority as it's not in the IDL
-          systemProgram: anchor.web3.SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        })
-        .rpc();
-
-      console.log('Vault initialization successful! TX:', tx);
-      return tx;
-    } catch (error) {
-      console.error("Vault initialization failed:", error);
-      throw error;
-    }
-  }
+  // Note: Vault initialization is now handled server-side via /api/create-vault
 
   // Get vault state
   async getVaultState(collectionMint: PublicKey): Promise<VaultState | null> {
@@ -213,10 +165,8 @@ export class AnchorClient {
       const vaultState = await this.program.account.vaultState.fetch(vaultStatePDA);
       console.log('Vault state:', vaultState);
 
-      const [fractionalMintPDA] = PublicKey.findProgramAddressSync(
-        [Buffer.from("fractional_mint"), vaultStatePDA.toBuffer()],
-        this.program.programId
-      );
+      // Get fractional mint from vault state (no longer derived from PDA)
+      const fractionalMint = vaultState.fractionalMint;
 
       // Get associated token accounts (all use standard TOKEN_PROGRAM_ID)
       const userNftAccount = await getAssociatedTokenAddress(
@@ -234,7 +184,7 @@ export class AnchorClient {
       );
 
       const userFractionalAccount = await getAssociatedTokenAddress(
-        fractionalMintPDA,
+        fractionalMint,
         this.provider.wallet.publicKey,
         false,
         TOKEN_PROGRAM_ID
@@ -242,7 +192,7 @@ export class AnchorClient {
 
       const protocolTreasuryAddress = new PublicKey("2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt");
       const protocolTreasuryAccount = await getAssociatedTokenAddress(
-        fractionalMintPDA,
+        fractionalMint,
         protocolTreasuryAddress,
         false,
         TOKEN_PROGRAM_ID
@@ -297,7 +247,7 @@ export class AnchorClient {
           this.provider.wallet.publicKey, // payer
           protocolTreasuryAccount, // ata
           protocolTreasuryAddress, // owner
-          fractionalMintPDA, // mint
+          fractionalMint, // mint
           TOKEN_PROGRAM_ID,
           ASSOCIATED_TOKEN_PROGRAM_ID
         );
@@ -334,7 +284,7 @@ export class AnchorClient {
           .accounts({
             user: this.provider.wallet.publicKey,
             vaultState: vaultStatePDA,
-            fractionalMint: fractionalMintPDA,
+            fractionalMint: fractionalMint,
             userFractionalAccount: userFractionalAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -350,7 +300,7 @@ export class AnchorClient {
           .accounts({
             user: this.provider.wallet.publicKey,
             vaultState: vaultStatePDA,
-            fractionalMint: fractionalMintPDA,
+            fractionalMint: fractionalMint,
             userFractionalAccount: userFractionalAccount,
             protocolTreasury: protocolTreasuryAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -390,15 +340,22 @@ export class AnchorClient {
   // Redeem specific NFT
   async redeemSpecificNFT(collectionMint: PublicKey, nftMint: PublicKey): Promise<string> {
     try {
+      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
+      
+      // Get vault state to access the fractional mint address
+      const vaultState = await this.getVaultState(collectionMint);
+      if (!vaultState) {
+        throw new Error('Vault state not found');
+      }
+      
+      const fractionalMint = new PublicKey(vaultState.fractionalMint);
+      
       // First ensure the vault's fractional token account exists
       await this.ensureVaultFractionalAccount(collectionMint);
-      
-      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
-      const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
 
       console.log('Redemption accounts:', {
         vaultStatePDA: vaultStatePDA.toString(),
-        fractionalMintPDA: fractionalMintPDA.toString(),
+        fractionalMint: fractionalMint.toString(),
         nftMint: nftMint.toString(),
       });
 
@@ -407,7 +364,7 @@ export class AnchorClient {
 
       // Get user's fractional token account
       const userFractionalAccount = await getAssociatedTokenAddress(
-        fractionalMintPDA,
+        fractionalMint,
         this.provider.wallet.publicKey,
         false,
         TOKEN_PROGRAM_ID
@@ -415,7 +372,7 @@ export class AnchorClient {
 
       // Get vault's fractional token account
       const vaultFractionalAccount = await getAssociatedTokenAddress(
-        fractionalMintPDA,
+        fractionalMint,
         vaultStatePDA,
         true, // allowOwnerOffCurve must be true for PDAs
         TOKEN_PROGRAM_ID
@@ -497,7 +454,7 @@ export class AnchorClient {
           vaultFractionalAccount: vaultFractionalAccount,
           vaultSpecificNftAccount: vaultSpecificNftAccountCorrect,
           userSpecificNftAccount: userSpecificNftAccountCorrect,
-          fractionalMint: fractionalMintPDA,
+          fractionalMint: fractionalMint,
           protocolTreasury: protocolTreasuryAddress,
           tokenProgram: TOKEN_PROGRAM_ID, // Always use standard token program for redemption
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -513,7 +470,7 @@ export class AnchorClient {
         vaultFractionalAccount: vaultFractionalAccount.toString(),
         vaultSpecificNftAccount: vaultSpecificNftAccountCorrect.toString(),
         userSpecificNftAccount: userSpecificNftAccountCorrect.toString(),
-        fractionalMint: fractionalMintPDA.toString(),
+        fractionalMint: fractionalMint.toString(),
         protocolTreasury: protocolTreasuryAddress.toString(),
         tokenProgram: TOKEN_PROGRAM_ID.toString(),
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
@@ -549,11 +506,18 @@ export class AnchorClient {
   async ensureVaultFractionalAccount(collectionMint: PublicKey): Promise<void> {
     try {
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
-      const [fractionalMintPDA] = this.getFractionalMintPDA(vaultStatePDA);
+      
+      // Get vault state to access the fractional mint address
+      const vaultState = await this.getVaultState(collectionMint);
+      if (!vaultState) {
+        throw new Error('Vault state not found');
+      }
+      
+      const fractionalMint = new PublicKey(vaultState.fractionalMint);
       
       // Get vault's fractional token account
       const vaultFractionalAccount = await getAssociatedTokenAddress(
-        fractionalMintPDA,
+        fractionalMint,
         vaultStatePDA,
         true, // allowOwnerOffCurve must be true for PDAs
         TOKEN_PROGRAM_ID
@@ -570,7 +534,7 @@ export class AnchorClient {
           this.provider.wallet.publicKey, // payer
           vaultFractionalAccount, // ata
           vaultStatePDA, // owner
-          fractionalMintPDA, // mint
+          fractionalMint, // mint
           TOKEN_PROGRAM_ID,
           ASSOCIATED_TOKEN_PROGRAM_ID
         );

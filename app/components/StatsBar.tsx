@@ -88,7 +88,7 @@ export function StatsBar() {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-white">{formatTokens(stats.totalTokens)}</div>
-              <div className="text-white/60 text-sm">Tokens Minted</div>
+              <div className="text-white/60 text-sm">sNFT Tokens Minted</div>
             </div>
           </div>
         </div>

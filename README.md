@@ -4,7 +4,7 @@ A Solana-based NFT fractionalization platform built with Anchor where users can 
 
 ## 🎯 Overview
 
-This project implements a fractional NFT marketplace system similar to NFTX, where:
+This project implements a fractional NFT marketplace system where:
 
 1. **Deposit NFTs**: Users deposit their NFTs into a collection-specific vault
 2. **Receive Fractional Tokens**: Get tokens representing fractional ownership (1,000,000 tokens per NFT)

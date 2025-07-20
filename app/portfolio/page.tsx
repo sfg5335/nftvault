@@ -450,10 +450,10 @@ async function fetchUserNFTs_old(publicKey: PublicKey, connection: any): Promise
     // Convert to our Nft type
     const result: Nft[] = nftMetadata.map(metadata => ({
       mint: metadata.mint,
-          name: metadata.name,
-          symbol: metadata.symbol,
+      name: metadata.name,
+      symbol: metadata.symbol,
       image: metadata.image,
-      collectionMint: metadata.collection?.name || '',
+      collectionMint: metadata.collection?.key || '',
       verified: metadata.collection?.verified || false,
       attributes: metadata.attributes || []
     }))

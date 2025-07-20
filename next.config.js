@@ -5,8 +5,11 @@ const nextConfig = {
       ...config.resolve.fallback,
       fs: false,
     };
-    return config;
+    config.externals.push('pino-pretty', 'lokijs', 'encoding')
+    return config
   },
+  // Disable source maps in development to avoid URL parameter issues
+  productionBrowserSourceMaps: false,
 }
 
 module.exports = nextConfig 

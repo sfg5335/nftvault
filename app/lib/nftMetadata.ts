@@ -8,12 +8,20 @@ export interface NFTMetadata {
   image: string
   attributes?: Array<{
     trait_type: string
-    value: string
+    value: string | number
   }>
   collection?: {
-    name: string
-    family?: string
-    verified?: boolean
+    key: string        // Changed from 'name' to 'key' - this is the collection mint pubkey
+    verified: boolean
+  }
+  
+  // Optional properties that some NFTs might have
+  properties?: {
+    files?: Array<{
+      uri: string
+      type: string
+    }>
+    category?: string
   }
 }
 
@@ -49,11 +57,17 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
     const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
     const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
     
-    if (heliusUrl && heliusApiKey) {
+    console.log(`Fetching metadata for ${nftMint} using Helius: ${heliusUrl}`)
+    
+    // Only try Helius if we have a URL (API key is optional for devnet)
+    if (heliusUrl) {
       try {
         console.log('Fetching NFT metadata from Helius for mint:', nftMint)
         
-        const response = await fetch(`${heliusUrl}/?api-key=${heliusApiKey}`, {
+        // Construct URL with optional API key
+        const apiUrl = heliusApiKey ? `${heliusUrl}/?api-key=${heliusApiKey}` : heliusUrl
+        
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -71,7 +85,11 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
           })
         })
 
+        console.log(`Helius API Response Status: ${response.status} for mint: ${nftMint}`)
+        
         if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`Helius API error response: ${errorText}`)
           throw new Error(`Helius API error: ${response.status}`)
         }
 
@@ -104,8 +122,8 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
           image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
           attributes: metadata?.attributes || [],
           collection: collection ? {
-            name: collection.group_value,
-            verified: collection.verified
+            key: collection.group_value,
+            verified: collection.verified !== undefined ? collection.verified : true // Default to true if not specified
           } : undefined
         }
       } catch (heliusError) {
@@ -129,7 +147,7 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
       name: `NFT ${nftMint.slice(0, 8)}...`,
       symbol: 'NFT',
       description: 'NFT metadata unavailable',
-      image: '/placeholder-nft.png', // You'll need to add a placeholder image
+      image: '/mascot.png', // Using existing mascot image as placeholder
       attributes: []
     }
 
@@ -144,14 +162,17 @@ export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMet
   const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
   const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
   
-  if (!heliusUrl || !heliusApiKey || mints.length === 0) {
+  if (!heliusUrl || mints.length === 0) {
     return []
   }
 
   try {
     console.log(`Fetching ${mints.length} NFTs from Helius`)
     
-    const response = await fetch(`${heliusUrl}/?api-key=${heliusApiKey}`, {
+    // Construct URL with optional API key
+    const apiUrl = heliusApiKey ? `${heliusUrl}/?api-key=${heliusApiKey}` : heliusUrl
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -193,8 +214,8 @@ export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMet
         image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
         attributes: metadata?.attributes || [],
         collection: collection ? {
-          name: collection.group_value,
-          verified: collection.verified
+          key: collection.group_value,
+          verified: collection.verified !== undefined ? collection.verified : true // Default to true if not specified
         } : undefined
       }
     })
@@ -210,15 +231,18 @@ export async function fetchUserNFTs(walletAddress: string): Promise<NFTMetadata[
   const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
   const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
   
-  if (!heliusUrl || !heliusApiKey) {
-    console.log('Helius API not configured')
+  if (!heliusUrl) {
+    console.log('Helius URL not configured')
     return []
   }
 
   try {
     console.log('Fetching user NFTs from Helius for wallet:', walletAddress)
     
-    const response = await fetch(`${heliusUrl}/?api-key=${heliusApiKey}`, {
+    // Construct URL with optional API key
+    const apiUrl = heliusApiKey ? `${heliusUrl}/?api-key=${heliusApiKey}` : heliusUrl
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -265,8 +289,8 @@ export async function fetchUserNFTs(walletAddress: string): Promise<NFTMetadata[
         image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
         attributes: metadata?.attributes || [],
         collection: collection ? {
-          name: collection.group_value,
-          verified: collection.verified
+          key: collection.group_value,
+          verified: collection.verified !== undefined ? collection.verified : true // Default to true if not specified
         } : undefined
       }
     })
@@ -285,9 +309,9 @@ export async function findCollectionFromNFT(nftMint: string, connection: Connect
     // First, try to get the actual metadata
     const metadata = await fetchNFTMetadata(nftMint, connection)
     
-    if (metadata?.collection?.name) {
-      console.log('Found collection in metadata:', metadata.collection.name)
-      return metadata.collection.name
+    if (metadata?.collection?.key) {
+      console.log('Found collection in metadata:', metadata.collection.key)
+      return metadata.collection.key
     }
     
     // If no collection found, this might be a standalone NFT
@@ -365,7 +389,7 @@ export async function getCollectionNFTs(
         // For collections, try to check if this NFT belongs to the collection
         try {
           const metadata = await fetchNFTMetadata(mint.toString(), connection)
-          if (metadata?.collection?.name === collectionMint) {
+          if (metadata?.collection?.key === collectionMint) {
             console.log(`Found NFT in collection: ${mint.toString()}`)
             nfts.push(mint)
           }
@@ -403,7 +427,7 @@ export async function isNFTInCollection(
     
     // Otherwise, check the metadata for collection info
     const metadata = await fetchNFTMetadata(nftMint, connection)
-    return metadata?.collection?.name === collectionMint
+    return metadata?.collection?.key === collectionMint
   } catch (err) {
     console.error('Error checking if NFT is in collection:', err)
     return false
@@ -463,7 +487,7 @@ export async function getVerifiedCollectionNFTs(
     
     for (const nftMint of allNFTs) {
       const metadata = await fetchNFTMetadata(nftMint.toString(), connection);
-      if (metadata?.collection?.verified && metadata.collection.name === collectionMint) {
+      if (metadata?.collection?.verified && metadata.collection.key === collectionMint) {
         console.log('Found verified NFT in collection:', nftMint.toString());
         verifiedNFTs.push(nftMint);
       }
@@ -475,4 +499,4 @@ export async function getVerifiedCollectionNFTs(
     console.error('Error getting verified collection NFTs:', err);
     return [];
   }
-} 
+}

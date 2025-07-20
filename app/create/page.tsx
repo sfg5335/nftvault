@@ -149,9 +149,9 @@ function CreatePoolPageContent() {
           const metadata = await fetchNFTMetadata(mint.toString(), connection)
           
           if (metadata) {
-            // Only process NFTs that have verified collection metadata
-                          if (metadata.collection?.name && metadata.collection?.verified) {
-                              const collectionKey = metadata.collection.name
+            // Process NFTs that have collection metadata (even if not verified by Helius)
+            if (metadata.collection?.key) {
+              const collectionKey = metadata.collection.key
               
               const nft: WalletNFT = {
                 mint,
@@ -159,31 +159,31 @@ function CreatePoolPageContent() {
                 collection: collectionKey
               }
               
-                          if (!collectionMap.has(collectionKey)) {
-              collectionMap.set(collectionKey, [])
-              
-              // Check if this collection NFT exists and is valid
-              console.log(`Checking collection NFT: ${collectionKey}`)
-              const collectionMintPubkey = new PublicKey(collectionKey)
-              const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
-              
-              if (collectionMintInfo) {
-                // Verify it's a valid mint account (owned by Token Program)
-                const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-                if (collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-                  console.log(`✅ Collection ${collectionKey} is a valid mint`)
-                  validCollections.add(collectionKey)
+              if (!collectionMap.has(collectionKey)) {
+                collectionMap.set(collectionKey, [])
+                
+                // Check if this collection NFT exists and is valid
+                console.log(`Checking collection NFT: ${collectionKey}`)
+                const collectionMintPubkey = new PublicKey(collectionKey)
+                const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
+                
+                if (collectionMintInfo) {
+                  // Verify it's a valid mint account (owned by Token Program)
+                  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+                  if (collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+                    console.log(`✅ Collection ${collectionKey} is a valid mint`)
+                    validCollections.add(collectionKey)
+                  } else {
+                    console.log(`❌ Collection ${collectionKey} exists but is not a valid mint`)
+                  }
                 } else {
-                  console.log(`❌ Collection ${collectionKey} exists but is not a valid mint`)
+                  console.log(`❌ Collection NFT ${collectionKey} does not exist on-chain`)
                 }
-              } else {
-                console.log(`❌ Collection NFT ${collectionKey} does not exist on-chain`)
               }
-            }
-            
-            collectionMap.get(collectionKey)!.push(nft)
+              
+              collectionMap.get(collectionKey)!.push(nft)
             } else {
-              console.log(`NFT ${mint.toString()} has no verified collection, skipping`)
+              console.log(`NFT ${mint.toString()} has no collection metadata, skipping`)
             }
           }
         } catch (err) {

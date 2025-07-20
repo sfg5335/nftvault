@@ -46,7 +46,7 @@ interface HeliusNFT {
 export async function fetchNFTMetadata(nftMint: string, connection: Connection): Promise<NFTMetadata | null> {
   try {
     // Try Helius API first
-    const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://mainnet.helius-rpc.com'
+    const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://api-devnet.helius-rpc.com'
     const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
     
     if (heliusUrl && heliusApiKey) {
@@ -141,7 +141,7 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
 
 // Helper function to fetch multiple NFTs efficiently using Helius
 export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMetadata[]> {
-  const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://mainnet.helius-rpc.com'
+  const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://api-devnet.helius-rpc.com'
   const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
   
   if (!heliusUrl || !heliusApiKey || mints.length === 0) {
@@ -207,7 +207,7 @@ export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMet
 
 // Function to get user's NFTs using Helius
 export async function fetchUserNFTs(walletAddress: string): Promise<NFTMetadata[]> {
-  const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://mainnet.helius-rpc.com'
+  const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://api-devnet.helius-rpc.com'
   const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
   
   if (!heliusUrl || !heliusApiKey) {
@@ -475,4 +475,4 @@ export async function getVerifiedCollectionNFTs(
     console.error('Error getting verified collection NFTs:', err);
     return [];
   }
-}
+} 

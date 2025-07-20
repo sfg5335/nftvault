@@ -117,10 +117,10 @@ function PortfolioContent() {
     if (connected && publicKey && client && connection) {
       setLoading(true)
       setError(null)
-              Promise.all([
+      Promise.all([
           fetchUserNFTs_old(publicKey, connection),
-          fetchPools(client)
-        ]).then(([userNfts, allPools]) => {
+        fetchPools(client)
+      ]).then(([userNfts, allPools]) => {
         setNfts(userNfts)
         setPools(allPools)
       }).catch((err) => {
@@ -450,14 +450,14 @@ async function fetchUserNFTs_old(publicKey: PublicKey, connection: any): Promise
     // Convert to our Nft type
     const result: Nft[] = nftMetadata.map(metadata => ({
       mint: metadata.mint,
-      name: metadata.name,
-      symbol: metadata.symbol,
+          name: metadata.name,
+          symbol: metadata.symbol,
       image: metadata.image,
       collectionMint: metadata.collection?.name || '',
       verified: metadata.collection?.verified || false,
       attributes: metadata.attributes || []
     }))
-
+    
     console.log('Successfully processed NFTs:', result.length)
     return result
   } catch (error) {

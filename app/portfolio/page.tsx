@@ -455,7 +455,10 @@ async function fetchUserNFTs_old(publicKey: PublicKey, connection: any): Promise
       image: metadata.image,
       collectionMint: metadata.collection?.key || '',
       verified: metadata.collection?.verified || false,
-      attributes: metadata.attributes || []
+      attributes: metadata.attributes?.map(attr => ({
+        trait_type: attr.trait_type,
+        value: String(attr.value) // Convert to string to match Nft type
+      })) || []
     }))
     
     console.log('Successfully processed NFTs:', result.length)

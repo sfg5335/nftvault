@@ -22,7 +22,7 @@ export class VanityKeypairManager {
       }
 
       const files = fs.readdirSync(this.KEYPAIRS_DIR)
-      const jsonFiles = files.filter(file => file.endsWith('.json'))
+      const jsonFiles = files.filter(file => file.endsWith('.json') && !file.includes('.used.'))
       
       const keypairs: VanityKeypairInfo[] = []
       

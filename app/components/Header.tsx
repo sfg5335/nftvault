@@ -10,9 +10,7 @@ export function Header() {
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center space-x-4 sm:space-x-8">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg">🐸</span>
-              </div>
+              <span className="text-2xl">🐸</span>
               <h1 className="text-xl sm:text-2xl font-bold text-white">smol.markets</h1>
             </Link>
             

@@ -64,7 +64,7 @@ function HomeContent() {
         <div className="space-y-8">
           {/* Page Header */}
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-white mb-4">NFT Collection Pools</h1>
+            <h1 className="text-4xl font-bold text-white mb-4">Smolify your NFTs</h1>
             <p className="text-white/70 text-lg max-w-2xl mx-auto">
               Discover and trade fractionalized NFT collections. Each NFT in a collection yields exactly 1,000,000 sNFT tokens (like sWASSIE) for predictable economics.
             </p>

@@ -88,7 +88,7 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
                 <li>• Pay 0.015 SOL deposit fee per NFT</li>
                 <li>• Trade tokens on DEXs for liquidity</li>
                 <li>• Anyone can deposit into the shared pool</li>
-                <li>• NFTX-style fixed token economics</li>
+                <li>• Simple 1M tokens per NFT</li>
               </ul>
             </div>
           </div>

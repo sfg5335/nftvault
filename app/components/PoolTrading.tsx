@@ -668,7 +668,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
 
       {/* Info Box */}
       <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-        <h4 className="text-blue-400 font-semibold mb-2">Pool Economics</h4>
+                        <h4 className="text-blue-400 font-semibold mb-2">Pool Info</h4>
         <ul className="text-white/70 text-sm space-y-1">
           <li>• Deposit: 1 NFT → 1,000,000 tokens (0.015 SOL fee)</li>
           <li>• Redeem: 1,000,000 tokens → 1 NFT (0.025 SOL fee)</li>

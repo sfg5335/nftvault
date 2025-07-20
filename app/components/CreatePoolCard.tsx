@@ -9,12 +9,12 @@ export function CreatePoolCard() {
         <div className="flex-1 mb-6 md:mb-0 md:mr-8">
           <h2 className="text-2xl font-bold text-white mb-3">Create Your Own NFT Pool</h2>
           <p className="text-white/70 text-lg mb-4">
-            Fractionalize your NFT collection into tradeable tokens. Each NFT yields exactly 1,000,000 tokens for predictable economics.
+            Turn your NFT collection into fun, tradeable tokens! Each NFT becomes exactly 1,000,000 tokens for easy trading.
           </p>
           <div className="flex flex-wrap gap-4 text-sm text-white/60">
             <div className="flex items-center">
               <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-              Fixed token economics
+              Simple 1M tokens per NFT
             </div>
             <div className="flex items-center">
               <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>

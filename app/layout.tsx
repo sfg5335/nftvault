@@ -8,7 +8,7 @@ import { CacheMonitorToggle } from './components/CacheMonitor'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'smol.markets - Fractionalize Your NFTs',
+  title: 'smol.markets - Smolify Your NFTs',
   description: 'Deposit NFTs and receive fractional tokens representing ownership',
 }
 

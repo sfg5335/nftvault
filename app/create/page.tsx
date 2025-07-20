@@ -405,7 +405,7 @@ function CreatePoolPageContent() {
           <div className="text-center">
             <h1 className="text-4xl font-bold text-white mb-4">Create NFT Pool</h1>
             <p className="text-white/70 text-lg max-w-2xl mx-auto">
-              Select a collection from your wallet to create a fractionalized pool. You can deposit NFTs after creation.
+              Select a collection from your wallet to create a fun NFT pool! You can deposit NFTs after creation.
             </p>
           </div>
 
@@ -481,7 +481,7 @@ function CreatePoolPageContent() {
                   <div>
                     <p className="text-white/70 mb-6">
                       Found {collections.length} collection{collections.length > 1 ? 's' : ''} in your wallet. 
-                      Select one to create a fractionalized pool.
+                      Select one to create a fun NFT pool!
                     </p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

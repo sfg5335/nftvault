@@ -25,7 +25,7 @@ function HomeContent() {
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center max-w-md">
           <h1 className="text-4xl font-bold text-white mb-4">smol.markets</h1>
           <p className="text-white/80 mb-8 text-lg">
-            Fractionalize your NFT collections into tradeable tokens
+            Turn your NFT collections into fun, tradeable tokens!
           </p>
           <div className="space-y-4">
 
@@ -66,7 +66,7 @@ function HomeContent() {
           <div className="text-center">
             <h1 className="text-4xl font-bold text-white mb-4">Smolify your NFTs</h1>
             <p className="text-white/70 text-lg max-w-2xl mx-auto">
-              Discover and trade fractionalized NFT collections. Each NFT in a collection yields exactly 1,000,000 sNFT tokens (like sWASSIE) for predictable economics.
+              Discover and trade fractionalized NFT collections! Each NFT becomes exactly 1,000,000 sNFT tokens (like sWASSIE) for easy trading.
             </p>
           </div>
 

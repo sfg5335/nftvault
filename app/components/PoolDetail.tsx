@@ -149,7 +149,7 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
   const poolSymbol = poolMetadata?.symbol || 'POOL'
   const sNFTSymbol = `s${poolSymbol}` // sNFT token symbol with "s" prefix
   const poolImage = poolMetadata?.imageUrl || ''
-  const description = poolMetadata?.description || `Fractionalized NFT pool for ${poolName} collection. Each NFT yields 1,000,000 ${sNFTSymbol} tokens.`
+      const description = poolMetadata?.description || `Fun NFT pool for ${poolName} collection! Each NFT becomes 1,000,000 ${sNFTSymbol} tokens.`
 
   // Calculate derived values
         const tokenPrice = 0 // Will be calculated from actual market data

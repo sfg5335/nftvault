@@ -342,6 +342,31 @@ function CreatePoolPageContent() {
       if (err instanceof Error) {
         const message = err.message.toLowerCase()
         
+        // Check for vault already exists error
+        if (message.includes('already in use') || message.includes('already exists')) {
+          // Vault already exists - redirect to pool page
+          console.log('Vault already exists, redirecting to pool page...')
+          
+          // Store the pool info even though creation failed
+          const newPool = {
+            collectionMint: collectionMint.toString(),
+            name: selectedCollection.name,
+            symbol: selectedCollection.symbol,
+            description: `Fractionalized ${selectedCollection.name} collection`,
+            imageUrl: selectedCollection.image,
+            createdAt: new Date().toISOString(),
+            txSignature: 'existing-vault',
+            depositedNFTs: 0
+          }
+          PoolStorage.addCreatedPool(newPool)
+          
+          alert('A vault for this collection already exists! Redirecting to the pool page...')
+          setTimeout(() => {
+            window.location.href = `/pool/${collectionMint.toString()}`
+          }, 1000)
+          return
+        }
+        
         if (message.includes('insufficient funds')) {
           errorMessage = 'Insufficient SOL for transaction fees. Please add more SOL to your wallet.'
         } else if (message.includes('user rejected')) {

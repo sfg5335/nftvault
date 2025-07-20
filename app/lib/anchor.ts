@@ -107,14 +107,28 @@ export class AnchorClient {
       console.log(`[vaultExists] Vault state PDA: ${vaultStatePDA.toString()}`);
       console.log(`[vaultExists] Using program ID: ${PROGRAM_ID.toString()}`);
       
+      // Try to fetch the vault state directly using the program
+      try {
+        const vaultState = await this.program.account.vaultState.fetch(vaultStatePDA);
+        console.log(`[vaultExists] Successfully fetched vault state:`, vaultState);
+        return true;
+      } catch (fetchError) {
+        console.log(`[vaultExists] Could not fetch vault state (expected if doesn't exist):`, fetchError.message);
+      }
+      
+      // Fallback to checking account info
       const vaultState = await this.provider.connection.getAccountInfo(vaultStatePDA);
       console.log(`[vaultExists] Vault state account exists: ${vaultState !== null}`);
       if (vaultState) {
         console.log(`Vault state account owner: ${vaultState.owner.toString()}`);
         console.log(`Vault state account data length: ${vaultState.data.length}`);
+        // Verify the owner is our program
+        if (vaultState.owner.equals(PROGRAM_ID)) {
+          return true;
+        }
       }
       
-      return vaultState !== null;
+      return false;
     } catch (error) {
       console.error('Error in vaultExists:', error);
       return false;

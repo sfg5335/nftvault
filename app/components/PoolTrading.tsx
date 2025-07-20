@@ -98,7 +98,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           
           if (metadata) {
             // Check if this NFT belongs to the current collection
-            const nftCollectionKey = metadata.collection?.key
+            const nftCollectionKey = metadata.collection?.name
             
             console.log(`NFT ${mintAddress}: collection=${nftCollectionKey}, poolId=${poolId}`)
             

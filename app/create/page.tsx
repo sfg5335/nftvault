@@ -150,8 +150,8 @@ function CreatePoolPageContent() {
           
           if (metadata) {
             // Only process NFTs that have verified collection metadata
-            if (metadata.collection?.key && metadata.collection?.verified) {
-              const collectionKey = metadata.collection.key.toString()
+                          if (metadata.collection?.name && metadata.collection?.verified) {
+                              const collectionKey = metadata.collection.name
               
               const nft: WalletNFT = {
                 mint,

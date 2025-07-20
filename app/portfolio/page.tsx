@@ -9,8 +9,8 @@ import { ClientOnly } from '../components/ClientOnly'
 import { PoolStorage } from '../lib/poolStorage'
 import { Header } from '../components/Header'
 import Link from 'next/link'
-import { Metaplex, walletAdapterIdentity } from '@metaplex-foundation/js'
 import { Coins, Image as ImageIcon, Wallet, TrendingUp, ArrowRight, Loader2 } from 'lucide-react'
+import { fetchUserNFTs } from '../lib/nftMetadata'
 
 interface Pool {
   id: string
@@ -26,8 +26,11 @@ interface Nft {
   image: string
   symbol?: string
   collectionMint?: string
-  collectionName?: string
-  isVerified?: boolean
+  verified?: boolean
+  attributes?: Array<{
+    trait_type: string
+    value: string
+  }>
 }
 
 interface TokenBalance {
@@ -67,7 +70,7 @@ function PortfolioContent() {
   const portfolioStats = useMemo(() => {
     const totalTokens = Object.values(vaultTokenBalances).reduce((sum, { balance }) => sum + balance, 0)
     const totalPools = Object.keys(vaultTokenBalances).length
-    const verifiedNfts = nfts.filter(nft => nft.isVerified).length
+    const verifiedNfts = nfts.filter(nft => nft.verified).length
     return { totalTokens, totalPools, verifiedNfts, totalNfts: nfts.length }
   }, [vaultTokenBalances, nfts])
 
@@ -114,10 +117,10 @@ function PortfolioContent() {
     if (connected && publicKey && client && connection) {
       setLoading(true)
       setError(null)
-      Promise.all([
-        fetchUserNfts(publicKey, connection),
-        fetchPools(client)
-      ]).then(([userNfts, allPools]) => {
+              Promise.all([
+          fetchUserNFTs_old(publicKey, connection),
+          fetchPools(client)
+        ]).then(([userNfts, allPools]) => {
         setNfts(userNfts)
         setPools(allPools)
       }).catch((err) => {
@@ -318,12 +321,12 @@ function PortfolioContent() {
                     {/* NFT Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                       {nfts
-                        .sort((a, b) => (b.isVerified ? 1 : 0) - (a.isVerified ? 1 : 0))
+                        .sort((a, b) => (b.verified ? 1 : 0) - (a.verified ? 1 : 0))
                         .map((nft) => (
                           <div
                             key={nft.mint}
                             className={`bg-white/5 backdrop-blur-lg rounded-xl border ${
-                              nft.isVerified ? 'border-blue-500/40' : 'border-white/10'
+                              nft.verified ? 'border-blue-500/40' : 'border-white/10'
                             } overflow-hidden hover:border-white/20 transition-all`}
                           >
                                                          <div className="aspect-square relative bg-slate-800">
@@ -349,7 +352,7 @@ function PortfolioContent() {
                                   <ImageIcon className="w-16 h-16 text-slate-600" />
                                 </div>
                               )}
-                              {nft.isVerified && (
+                              {nft.verified && (
                                 <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
                                   Verified
                                 </div>
@@ -360,9 +363,9 @@ function PortfolioContent() {
                               <h3 className="text-white font-semibold truncate">
                                 {nft.name || 'Unknown NFT'}
                               </h3>
-                              {nft.collectionName && (
+                              {nft.collectionMint && (
                                 <p className="text-white/60 text-sm truncate">
-                                  {nft.collectionName}
+                                  Collection: {nft.collectionMint.slice(0, 8)}...
                                 </p>
                               )}
                               <p className="text-white/40 text-xs mt-2 font-mono truncate">
@@ -436,69 +439,29 @@ async function fetchPools(client: any): Promise<Pool[]> {
   }
 }
 
-async function fetchUserNfts(publicKey: PublicKey, connection: any): Promise<Nft[]> {
+async function fetchUserNFTs_old(publicKey: PublicKey, connection: any): Promise<Nft[]> {
   try {
     console.log('Fetching NFTs for wallet:', publicKey.toBase58())
     
-    const metaplex = Metaplex.make(connection)
-      .use(walletAdapterIdentity({ publicKey } as any))
+    // Use the new Helius-based function
+    const nftMetadata = await fetchUserNFTs(publicKey.toBase58())
+    console.log(`Found ${nftMetadata.length} NFTs from Helius`)
 
-    // Fetch all NFTs owned by the user
-    const nfts = await metaplex.nfts().findAllByOwner({ owner: publicKey })
-    console.log(`Found ${nfts.length} NFTs`)
+    // Convert to our Nft type
+    const result: Nft[] = nftMetadata.map(metadata => ({
+      mint: metadata.mint,
+      name: metadata.name,
+      symbol: metadata.symbol,
+      image: metadata.image,
+      collectionMint: metadata.collection?.name || '',
+      verified: metadata.collection?.verified || false,
+      attributes: metadata.attributes || []
+    }))
 
-    // Map to our Nft type with enhanced metadata
-    const result: Nft[] = []
-    for (const nft of nfts) {
-      if (!nft || !nft.model || nft.model !== 'metadata') continue
-      
-      try {
-        // Fetch the full metadata including JSON metadata
-        const fullNft = await metaplex.nfts().load({ metadata: nft as any })
-        console.log('Full NFT data:', fullNft.name, {
-          hasJson: !!fullNft.json,
-          image: fullNft.json?.image,
-          collection: fullNft.collection?.address?.toString()
-        })
-        
-        const isVerified = fullNft.collection?.verified || false
-        
-        // Handle IPFS URLs
-        let imageUrl = fullNft.json?.image || ''
-        if (imageUrl.startsWith('ipfs://')) {
-          const ipfsHash = imageUrl.replace('ipfs://', '')
-          imageUrl = `https://ipfs.io/ipfs/${ipfsHash}`
-        }
-        
-        result.push({
-          mint: fullNft.address.toString(),
-          name: fullNft.name,
-          symbol: fullNft.symbol,
-          image: imageUrl,
-          collectionMint: fullNft.collection?.address?.toString() || undefined,
-          collectionName: fullNft.json?.collection?.name || undefined,
-          isVerified
-        })
-      } catch (err) {
-        console.error('Error loading full NFT metadata:', err)
-        // Still add basic info if full metadata fails
-        const metadata = nft
-        result.push({
-          mint: metadata.mintAddress.toString(),
-          name: metadata.name,
-          symbol: metadata.symbol,
-          image: '',
-          collectionMint: metadata.collection?.address?.toString() || undefined,
-          collectionName: undefined,
-          isVerified: metadata.collection?.verified || false
-        })
-      }
-    }
-    
-    console.log(`Processed ${result.length} NFTs with metadata`)
+    console.log('Successfully processed NFTs:', result.length)
     return result
   } catch (error) {
-    console.error('Error fetching NFTs:', error)
-    throw error
+    console.error('Error fetching user NFTs:', error)
+    return []
   }
 } 

@@ -22,8 +22,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'
   const network = WalletAdapterNetwork.Devnet
 
-  // You can also provide a custom RPC endpoint
-  const endpoint = useMemo(() => clusterApiUrl(network), [network])
+  // Use environment variable for RPC endpoint to ensure consistency
+  const endpoint = useMemo(() => 
+    process.env.NEXT_PUBLIC_RPC_URL || clusterApiUrl(network), 
+    [network]
+  )
 
   const wallets = useMemo(
     () => [

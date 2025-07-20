@@ -1,6 +1,6 @@
 // Helius API utility functions
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
-const HELIUS_RPC_URL = `https://rpc.helius.xyz/?api-key=${HELIUS_API_KEY}`;
+const HELIUS_RPC_URL = `https://rpc-devnet.helius.xyz/?api-key=${HELIUS_API_KEY}`;
 
 export interface HeliusNFT {
   id: string;

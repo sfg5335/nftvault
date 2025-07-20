@@ -1,22 +1,37 @@
-import { Keypair } from '@solana/web3.js'
-import fs from 'fs'
-import path from 'path'
+import { Keypair, PublicKey } from '@solana/web3.js'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export interface VanityKeypairInfo {
   address: string
+  suffix: string
   filename: string
   filePath: string
-  suffix: string
 }
 
 export class VanityKeypairManager {
-  private static KEYPAIRS_DIR = path.resolve(process.cwd(), 'generated-keypairs')
-
+  private static readonly KEYPAIRS_DIR = path.join(process.cwd(), 'generated-keypairs')
+  
+  // In-memory state tracking (works in serverless/read-only environments)
+  private static usedKeypairs = new Set<string>()
+  private static sessionUsedKeypairs = new Set<string>()
+  
+  // Cache of available keypairs to avoid repeated file reads
+  private static cachedKeypairs: VanityKeypairInfo[] | null = null
+  private static cacheTimestamp: number = 0
+  private static readonly CACHE_DURATION = 60000 // 1 minute cache
+  
   /**
-   * Get all available vanity keypairs
+   * Get all available vanity keypairs with caching
    */
   static async getAvailableKeypairs(): Promise<VanityKeypairInfo[]> {
     try {
+      // Check if cache is still valid
+      const now = Date.now()
+      if (this.cachedKeypairs && (now - this.cacheTimestamp) < this.CACHE_DURATION) {
+        return this.cachedKeypairs
+      }
+      
       if (!fs.existsSync(this.KEYPAIRS_DIR)) {
         return []
       }
@@ -32,6 +47,11 @@ export class VanityKeypairManager {
       
       for (const filename of jsonFiles) {
         try {
+          // Skip if marked as used in memory
+          if (this.usedKeypairs.has(filename) || this.sessionUsedKeypairs.has(filename)) {
+            continue
+          }
+          
           const filePath = path.join(this.KEYPAIRS_DIR, filename)
           const secretKeyArray = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
           const keypair = Keypair.fromSecretKey(new Uint8Array(secretKeyArray))
@@ -40,16 +60,20 @@ export class VanityKeypairManager {
           
           keypairs.push({
             address,
+            suffix,
             filename,
-            filePath,
-            suffix
+            filePath
           })
         } catch (error) {
-          console.error(`Error reading keypair file ${filename}:`, error)
+          console.error(`Error processing keypair file ${filename}:`, error)
         }
       }
       
-      return keypairs.sort((a, b) => a.filename.localeCompare(b.filename))
+      // Update cache
+      this.cachedKeypairs = keypairs
+      this.cacheTimestamp = now
+      
+      return keypairs
     } catch (error) {
       console.error('Error getting available keypairs:', error)
       return []
@@ -57,151 +81,81 @@ export class VanityKeypairManager {
   }
 
   /**
-   * Get the next available vanity keypair (preferring those ending in 'smo1')
+   * Get a random available vanity keypair
    */
-  static async getNextKeypair(): Promise<{ keypair: Keypair; info: VanityKeypairInfo } | null> {
-    const available = await this.getAvailableKeypairs()
-    
-    if (available.length === 0) {
-      console.log('❌ No vanity keypairs available')
-      return null
-    }
-
-    // Prefer keypairs ending in 'smo1', otherwise use any available
-    let selected = available.find(kp => kp.suffix === 'smo1')
-    if (!selected) {
-      selected = available[0] // Use first available if no 'smo1' found
-    }
-
+  static async getRandomKeypair(): Promise<{ keypair: Keypair; info: VanityKeypairInfo } | null> {
     try {
-      const secretKeyArray = JSON.parse(fs.readFileSync(selected.filePath, 'utf-8'))
-      const keypair = Keypair.fromSecretKey(new Uint8Array(secretKeyArray))
+      const availableKeypairs = await this.getAvailableKeypairs()
       
-      console.log(`🎯 Selected vanity keypair: ${selected.address} (${selected.suffix})`)
-      return { keypair, info: selected }
-    } catch (error) {
-      console.error('Error loading selected keypair:', error)
-      return null
-    }
-  }
-
-  /**
-   * Reserve a keypair for use (moves it to a temporary location)
-   * This prevents it from being selected by another process
-   */
-  static async reserveKeypair(info: VanityKeypairInfo): Promise<boolean> {
-    try {
-      const reservedPath = info.filePath + '.reserved'
-      fs.renameSync(info.filePath, reservedPath)
-      console.log(`🔒 Reserved keypair: ${info.address}`)
-      return true
-    } catch (error) {
-      console.error('Error reserving keypair:', error)
-      return false
-    }
-  }
-
-  /**
-   * Check if a keypair is currently reserved
-   */
-  static async isReserved(keypairInfo: VanityKeypairInfo): Promise<boolean> {
-    try {
-      const reservedPath = path.join(this.KEYPAIRS_DIR, `${keypairInfo.filename}.reserved`)
-      return fs.existsSync(reservedPath)
-    } catch (error) {
-      console.error('Error checking reservation status:', error)
-      return false
-    }
-  }
-
-  /**
-   * Consume a reserved keypair (mark as used)
-   */
-  static async consumeKeypair(info: VanityKeypairInfo): Promise<boolean> {
-    try {
-      const reservedPath = info.filePath + '.reserved'
-      const usedPath = info.filePath.replace('.json', '.used.json')
-      
-      // If it's reserved, move from reserved to used
-      if (fs.existsSync(reservedPath)) {
-        fs.renameSync(reservedPath, usedPath)
-      } else if (fs.existsSync(info.filePath)) {
-        // If not reserved, move directly to used
-        fs.renameSync(info.filePath, usedPath)
+      if (availableKeypairs.length === 0) {
+        console.log('❌ No available vanity keypairs')
+        return null
       }
       
-      console.log(`✅ Consumed keypair: ${info.address} -> ${path.basename(usedPath)}`)
-      return true
-    } catch (error) {
-      console.error('Error consuming keypair:', error)
-      return false
-    }
-  }
-
-  /**
-   * Release a reserved keypair back to available (if vault creation failed)
-   */
-  static async releaseKeypair(info: VanityKeypairInfo): Promise<boolean> {
-    try {
-      const reservedPath = info.filePath + '.reserved'
-      if (fs.existsSync(reservedPath)) {
-        fs.renameSync(reservedPath, info.filePath)
-        console.log(`🔓 Released keypair back to available: ${info.address}`)
-        return true
-      }
-      return false
-    } catch (error) {
-      console.error('Error releasing keypair:', error)
-      return false
-    }
-  }
-
-  /**
-   * Get count of available, reserved, and used keypairs
-   */
-  static async getKeypairStats(): Promise<{ available: number; reserved: number; used: number }> {
-    try {
-      if (!fs.existsSync(this.KEYPAIRS_DIR)) {
-        return { available: 0, reserved: 0, used: 0 }
-      }
-
-      const files = fs.readdirSync(this.KEYPAIRS_DIR)
-      const available = files.filter(f => f.endsWith('.json') && !f.includes('.used.')).length
-      const reserved = files.filter(f => f.endsWith('.json.reserved')).length
-      const used = files.filter(f => f.endsWith('.used.json')).length
+      // Shuffle array for random selection
+      const shuffled = [...availableKeypairs].sort(() => Math.random() - 0.5)
       
-      return { available, reserved, used }
-    } catch (error) {
-      console.error('Error getting keypair stats:', error)
-      return { available: 0, reserved: 0, used: 0 }
-    }
-  }
-
-  /**
-   * Clean up any stale reserved keypairs (older than 5 minutes)
-   */
-  static async cleanupStaleReservations(): Promise<void> {
-    try {
-      if (!fs.existsSync(this.KEYPAIRS_DIR)) {
-        return
-      }
-
-      const files = fs.readdirSync(this.KEYPAIRS_DIR)
-      const reservedFiles = files.filter(f => f.endsWith('.json.reserved'))
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
-      
-      for (const filename of reservedFiles) {
-        const filePath = path.join(this.KEYPAIRS_DIR, filename)
-        const stats = fs.statSync(filePath)
-        
-        if (stats.mtime.getTime() < fiveMinutesAgo) {
-          const originalPath = filePath.replace('.reserved', '')
-          fs.renameSync(filePath, originalPath)
-          console.log(`🧹 Cleaned up stale reservation: ${filename}`)
+      // Try each keypair in random order
+      for (const keypairInfo of shuffled) {
+        try {
+          const secretKeyArray = JSON.parse(fs.readFileSync(keypairInfo.filePath, 'utf-8'))
+          const keypair = Keypair.fromSecretKey(new Uint8Array(secretKeyArray))
+          
+          console.log(`🎯 Selected vanity keypair: ${keypairInfo.address} (${keypairInfo.suffix})`)
+          
+          return {
+            keypair,
+            info: keypairInfo
+          }
+        } catch (error) {
+          console.error(`Error loading keypair ${keypairInfo.filename}:`, error)
+          continue
         }
       }
+      
+      return null
     } catch (error) {
-      console.error('Error cleaning up stale reservations:', error)
+      console.error('Error getting random keypair:', error)
+      return null
     }
+  }
+  
+  /**
+   * Mark a keypair as used in memory
+   */
+  static markAsUsed(keypairInfo: VanityKeypairInfo): void {
+    this.usedKeypairs.add(keypairInfo.filename)
+    this.sessionUsedKeypairs.add(keypairInfo.filename)
+    console.log(`🔒 Marked keypair as used: ${keypairInfo.address}`)
+    
+    // Invalidate cache when marking as used
+    this.cachedKeypairs = null
+  }
+  
+  /**
+   * Get statistics about keypair availability
+   */
+  static async getStats(): Promise<{ available: number; used: number; sessionUsed: number }> {
+    try {
+      const availableKeypairs = await this.getAvailableKeypairs()
+      
+      return {
+        available: availableKeypairs.length,
+        used: this.usedKeypairs.size,
+        sessionUsed: this.sessionUsedKeypairs.size
+      }
+    } catch (error) {
+      console.error('Error getting stats:', error)
+      return { available: 0, used: 0, sessionUsed: 0 }
+    }
+  }
+  
+  /**
+   * Clear session-used keypairs (for testing/debugging)
+   */
+  static clearSessionUsed(): void {
+    this.sessionUsedKeypairs.clear()
+    this.cachedKeypairs = null
+    console.log('🔓 Cleared session-used keypairs')
   }
 } 

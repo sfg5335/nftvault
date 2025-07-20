@@ -1,78 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { VanityKeypairManager } from '../../lib/vanityKeypairManager'
+import { NextRequest, NextResponse } from 'next/server';
+import { VanityKeypairManager } from '../../lib/vanityKeypairManager';
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const action = searchParams.get('action')
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action');
 
+  try {
     switch (action) {
       case 'stats':
-        const stats = await VanityKeypairManager.getKeypairStats()
-        return NextResponse.json({ success: true, data: stats })
-      
+        const stats = await VanityKeypairManager.getStats();
+        return NextResponse.json({ success: true, data: stats });
+
       case 'available':
-        const available = await VanityKeypairManager.getAvailableKeypairs()
-        return NextResponse.json({ success: true, data: available })
-      
+        const available = await VanityKeypairManager.getAvailableKeypairs();
+        return NextResponse.json({ success: true, data: available });
+
       case 'next':
-        const next = await VanityKeypairManager.getNextKeypair()
+        const next = await VanityKeypairManager.getRandomKeypair();
         if (!next) {
-          return NextResponse.json({ 
-            success: false, 
-            error: 'No vanity keypairs available! Please generate some vanity addresses ending in "smo1" first.' 
-          }, { status: 404 })
+          return NextResponse.json({ error: 'No keypairs available' }, { status: 404 });
         }
+        // Don't mark as used here - let the vault creation process handle that
         return NextResponse.json({ 
           success: true, 
-          data: {
-            keypair: Array.from(next.keypair.secretKey),
-            info: next.info
-          }
-        })
-      
+          data: { 
+            info: next.info,
+            // Don't send the actual keypair over the network for security
+          } 
+        });
+
+      case 'clear-session':
+        // For testing/debugging only
+        VanityKeypairManager.clearSessionUsed();
+        return NextResponse.json({ success: true, message: 'Session cleared' });
+
       default:
-        return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Vanity keypair API error:', error)
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }, { status: 500 })
+    console.error('Error in vanity keypairs API:', error);
+    return NextResponse.json(
+      { error: 'Failed to process request', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
 
+// No POST method needed anymore since we don't do reservations
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { action, keypairInfo } = body
-
-    switch (action) {
-      case 'reserve':
-        const reserved = await VanityKeypairManager.reserveKeypair(keypairInfo)
-        return NextResponse.json({ success: reserved })
-      
-      case 'consume':
-        const consumed = await VanityKeypairManager.consumeKeypair(keypairInfo)
-        return NextResponse.json({ success: consumed })
-      
-      case 'release':
-        const released = await VanityKeypairManager.releaseKeypair(keypairInfo)
-        return NextResponse.json({ success: released })
-      
-      case 'cleanup':
-        await VanityKeypairManager.cleanupStaleReservations()
-        return NextResponse.json({ success: true })
-      
-      default:
-        return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
-    }
-  } catch (error) {
-    console.error('Vanity keypair API error:', error)
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }, { status: 500 })
-  }
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 } 

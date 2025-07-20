@@ -21,31 +21,6 @@ export async function POST(request: NextRequest) {
     console.log('🚀 Server-side vault creation starting...');
     console.log('📦 Collection mint:', collectionMint);
 
-    // Reserve multiple vanity keypairs as backup
-    const MAX_KEYPAIRS_TO_TRY = 3;
-    const reservedKeypairs: Array<{ keypair: Keypair; info: any }> = [];
-    
-    console.log('🔑 Reserving multiple vanity keypairs...');
-    for (let i = 0; i < MAX_KEYPAIRS_TO_TRY; i++) {
-      const vanityResult = await VanityKeypairManager.getNextKeypair();
-      if (!vanityResult) {
-        console.log(`⚠️ Could not get keypair ${i + 1}/${MAX_KEYPAIRS_TO_TRY}`);
-        continue;
-      }
-      
-      const reserved = await VanityKeypairManager.reserveKeypair(vanityResult.info);
-      if (reserved) {
-        reservedKeypairs.push(vanityResult);
-        console.log(`✅ Reserved keypair ${i + 1}/${MAX_KEYPAIRS_TO_TRY}: ${vanityResult.keypair.publicKey.toString()}`);
-      }
-    }
-
-    if (reservedKeypairs.length === 0) {
-      return NextResponse.json({ error: 'No vanity keypairs available' }, { status: 500 });
-    }
-
-    console.log(`🎯 Reserved ${reservedKeypairs.length} keypairs total`);
-
     // Initialize Anchor - use devnet for testing
     const connection = new Connection(
       process.env.NEXT_PUBLIC_RPC_URL || 'https://api.devnet.solana.com',
@@ -83,21 +58,31 @@ export async function POST(request: NextRequest) {
 
     console.log('🏛️ Vault state PDA:', vaultStatePDA.toString());
 
-    // Try each keypair until one succeeds
+    // Try multiple times with different random keypairs
+    const MAX_ATTEMPTS = 5;
     let successfulKeypair = null;
     let successfulTx = null;
     let lastError = null;
 
-    for (const { keypair: vanityKeypair, info: keypairInfo } of reservedKeypairs) {
-      console.log(`\n🔄 Attempting with keypair: ${vanityKeypair.publicKey.toString()}`);
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      console.log(`\n🔄 Attempt ${attempt}/${MAX_ATTEMPTS}`);
+      
+      // Get a random vanity keypair
+      const vanityResult = await VanityKeypairManager.getRandomKeypair();
+      if (!vanityResult) {
+        console.log('❌ No available vanity keypairs');
+        return NextResponse.json({ error: 'No vanity keypairs available' }, { status: 500 });
+      }
+
+      const { keypair: vanityKeypair, info: keypairInfo } = vanityResult;
       
       try {
         // Check if this keypair already exists on-chain
         const accountInfo = await connection.getAccountInfo(vanityKeypair.publicKey);
         if (accountInfo) {
-          console.log(`⚠️ Keypair ${vanityKeypair.publicKey.toString()} already exists on-chain, skipping...`);
+          console.log(`⚠️ Keypair ${vanityKeypair.publicKey.toString()} already exists on-chain`);
           // Mark as used immediately
-          await VanityKeypairManager.consumeKeypair(keypairInfo);
+          VanityKeypairManager.markAsUsed(keypairInfo);
           continue;
         }
 
@@ -122,8 +107,8 @@ export async function POST(request: NextRequest) {
         console.log('✅ Vault created successfully with keypair:', vanityKeypair.publicKey.toString());
         console.log('📝 Transaction:', txSignature);
 
-        // Mark keypair as consumed
-        await VanityKeypairManager.consumeKeypair(keypairInfo);
+        // Mark keypair as used
+        VanityKeypairManager.markAsUsed(keypairInfo);
         
         successfulKeypair = vanityKeypair;
         successfulTx = txSignature;
@@ -137,24 +122,10 @@ export async function POST(request: NextRequest) {
         const errorMessage = transactionError?.toString() || '';
         if (errorMessage.includes('already in use') || errorMessage.includes('already been processed')) {
           // Mark this keypair as used
-          await VanityKeypairManager.consumeKeypair(keypairInfo);
-          console.log(`🔒 Marked keypair ${vanityKeypair.publicKey.toString()} as used`);
-        } else {
-          // Release the keypair for other errors
-          await VanityKeypairManager.releaseKeypair(keypairInfo);
-          console.log(`🔓 Released keypair ${vanityKeypair.publicKey.toString()}`);
+          VanityKeypairManager.markAsUsed(keypairInfo);
+          console.log(`🔒 Marked keypair ${vanityKeypair.publicKey.toString()} as used due to error`);
         }
-      }
-    }
-
-    // Release any unused reserved keypairs
-    for (const { keypair, info } of reservedKeypairs) {
-      if (keypair.publicKey.toString() !== successfulKeypair?.publicKey.toString()) {
-        const isReserved = await VanityKeypairManager.isReserved(info);
-        if (isReserved) {
-          await VanityKeypairManager.releaseKeypair(info);
-          console.log(`🔓 Released unused keypair: ${keypair.publicKey.toString()}`);
-        }
+        // For other errors, we don't mark as used since the keypair might still be valid
       }
     }
 

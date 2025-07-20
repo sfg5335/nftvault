@@ -10,7 +10,7 @@ export interface VanityKeypairInfo {
 }
 
 export class VanityKeypairManager {
-  private static KEYPAIRS_DIR = './generated-keypairs'
+  private static KEYPAIRS_DIR = path.resolve(process.cwd(), 'generated-keypairs')
 
   /**
    * Get all available vanity keypairs

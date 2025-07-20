@@ -36,7 +36,7 @@ describe("fractional_vault", () => {
 
   // Helius API configuration
   const HELIUS_API_KEY = process.env.HELIUS_API_KEY || "YOUR_API_KEY";
-  const HELIUS_URL = `https://api-devnet.helius.xyz/v0`;
+  const HELIUS_URL = `https://devnet.helius-rpc.com`;
 
   before(async () => {
     console.log("Setting up test accounts...");

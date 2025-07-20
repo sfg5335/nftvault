@@ -16,6 +16,12 @@ export function Header() {
             
             <nav className="hidden md:flex items-center space-x-6">
               <Link 
+                href="/" 
+                className="text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 px-3 py-2 rounded-lg"
+              >
+                Pools
+              </Link>
+              <Link 
                 href="/portfolio" 
                 className="text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 px-3 py-2 rounded-lg"
               >
@@ -43,6 +49,12 @@ export function Header() {
         {/* Mobile navigation */}
         <div className="md:hidden border-t border-white/10 pt-3 pb-1">
           <nav className="flex items-center space-x-1">
+            <Link 
+              href="/" 
+              className="text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 px-3 py-2 rounded-lg text-sm flex-1 text-center"
+            >
+              Pools
+            </Link>
             <Link 
               href="/portfolio" 
               className="text-white/70 hover:text-white transition-colors duration-200 hover:bg-white/10 px-3 py-2 rounded-lg text-sm flex-1 text-center"

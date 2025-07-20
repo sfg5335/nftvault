@@ -65,7 +65,13 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
         console.log('Fetching NFT metadata from Helius for mint:', nftMint)
         
         // Construct URL with optional API key
-        const apiUrl = heliusApiKey ? `${heliusUrl}/?api-key=${heliusApiKey}` : heliusUrl
+        // Fix: Check if URL already has query parameters
+        let apiUrl = heliusUrl
+        if (heliusApiKey) {
+          // Check if URL already has query parameters
+          const separator = heliusUrl.includes('?') ? '&' : '/?'
+          apiUrl = `${heliusUrl}${separator}api-key=${heliusApiKey}`
+        }
         
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -170,7 +176,13 @@ export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMet
     console.log(`Fetching ${mints.length} NFTs from Helius`)
     
     // Construct URL with optional API key
-    const apiUrl = heliusApiKey ? `${heliusUrl}/?api-key=${heliusApiKey}` : heliusUrl
+    // Fix: Check if URL already has query parameters
+    let apiUrl = heliusUrl
+    if (heliusApiKey) {
+      // Check if URL already has query parameters
+      const separator = heliusUrl.includes('?') ? '&' : '/?'
+      apiUrl = `${heliusUrl}${separator}api-key=${heliusApiKey}`
+    }
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -240,7 +252,13 @@ export async function fetchUserNFTs(walletAddress: string): Promise<NFTMetadata[
     console.log('Fetching user NFTs from Helius for wallet:', walletAddress)
     
     // Construct URL with optional API key
-    const apiUrl = heliusApiKey ? `${heliusUrl}/?api-key=${heliusApiKey}` : heliusUrl
+    // Fix: Check if URL already has query parameters
+    let apiUrl = heliusUrl
+    if (heliusApiKey) {
+      // Check if URL already has query parameters
+      const separator = heliusUrl.includes('?') ? '&' : '/?'
+      apiUrl = `${heliusUrl}${separator}api-key=${heliusApiKey}`
+    }
     
     const response = await fetch(apiUrl, {
       method: 'POST',

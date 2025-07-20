@@ -21,20 +21,30 @@ export async function POST(request: NextRequest) {
     console.log('🚀 Server-side vault creation starting...');
     console.log('📦 Collection mint:', collectionMint);
 
-    // Get a vanity keypair from the server
-    const vanityResult = await VanityKeypairManager.getNextKeypair();
-    if (!vanityResult) {
+    // Reserve multiple vanity keypairs as backup
+    const MAX_KEYPAIRS_TO_TRY = 3;
+    const reservedKeypairs: Array<{ keypair: Keypair; info: any }> = [];
+    
+    console.log('🔑 Reserving multiple vanity keypairs...');
+    for (let i = 0; i < MAX_KEYPAIRS_TO_TRY; i++) {
+      const vanityResult = await VanityKeypairManager.getNextKeypair();
+      if (!vanityResult) {
+        console.log(`⚠️ Could not get keypair ${i + 1}/${MAX_KEYPAIRS_TO_TRY}`);
+        continue;
+      }
+      
+      const reserved = await VanityKeypairManager.reserveKeypair(vanityResult.info);
+      if (reserved) {
+        reservedKeypairs.push(vanityResult);
+        console.log(`✅ Reserved keypair ${i + 1}/${MAX_KEYPAIRS_TO_TRY}: ${vanityResult.keypair.publicKey.toString()}`);
+      }
+    }
+
+    if (reservedKeypairs.length === 0) {
       return NextResponse.json({ error: 'No vanity keypairs available' }, { status: 500 });
     }
 
-    const { keypair: vanityKeypair, info: keypairInfo } = vanityResult;
-    console.log('🎯 Using vanity keypair:', vanityKeypair.publicKey.toString());
-    
-    // Reserve the keypair to prevent concurrent use
-    const reserved = await VanityKeypairManager.reserveKeypair(keypairInfo);
-    if (!reserved) {
-      return NextResponse.json({ error: 'Failed to reserve vanity keypair' }, { status: 500 });
-    }
+    console.log(`🎯 Reserved ${reservedKeypairs.length} keypairs total`);
 
     // Initialize Anchor - use devnet for testing
     const connection = new Connection(
@@ -73,47 +83,91 @@ export async function POST(request: NextRequest) {
 
     console.log('🏛️ Vault state PDA:', vaultStatePDA.toString());
 
-    // Create the vault using server wallet + vanity keypair
-    try {
-      const txSignature = await program.methods
-        .initializeVault()
-        .accounts({
-          creator: SERVER_WALLET.publicKey,
-          collectionMint: new PublicKey(collectionMint),
-          vaultState: vaultStatePDA,
-          fractionalMint: vanityKeypair.publicKey,
-          mintKeypair: vanityKeypair.publicKey,
-          systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          rent: SYSVAR_RENT_PUBKEY,
-        })
-        .signers([vanityKeypair]) // Server can sign with vanity keypair
-        .rpc({
-          skipPreflight: false,
-          commitment: 'confirmed'
-        });
+    // Try each keypair until one succeeds
+    let successfulKeypair = null;
+    let successfulTx = null;
+    let lastError = null;
 
-      console.log('✅ Vault created successfully!');
-      console.log('📝 Transaction:', txSignature);
+    for (const { keypair: vanityKeypair, info: keypairInfo } of reservedKeypairs) {
+      console.log(`\n🔄 Attempting with keypair: ${vanityKeypair.publicKey.toString()}`);
+      
+      try {
+        // Check if this keypair already exists on-chain
+        const accountInfo = await connection.getAccountInfo(vanityKeypair.publicKey);
+        if (accountInfo) {
+          console.log(`⚠️ Keypair ${vanityKeypair.publicKey.toString()} already exists on-chain, skipping...`);
+          // Mark as used immediately
+          await VanityKeypairManager.consumeKeypair(keypairInfo);
+          continue;
+        }
 
-      // Mark keypair as consumed
-      await VanityKeypairManager.consumeKeypair(keypairInfo);
+        const txSignature = await program.methods
+          .initializeVault()
+          .accounts({
+            creator: SERVER_WALLET.publicKey,
+            collectionMint: new PublicKey(collectionMint),
+            vaultState: vaultStatePDA,
+            fractionalMint: vanityKeypair.publicKey,
+            mintKeypair: vanityKeypair.publicKey,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            rent: SYSVAR_RENT_PUBKEY,
+          })
+          .signers([vanityKeypair]) // Server can sign with vanity keypair
+          .rpc({
+            skipPreflight: false,
+            commitment: 'confirmed'
+          });
 
+        console.log('✅ Vault created successfully with keypair:', vanityKeypair.publicKey.toString());
+        console.log('📝 Transaction:', txSignature);
+
+        // Mark keypair as consumed
+        await VanityKeypairManager.consumeKeypair(keypairInfo);
+        
+        successfulKeypair = vanityKeypair;
+        successfulTx = txSignature;
+        break; // Success! Exit the loop
+        
+      } catch (transactionError) {
+        console.error(`❌ Transaction failed with keypair ${vanityKeypair.publicKey.toString()}:`, transactionError);
+        lastError = transactionError;
+        
+        // Check if the error is due to the keypair already being in use
+        const errorMessage = transactionError?.toString() || '';
+        if (errorMessage.includes('already in use') || errorMessage.includes('already been processed')) {
+          // Mark this keypair as used
+          await VanityKeypairManager.consumeKeypair(keypairInfo);
+          console.log(`🔒 Marked keypair ${vanityKeypair.publicKey.toString()} as used`);
+        } else {
+          // Release the keypair for other errors
+          await VanityKeypairManager.releaseKeypair(keypairInfo);
+          console.log(`🔓 Released keypair ${vanityKeypair.publicKey.toString()}`);
+        }
+      }
+    }
+
+    // Release any unused reserved keypairs
+    for (const { keypair, info } of reservedKeypairs) {
+      if (keypair.publicKey.toString() !== successfulKeypair?.publicKey.toString()) {
+        const isReserved = await VanityKeypairManager.isReserved(info);
+        if (isReserved) {
+          await VanityKeypairManager.releaseKeypair(info);
+          console.log(`🔓 Released unused keypair: ${keypair.publicKey.toString()}`);
+        }
+      }
+    }
+
+    if (successfulTx && successfulKeypair) {
       return NextResponse.json({
         success: true,
-        transactionSignature: txSignature,
+        transactionSignature: successfulTx,
         vaultState: vaultStatePDA.toString(),
-        fractionalMint: vanityKeypair.publicKey.toString(),
+        fractionalMint: successfulKeypair.publicKey.toString(),
         collectionMint: collectionMint
       });
-      
-    } catch (transactionError) {
-      console.error('❌ Transaction failed:', transactionError);
-      
-      // Release the reserved keypair since transaction failed
-      await VanityKeypairManager.releaseKeypair(keypairInfo);
-      
-      throw transactionError;
+    } else {
+      throw lastError || new Error('All keypair attempts failed');
     }
 
   } catch (error) {

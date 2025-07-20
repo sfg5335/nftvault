@@ -102,7 +102,20 @@ export class VanityKeypairManager {
   }
 
   /**
-   * Consume a keypair after successful use (permanently removes it)
+   * Check if a keypair is currently reserved
+   */
+  static async isReserved(keypairInfo: VanityKeypairInfo): Promise<boolean> {
+    try {
+      const reservedPath = path.join(this.KEYPAIRS_DIR, `${keypairInfo.filename}.reserved`)
+      return fs.existsSync(reservedPath)
+    } catch (error) {
+      console.error('Error checking reservation status:', error)
+      return false
+    }
+  }
+
+  /**
+   * Consume a reserved keypair (mark as used)
    */
   static async consumeKeypair(info: VanityKeypairInfo): Promise<boolean> {
     try {

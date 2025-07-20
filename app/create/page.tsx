@@ -71,6 +71,14 @@ function CreatePoolPageContent() {
   const [isLoadingCollections, setIsLoadingCollections] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [txSignature, setTxSignature] = useState<string | null>(null)
+  const [creationProgress, setCreationProgress] = useState<string>('')
+  const [progressSteps, setProgressSteps] = useState<string[]>([])
+  
+  // Helper function to add progress steps
+  const addProgressStep = (step: string) => {
+    setProgressSteps(prev => [...prev, step])
+    setCreationProgress(step)
+  }
   
   // Load user's NFT collections when component mounts
   useEffect(() => {
@@ -250,6 +258,9 @@ function CreatePoolPageContent() {
       setIsCreating(true)
       setError(null)
       setTxSignature(null)
+      setProgressSteps([]) // Clear previous progress
+      
+      addProgressStep('🔍 Validating collection mint...')
 
       collectionMint = new PublicKey(selectedCollection.mint)
 
@@ -268,6 +279,9 @@ function CreatePoolPageContent() {
         setError('The collection address is not a valid mint account.')
         return
       }
+
+      addProgressStep('✅ Collection mint validated')
+      addProgressStep('🔎 Checking for existing vault...')
 
       // Check if vault already exists
       const exists = await client.vaultExists(collectionMint)
@@ -294,6 +308,7 @@ function CreatePoolPageContent() {
             PoolStorage.addCreatedPool(newPool)
             
             // Alert and redirect
+            addProgressStep('⚠️ Vault already exists for this collection!')
             alert('A vault for this collection already exists! Redirecting to the pool page...')
             setTimeout(() => {
               window.location.href = `/pool/${collectionMint.toString()}`
@@ -306,10 +321,16 @@ function CreatePoolPageContent() {
         }
       }
 
+      addProgressStep('🔑 Reserving vanity keypairs...')
+      addProgressStep('🚀 Initializing vault on Solana...')
+
       // Initialize the collection vault
       console.log('Initializing vault for collection:', collectionMint.toString())
       const vaultSignature = await initializeCollectionVault(collectionMint)
       console.log('Vault initialized successfully:', vaultSignature)
+      
+      addProgressStep('✅ Vault created successfully!')
+      addProgressStep(`📝 Transaction: ${vaultSignature.slice(0, 8)}...`)
       
       setTxSignature(vaultSignature)
       
@@ -472,6 +493,22 @@ function CreatePoolPageContent() {
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
               <p className="text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Progress Display */}
+          {progressSteps.length > 0 && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
+              <h4 className="text-blue-400 font-semibold mb-3">Creation Progress:</h4>
+              <div className="space-y-2">
+                {progressSteps.map((step, index) => (
+                  <div key={index} className="text-white/80 text-sm flex items-start">
+                    <span className={`${index === progressSteps.length - 1 ? 'animate-pulse' : ''}`}>
+                      {step}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

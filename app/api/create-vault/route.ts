@@ -4,7 +4,7 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import * as anchor from '@coral-xyz/anchor';
 import { Program } from '@coral-xyz/anchor';
 import { FractionalVault } from '../../../target/types/fractional_vault';
-import { VanityKeypairManager } from '../../lib/vanityKeypairManager';
+import { getDatabaseKeypairManager } from '../../lib/databaseKeypairManager';
 
 // Load server wallet from temp-wallet.json
 import walletSecretKey from '../../../temp-wallet.json';
@@ -58,31 +58,40 @@ export async function POST(request: NextRequest) {
 
     console.log('🏛️ Vault state PDA:', vaultStatePDA.toString());
 
-    // Try multiple times with different random keypairs
-    const MAX_ATTEMPTS = 5;
+    // Get database keypair manager
+    const keypairManager = getDatabaseKeypairManager();
+    
+    // Clean up any stale reservations first
+    await keypairManager.cleanupStaleReservations();
+    
+    // Check availability
+    const availability = await keypairManager.checkKeypairAvailability();
+    if (availability.isLow) {
+      console.warn(`⚠️ Low on keypairs: only ${availability.available} remaining`);
+    }
+
+    // Try multiple times with different keypairs from database
+    const MAX_ATTEMPTS = 3;
     let successfulKeypair = null;
     let successfulTx = null;
     let lastError = null;
+    let currentKeypairId = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       console.log(`\n🔄 Attempt ${attempt}/${MAX_ATTEMPTS}`);
       
-      // Get a random vanity keypair
-      const vanityResult = await VanityKeypairManager.getRandomKeypair();
-      if (!vanityResult) {
-        console.log('❌ No available vanity keypairs');
-        return NextResponse.json({ error: 'No vanity keypairs available' }, { status: 500 });
-      }
-
-      const { keypair: vanityKeypair, info: keypairInfo } = vanityResult;
-      
       try {
+        // Get a keypair from the database
+        const { keypair: vanityKeypair, keypairId } = await keypairManager.getKeypairForVault(collectionMint);
+        currentKeypairId = keypairId;
+        
         // Check if this keypair already exists on-chain
         const accountInfo = await connection.getAccountInfo(vanityKeypair.publicKey);
         if (accountInfo) {
           console.log(`⚠️ Keypair ${vanityKeypair.publicKey.toString()} already exists on-chain`);
           // Mark as used immediately
-          VanityKeypairManager.markAsUsed(keypairInfo);
+          await keypairManager.markAsUsed(keypairId, 'already-exists');
+          currentKeypairId = null;
           continue;
         }
 
@@ -107,29 +116,38 @@ export async function POST(request: NextRequest) {
         console.log('✅ Vault created successfully with keypair:', vanityKeypair.publicKey.toString());
         console.log('📝 Transaction:', txSignature);
 
-        // Mark keypair as used
-        VanityKeypairManager.markAsUsed(keypairInfo);
+        // Mark keypair as used in database
+        await keypairManager.markAsUsed(keypairId, txSignature);
         
         successfulKeypair = vanityKeypair;
         successfulTx = txSignature;
+        currentKeypairId = null;
         break; // Success! Exit the loop
         
-      } catch (transactionError) {
-        console.error(`❌ Transaction failed with keypair ${vanityKeypair.publicKey.toString()}:`, transactionError);
+      } catch (transactionError: any) {
+        console.error(`❌ Transaction failed:`, transactionError);
         lastError = transactionError;
         
-        // Check if the error is due to the keypair already being in use
-        const errorMessage = transactionError?.toString() || '';
-        if (errorMessage.includes('already in use') || errorMessage.includes('already been processed')) {
-          // Mark this keypair as used
-          VanityKeypairManager.markAsUsed(keypairInfo);
-          console.log(`🔒 Marked keypair ${vanityKeypair.publicKey.toString()} as used due to error`);
+        // If we have a reserved keypair, release it back to the pool
+        if (currentKeypairId) {
+          const errorMessage = transactionError?.toString() || '';
+          if (errorMessage.includes('already in use') || errorMessage.includes('already been processed')) {
+            // Mark as used if it's already on-chain
+            await keypairManager.markAsUsed(currentKeypairId, 'error-already-used');
+          } else {
+            // Release back to available pool for other errors
+            await keypairManager.releaseKeypair(currentKeypairId);
+          }
+          currentKeypairId = null;
         }
-        // For other errors, we don't mark as used since the keypair might still be valid
       }
     }
 
     if (successfulTx && successfulKeypair) {
+      // Get updated stats
+      const stats = await keypairManager.getStats();
+      console.log(`📊 Keypair stats - Available: ${stats.available}, Used: ${stats.used}, Total: ${stats.total}`);
+      
       return NextResponse.json({
         success: true,
         transactionSignature: successfulTx,

@@ -57,11 +57,11 @@ export function VaultCard({ vaultState }: VaultCardProps) {
           <div className="space-y-1 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-green-400">0.015 SOL</span>
+              <span className="text-green-400">{(vaultState.depositFeeBps / 100).toFixed(2)}%</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Redeem Fee:</span>
-              <span className="text-blue-400">0.025 SOL</span>
+              <span className="text-blue-400">{(vaultState.redeemFeeBps / 100).toFixed(2)}%</span>
             </div>
           </div>
         </div>

@@ -248,11 +248,11 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white/5 rounded-lg p-4">
             <p className="text-white/60 text-sm mb-1">Deposit Fee</p>
-            <p className="text-white font-bold text-lg">0.015 SOL</p>
+            <p className="text-white font-bold text-lg">{vaultState ? (vaultState.depositFeeBps / 100).toFixed(2) : '1.5'}%</p>
           </div>
           <div className="bg-white/5 rounded-lg p-4">
             <p className="text-white/60 text-sm mb-1">Redeem Fee</p>
-            <p className="text-white font-bold text-lg">0.025 SOL</p>
+            <p className="text-white font-bold text-lg">{vaultState ? (vaultState.redeemFeeBps / 100).toFixed(2) : '2.5'}%</p>
           </div>
         </div>
       </div>

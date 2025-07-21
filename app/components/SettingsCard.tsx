@@ -56,12 +56,20 @@ export function SettingsCard({ vaultState }: SettingsCardProps) {
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
               <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-green-400">0.015 SOL</span>
+              <span className="text-green-400">{(vaultState.depositFeeBps / 100).toFixed(2)}%</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Redeem Fee:</span>
-              <span className="text-blue-400">0.025 SOL</span>
+              <span className="text-blue-400">{(vaultState.redeemFeeBps / 100).toFixed(2)}%</span>
             </div>
+            {vaultState.tokenPriceNumerator > 0 && (
+              <div className="flex justify-between mt-2 pt-2 border-t border-white/10">
+                <span className="text-gray-300">Token Price:</span>
+                <span className="text-yellow-400">
+                  ${(vaultState.tokenPriceNumerator / vaultState.tokenPriceDenominator).toFixed(4)} USDC
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

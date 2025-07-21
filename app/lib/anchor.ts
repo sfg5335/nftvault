@@ -6,7 +6,7 @@ import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, g
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR");
+const PROGRAM_ID = new PublicKey("CRHDSudZbtxts9am7ZDRwKSjFGsME6nXoNUCPBaRYRNB");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -18,6 +18,11 @@ export interface VaultState {
   totalDeposits: number;
   totalFractionsMinted: number;
   isActive: boolean;
+  depositFeeBps: number;
+  redeemFeeBps: number;
+  lastPriceUpdate: number;
+  tokenPriceNumerator: number;
+  tokenPriceDenominator: number;
 }
 
 // Export the IDL for use in other files
@@ -600,5 +605,61 @@ export class AnchorClient {
   // Get program for external use
   public getProgram(): anchor.Program {
     return this.program;
+  }
+
+  // Update price oracle for dynamic fee calculation
+  async updatePriceOracle(
+    collectionMint: PublicKey,
+    priceNumerator: number,
+    priceDenominator: number
+  ): Promise<string> {
+    try {
+      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
+      
+      const tx = await this.program.methods
+        .updatePriceOracle(
+          new anchor.BN(priceNumerator),
+          new anchor.BN(priceDenominator)
+        )
+        .accounts({
+          authority: this.provider.wallet.publicKey,
+          vaultState: vaultStatePDA,
+        })
+        .rpc();
+
+      console.log("Price oracle updated:", tx);
+      return tx;
+    } catch (error) {
+      console.error("Error updating price oracle:", error);
+      throw error;
+    }
+  }
+
+  // Update fee parameters
+  async updateFeeParameters(
+    collectionMint: PublicKey,
+    depositFeeBps: number,
+    redeemFeeBps: number
+  ): Promise<string> {
+    try {
+      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
+      
+      const tx = await this.program.methods
+        .updateFeeParameters(
+          depositFeeBps,
+          redeemFeeBps
+        )
+        .accounts({
+          authority: this.provider.wallet.publicKey,
+          vaultState: vaultStatePDA,
+        })
+        .rpc();
+
+      console.log("Fee parameters updated:", tx);
+      return tx;
+    } catch (error) {
+      console.error("Error updating fee parameters:", error);
+      throw error;
+    }
   }
 } 

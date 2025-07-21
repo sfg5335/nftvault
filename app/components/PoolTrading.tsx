@@ -8,6 +8,7 @@ import { useAnchor } from '../hooks/useAnchor'
 import { NFTImage, ImageSkeleton } from './OptimizedImage'
 import { Shuffle, Target, Gift, AlertCircle, Loader2, Check } from 'lucide-react'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
+import { PriceOracleManager } from './PriceOracleManager'
 
 interface PoolTradingProps {
   poolId: string
@@ -685,11 +686,21 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                         <h4 className="text-blue-400 font-semibold mb-2">Pool Info</h4>
         <ul className="text-white/70 text-sm space-y-1">
-          <li>• Deposit: 1 NFT → 1,000,000 tokens (0.015 SOL fee)</li>
-          <li>• Redeem: 1,000,000 tokens → 1 NFT (0.025 SOL fee)</li>
+          <li>• Deposit: 1 NFT → 1,000,000 tokens (dynamic fee based on token value)</li>
+          <li>• Redeem: 1,000,000 tokens → 1 NFT (dynamic fee based on token value)</li>
       
         </ul>
       </div>
+
+      {/* Price Oracle Manager - Only shown to vault creator */}
+      {vaultState && publicKey && (
+        <div className="mt-6">
+          <PriceOracleManager 
+            vaultState={vaultState} 
+            isCreator={publicKey.toString() === vaultState.creator.toString()}
+          />
+        </div>
+      )}
     </div>
   )
 } 

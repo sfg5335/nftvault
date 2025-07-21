@@ -24,7 +24,37 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
 
   const redeemAmount = parseInt(amount) || 0
   const totalCost = redeemAmount // No token fees
-  const solFee = 0.025 // Flat 0.025 SOL fee
+  
+  // Calculate dynamic fee
+  const calculateDynamicFee = () => {
+    const tokensPerNft = 1000000
+    if (vaultState.tokenPriceNumerator > 0 && vaultState.tokenPriceDenominator > 0) {
+      // Calculate token value in USDC
+      const tokenPrice = vaultState.tokenPriceNumerator / vaultState.tokenPriceDenominator
+      const tokenValueUSDC = tokensPerNft * tokenPrice / 1_000_000 // Adjust for decimals
+      
+      // Apply fee percentage
+      const feeUSDC = tokenValueUSDC * vaultState.redeemFeeBps / 10000
+      
+      // Convert to SOL (simplified - assuming $100 per SOL)
+      const feeSOL = feeUSDC / 100
+      
+      return {
+        feeSOL: feeSOL.toFixed(4),
+        feeUSDC: feeUSDC.toFixed(2),
+        feePercentage: (vaultState.redeemFeeBps / 100).toFixed(2)
+      }
+    }
+    
+    // Fallback to flat fee
+    return {
+      feeSOL: '0.025',
+      feeUSDC: '2.50',
+      feePercentage: '2.5'
+    }
+  }
+
+  const dynamicFee = calculateDynamicFee()
 
   return (
     <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
@@ -80,14 +110,14 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
               <span className="text-white">{totalCost.toLocaleString()} sNFTs</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-white/70">SOL Fee</span>
-              <span className="text-white">{solFee} SOL</span>
+              <span className="text-white/70">Redeem Fee</span>
+              <span className="text-white">{dynamicFee.feePercentage}% (≈ {dynamicFee.feeSOL} SOL)</span>
             </div>
             <div className="border-t border-white/10 pt-2 flex justify-between font-semibold">
               <span className="text-white">Total</span>
               <div className="text-right">
                 <div className="text-white">{totalCost.toLocaleString()} sNFTs</div>
-                <div className="text-sm text-white/70">+ {solFee} SOL</div>
+                <div className="text-sm text-white/70">+ {dynamicFee.feeSOL} SOL</div>
               </div>
             </div>
           </div>
@@ -100,7 +130,7 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
             <div className="text-sm text-white/80 space-y-1">
               <p>Redemption Details:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>• <span className="text-blue-400">Specific:</span> Choose the exact NFT from the pool (0.025 SOL fee)</li>
+                <li>• <span className="text-blue-400">Specific:</span> Choose the exact NFT from the pool ({dynamicFee.feePercentage}% fee)</li>
                 <li>• Each NFT requires 1,000,000 tokens to redeem</li>
                 <li>• SOL fees go to the protocol treasury</li>
               </ul>

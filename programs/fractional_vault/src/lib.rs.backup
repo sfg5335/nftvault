@@ -31,7 +31,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("CRHDSudZbtxts9am7ZDRwKSjFGsME6nXoNUCPBaRYRNB");
+declare_id!("AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR");
 
 /// Constants for the sNFT (smol NFT) fractional vault program
 pub mod constants {
@@ -79,11 +79,6 @@ pub struct VaultState {
     pub total_deposits: u64,             // Total NFTs deposited
     pub total_fractions_minted: u64,     // Total sNFT tokens minted
     pub is_active: bool,                 // Vault active status
-    pub deposit_fee_bps: u16,            // Deposit fee in basis points (100 bps = 1%)
-    pub redeem_fee_bps: u16,             // Redeem fee in basis points
-    pub last_price_update: i64,          // Last price update timestamp
-    pub token_price_numerator: u64,      // Token price numerator (e.g., USDC amount)
-    pub token_price_denominator: u64,    // Token price denominator (e.g., sToken amount)
 }
 
 /// Initialize a new vault
@@ -98,7 +93,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 2 + 2 + 8 + 8 + 8, // Added space for new fields
+        space = 8 + 32 + 32 + 32 + 8 + 8 + 1,
         seeds = [b"vault", collection_mint.key().as_ref()],
         bump
     )]
@@ -339,21 +334,6 @@ pub struct MintFractionalMultiple<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-/// Update price oracle data for dynamic fee calculation
-#[derive(Accounts)]
-pub struct UpdatePriceOracle<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"vault", vault_state.collection_mint.as_ref()],
-        bump,
-        constraint = authority.key() == vault_state.creator @ VaultError::InvalidFeeRate
-    )]
-    pub vault_state: Account<'info, VaultState>,
-}
-
 impl<'info> InitializeVault<'info> {
     pub fn initialize_vault(&mut self) -> Result<()> {
         // Initialize vault state
@@ -363,11 +343,6 @@ impl<'info> InitializeVault<'info> {
         self.vault_state.total_deposits = 0;
         self.vault_state.total_fractions_minted = 0;
         self.vault_state.is_active = true;
-        self.vault_state.deposit_fee_bps = 150; // Default 1.5% deposit fee
-        self.vault_state.redeem_fee_bps = 250;  // Default 2.5% redeem fee
-        self.vault_state.last_price_update = 0;
-        self.vault_state.token_price_numerator = 0;
-        self.vault_state.token_price_denominator = 1; // Avoid division by zero
         
         // Create the mint account
         let rent = Rent::get()?;
@@ -465,42 +440,8 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
         
-        // Calculate dynamic fee based on token price
-        let tokens_per_nft = constants::TOKENS_PER_NFT;
-        let vault_state = &ctx.accounts.vault_state;
-        
-        // Calculate fee in SOL based on token price and fee percentage
-        let fee_lamports = if vault_state.token_price_numerator > 0 && vault_state.token_price_denominator > 0 {
-            // Calculate token value in USDC (assuming price is USDC/sToken)
-            let token_value_usdc = (tokens_per_nft as u128)
-                .checked_mul(vault_state.token_price_numerator as u128)
-                .unwrap()
-                .checked_div(vault_state.token_price_denominator as u128)
-                .unwrap();
-            
-            // Apply fee percentage (deposit_fee_bps / 10000)
-            let fee_usdc = token_value_usdc
-                .checked_mul(vault_state.deposit_fee_bps as u128)
-                .unwrap()
-                .checked_div(10000)
-                .unwrap();
-            
-            // Convert USDC to SOL (assuming 1 SOL = $100 for now, should use real price)
-            // This is simplified - in production, we'd need SOL/USDC price too
-            let sol_price_usdc = 100_000_000u128; // $100 with 6 decimals
-            let fee_lamports = fee_usdc
-                .checked_mul(1_000_000_000) // SOL has 9 decimals
-                .unwrap()
-                .checked_div(sol_price_usdc)
-                .unwrap() as u64;
-            
-            // Minimum fee of 0.001 SOL
-            fee_lamports.max(1_000_000)
-        } else {
-            // Fallback to flat fee if no price data
-            15_000_000u64
-        };
-        
+        // Flat SOL fee: 0.015 SOL
+        let fee_lamports = 15_000_000u64;
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.protocol_treasury.key(),
@@ -617,41 +558,8 @@ impl<'info> RedeemSpecificNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
 
-        // Calculate dynamic fee based on token price
-        let vault_state = &ctx.accounts.vault_state;
-        
-        // Calculate fee in SOL based on token price and fee percentage
-        let fee_lamports = if vault_state.token_price_numerator > 0 && vault_state.token_price_denominator > 0 {
-            // Calculate token value in USDC (assuming price is USDC/sToken)
-            let token_value_usdc = (base_tokens_required as u128)
-                .checked_mul(vault_state.token_price_numerator as u128)
-                .unwrap()
-                .checked_div(vault_state.token_price_denominator as u128)
-                .unwrap();
-            
-            // Apply fee percentage (redeem_fee_bps / 10000)
-            let fee_usdc = token_value_usdc
-                .checked_mul(vault_state.redeem_fee_bps as u128)
-                .unwrap()
-                .checked_div(10000)
-                .unwrap();
-            
-            // Convert USDC to SOL (assuming 1 SOL = $100 for now, should use real price)
-            // This is simplified - in production, we'd need SOL/USDC price too
-            let sol_price_usdc = 100_000_000u128; // $100 with 6 decimals
-            let fee_lamports = fee_usdc
-                .checked_mul(1_000_000_000) // SOL has 9 decimals
-                .unwrap()
-                .checked_div(sol_price_usdc)
-                .unwrap() as u64;
-            
-            // Minimum fee of 0.001 SOL
-            fee_lamports.max(1_000_000)
-        } else {
-            // Fallback to flat fee if no price data
-            25_000_000u64
-        };
-        
+        // Flat SOL fee: 0.025 SOL
+        let fee_lamports = 25_000_000u64;
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.protocol_treasury.key(),
@@ -775,46 +683,6 @@ pub mod fractional_vault {
 
     pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
         MintFractionalMultiple::mint_fractional_multiple(ctx, num_nfts)
-    }
-
-    pub fn update_price_oracle(
-        ctx: Context<UpdatePriceOracle>, 
-        price_numerator: u64, 
-        price_denominator: u64
-    ) -> Result<()> {
-        let vault_state = &mut ctx.accounts.vault_state;
-        
-        // Validate price data
-        require!(price_denominator > 0, VaultError::InvalidTokenAmount);
-        require!(price_numerator > 0, VaultError::InvalidTokenAmount);
-        
-        // Update price data
-        vault_state.token_price_numerator = price_numerator;
-        vault_state.token_price_denominator = price_denominator;
-        vault_state.last_price_update = Clock::get()?.unix_timestamp;
-        
-        msg!("Price updated: {} USDC per {} sToken", price_numerator, price_denominator);
-        
-        Ok(())
-    }
-
-    pub fn update_fee_parameters(
-        ctx: Context<UpdatePriceOracle>, 
-        deposit_fee_bps: u16,
-        redeem_fee_bps: u16
-    ) -> Result<()> {
-        let vault_state = &mut ctx.accounts.vault_state;
-        
-        // Validate fee parameters (max 10% = 1000 bps)
-        require!(deposit_fee_bps <= 1000, VaultError::InvalidFeeRate);
-        require!(redeem_fee_bps <= 1000, VaultError::InvalidFeeRate);
-        
-        vault_state.deposit_fee_bps = deposit_fee_bps;
-        vault_state.redeem_fee_bps = redeem_fee_bps;
-        
-        msg!("Fees updated: deposit {}bps, redeem {}bps", deposit_fee_bps, redeem_fee_bps);
-        
-        Ok(())
     }
 }
 

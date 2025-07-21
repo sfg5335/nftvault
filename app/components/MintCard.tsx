@@ -22,6 +22,36 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
   const totalTokens = parseInt(amount) * tokensPerNft
   const tokensToReceive = totalTokens // No token fees
 
+  // Calculate dynamic fee
+  const calculateDynamicFee = () => {
+    if (vaultState.tokenPriceNumerator > 0 && vaultState.tokenPriceDenominator > 0) {
+      // Calculate token value in USDC
+      const tokenPrice = vaultState.tokenPriceNumerator / vaultState.tokenPriceDenominator
+      const tokenValueUSDC = totalTokens * tokenPrice / 1_000_000 // Adjust for decimals
+      
+      // Apply fee percentage
+      const feeUSDC = tokenValueUSDC * vaultState.depositFeeBps / 10000
+      
+      // Convert to SOL (simplified - assuming $100 per SOL)
+      const feeSOL = feeUSDC / 100
+      
+      return {
+        feeSOL: feeSOL.toFixed(4),
+        feeUSDC: feeUSDC.toFixed(2),
+        feePercentage: (vaultState.depositFeeBps / 100).toFixed(2)
+      }
+    }
+    
+    // Fallback to flat fee
+    return {
+      feeSOL: '0.015',
+      feeUSDC: '1.50',
+      feePercentage: '1.5'
+    }
+  }
+
+  const dynamicFee = calculateDynamicFee()
+
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
       <div className="flex items-center space-x-3 mb-6">
@@ -65,7 +95,7 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-red-400">0.015 SOL per NFT</span>
+              <span className="text-red-400">{dynamicFee.feePercentage}% (≈ {dynamicFee.feeSOL} SOL)</span>
             </div>
             <div className="border-t border-green-500/20 pt-2">
               <div className="flex justify-between font-semibold">
@@ -85,7 +115,7 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
               <ul className="space-y-1">
                 <li>• Deposit your NFTs from this collection</li>
                 <li>• Receive exactly 1,000,000 tokens per NFT (no token fees)</li>
-                <li>• Pay 0.015 SOL deposit fee per NFT</li>
+                <li>• Pay {dynamicFee.feePercentage}% deposit fee (≈ ${dynamicFee.feeUSDC} per NFT)</li>
                 <li>• Trade tokens on DEXs for liquidity</li>
                 <li>• Anyone can deposit into the shared pool</li>
                 <li>• Simple 1M tokens per NFT</li>

@@ -279,6 +279,56 @@ export type FractionalVault = {
           "type": "u8"
         }
       ]
+    },
+    {
+      "name": "updatePriceOracle",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "priceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "priceDenominator",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "updateFeeParameters",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "depositFeeBps",
+          "type": "u16"
+        },
+        {
+          "name": "redeemFeeBps",
+          "type": "u16"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -313,6 +363,26 @@ export type FractionalVault = {
           {
             "name": "isActive",
             "type": "bool"
+          },
+          {
+            "name": "depositFeeBps",
+            "type": "u16"
+          },
+          {
+            "name": "redeemFeeBps",
+            "type": "u16"
+          },
+          {
+            "name": "lastPriceUpdate",
+            "type": "i64"
+          },
+          {
+            "name": "tokenPriceNumerator",
+            "type": "u64"
+          },
+          {
+            "name": "tokenPriceDenominator",
+            "type": "u64"
           }
         ]
       }
@@ -735,6 +805,56 @@ export const IDL: FractionalVault = {
           "type": "u8"
         }
       ]
+    },
+    {
+      "name": "updatePriceOracle",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "priceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "priceDenominator",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "updateFeeParameters",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "depositFeeBps",
+          "type": "u16"
+        },
+        {
+          "name": "redeemFeeBps",
+          "type": "u16"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -769,6 +889,26 @@ export const IDL: FractionalVault = {
           {
             "name": "isActive",
             "type": "bool"
+          },
+          {
+            "name": "depositFeeBps",
+            "type": "u16"
+          },
+          {
+            "name": "redeemFeeBps",
+            "type": "u16"
+          },
+          {
+            "name": "lastPriceUpdate",
+            "type": "i64"
+          },
+          {
+            "name": "tokenPriceNumerator",
+            "type": "u64"
+          },
+          {
+            "name": "tokenPriceDenominator",
+            "type": "u64"
           }
         ]
       }

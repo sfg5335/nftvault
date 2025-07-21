@@ -34,6 +34,10 @@ export class DatabaseKeypairManager {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
+      // SSL configuration for production databases
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: false
+      } : undefined
     })
 
     // Load encryption key

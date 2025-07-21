@@ -68,45 +68,114 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       
       console.log(`Using Helius DAS API to fetch NFTs from collection: ${poolId}`)
       
-      // Use the improved getNFTsByCollection method
-      const { nfts: heliusNfts } = await getNFTsByCollection(
-        poolId,
-        publicKey.toString()
-      )
-
-      console.log(`Found ${heliusNfts.length} NFTs from collection ${poolId} in user wallet`)
-
-      const collectionNfts: NFT[] = []
+      let collectionNfts: NFT[] = []
       
-      // Convert Helius assets to our NFT format
-      for (const asset of heliusNfts) {
-        try {
-          const metadata = asset.content?.metadata
-          const files = asset.content?.files
-          
-          if (metadata) {
-            collectionNfts.push({
-              mint: asset.id,
-              name: metadata.name || `NFT ${asset.id.slice(0, 8)}...`,
-              image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
-              symbol: metadata.symbol || 'NFT',
-              metadata: {
+      try {
+        // Use the improved getNFTsByCollection method
+        const { nfts: heliusNfts } = await getNFTsByCollection(
+          poolId,
+          publicKey.toString()
+        )
+
+        console.log(`Found ${heliusNfts.length} NFTs from collection ${poolId} in user wallet`)
+
+        // Convert Helius assets to our NFT format
+        for (const asset of heliusNfts) {
+          try {
+            const metadata = asset.content?.metadata
+            const files = asset.content?.files
+            
+            if (metadata) {
+              collectionNfts.push({
                 mint: asset.id,
-                name: metadata.name || '',
-                symbol: metadata.symbol || '',
-                description: metadata.description || '',
+                name: metadata.name || `NFT ${asset.id.slice(0, 8)}...`,
                 image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
-                attributes: metadata.attributes || [],
-                collection: {
-                  key: poolId,
-                  verified: true // Assets returned by getAssetsByGroup are verified
+                symbol: metadata.symbol || 'NFT',
+                metadata: {
+                  mint: asset.id,
+                  name: metadata.name || '',
+                  symbol: metadata.symbol || '',
+                  description: metadata.description || '',
+                  image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
+                  attributes: metadata.attributes || [],
+                  collection: {
+                    key: poolId,
+                    verified: true // Assets returned by getAssetsByGroup are verified
+                  }
                 }
-              }
-            })
-            console.log(`✅ Added NFT ${metadata.name} to collection`)
+              })
+              console.log(`✅ Added NFT ${metadata.name} to collection`)
+            }
+          } catch (err) {
+            console.error(`Error processing NFT ${asset.id}:`, err)
           }
-        } catch (err) {
-          console.error(`Error processing NFT ${asset.id}:`, err)
+        }
+      } catch (heliusError) {
+        console.warn('Helius DAS API failed, falling back to RPC method:', heliusError)
+        
+        // Fallback to RPC method
+        // Get all token accounts owned by the user
+        const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+          programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+        })
+
+        // Filter for NFTs (amount = 1, decimals = 0)
+        const nftAccounts = tokenAccounts.value.filter(account => {
+          const amount = account.account.data.parsed.info.tokenAmount
+          return amount.uiAmount === 1 && amount.decimals === 0
+        })
+
+        console.log(`Found ${nftAccounts.length} NFT accounts in user wallet`)
+
+        if (nftAccounts.length > 0) {
+          // Extract mint addresses
+          const mintAddresses = nftAccounts.map(account => 
+            account.account.data.parsed.info.mint
+          )
+
+          console.log(`Fetching metadata for ${mintAddresses.length} NFTs...`)
+          
+          // Log the pool ID we're looking for
+          console.log(`Looking for NFTs with collection key: ${poolId}`)
+          
+          // Fetch metadata for each NFT directly
+          for (const mintAddress of mintAddresses) {
+            try {
+              const metadata = await fetchNFTMetadata(mintAddress, connection)
+              
+              if (metadata) {
+                // Check if this NFT belongs to the current collection
+                const nftCollectionKey = metadata.collection?.key
+                const isVerified = metadata.collection?.verified
+                
+                console.log(`NFT ${mintAddress}:`)
+                console.log(`  - name: ${metadata.name}`)
+                console.log(`  - collection key: ${nftCollectionKey}`)
+                console.log(`  - verified: ${isVerified}`)
+                console.log(`  - matches pool: ${nftCollectionKey === poolId}`)
+                
+                // Check if this NFT's collection key matches the pool's collection mint
+                if (nftCollectionKey === poolId) {
+                  collectionNfts.push({
+                    mint: mintAddress,
+                    name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
+                    image: metadata.image || '',
+                    symbol: metadata.symbol || 'NFT',
+                    metadata
+                  })
+                  console.log(`✅ Added NFT ${metadata.name} to collection`)
+                } else if (!nftCollectionKey) {
+                  console.log(`⚠️ NFT ${mintAddress} has no collection key`)
+                } else {
+                  console.log(`❌ NFT ${mintAddress} belongs to different collection: ${nftCollectionKey}`)
+                }
+              } else {
+                console.log(`⚠️ No metadata found for NFT ${mintAddress}`)
+              }
+            } catch (err) {
+              console.error(`Error fetching metadata for ${mintAddress}:`, err)
+            }
+          }
         }
       }
 

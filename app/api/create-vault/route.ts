@@ -177,9 +177,22 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('❌ Server vault creation failed:', error);
+    console.error('❌ Vault creation failed:', error);
+    console.error('Error type:', error?.constructor?.name);
+    console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Log specific error details
+    if (error instanceof Error) {
+      console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    }
+    
     return NextResponse.json(
-      { error: 'Vault creation failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Vault creation failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        type: error?.constructor?.name || 'Unknown'
+      },
       { status: 500 }
     );
   }

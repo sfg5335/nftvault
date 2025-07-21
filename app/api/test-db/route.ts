@@ -5,95 +5,110 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('Testing database connection...');
-    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
-    console.log('POSTGRES_URL exists:', !!process.env.POSTGRES_URL);
-    
     const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     
     if (!databaseUrl) {
-      return NextResponse.json({ error: 'No database URL found' });
-    }
-    
-    // Check URL format
-    if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
       return NextResponse.json({
-        error: 'Invalid database URL format',
-        details: 'Database URL must start with postgres:// or postgresql://',
-        actualFormat: databaseUrl.substring(0, 20) + '...',
-        suggestion: 'In Supabase, use the "Connection pooling" connection string from Settings > Database, not the API URL'
+        error: 'No database URL found',
+        hasPostgresUrl: !!process.env.POSTGRES_URL,
+        hasDatabaseUrl: !!process.env.DATABASE_URL,
+        hasComponents: {
+          host: !!process.env.POSTGRES_HOST,
+          user: !!process.env.POSTGRES_USER,
+          password: !!process.env.POSTGRES_PASSWORD,
+          database: !!process.env.POSTGRES_DATABASE
+        }
       }, { status: 400 });
     }
-    
-    // Log the database URL pattern (hiding sensitive parts)
-    const urlPattern = databaseUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...';
-    console.log('Database URL pattern:', urlPattern);
-    
-    // Try different SSL configurations
-    const configs = [
-      { name: 'default', ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined },
-      { name: 'ssl-true', ssl: true },
-      { name: 'ssl-require', ssl: { rejectUnauthorized: false } },
-      { name: 'no-ssl', ssl: false }
-    ];
-    
-    const results = [];
-    
-    for (const config of configs) {
-      console.log(`\nTrying configuration: ${config.name}`);
-      let pool = null;
-      
-      try {
-        pool = new Pool({
-          connectionString: databaseUrl,
-          ssl: config.ssl,
-          connectionTimeoutMillis: 5000
-        });
-        
-        const result = await pool.query('SELECT 1');
-        console.log(`✅ ${config.name} - Success`);
-        results.push({ config: config.name, success: true });
-        
-        // If successful, return immediately
-        await pool.end();
-        return NextResponse.json({
-          success: true,
-          workingConfig: config.name,
-          sslConfig: config.ssl,
-          nodeEnv: process.env.NODE_ENV
-        });
-        
-      } catch (err) {
-        console.log(`❌ ${config.name} - Failed:`, err instanceof Error ? err.message : 'Unknown error');
-        results.push({ 
-          config: config.name, 
-          success: false, 
-          error: err instanceof Error ? err.message : 'Unknown error' 
-        });
-      } finally {
-        if (pool) {
-          try {
-            await pool.end();
-          } catch (e) {
-            // Ignore cleanup errors
-          }
-        }
-      }
+
+    // Parse the URL to show components
+    let urlInfo: any = {};
+    try {
+      const url = new URL(databaseUrl);
+      urlInfo = {
+        protocol: url.protocol,
+        username: url.username ? `${url.username.substring(0, 4)}...` : 'none',
+        hostname: url.hostname,
+        port: url.port || 'default',
+        pathname: url.pathname,
+        hasPassword: !!url.password,
+        searchParams: Array.from(url.searchParams.keys())
+      };
+    } catch (e) {
+      urlInfo = { parseError: e instanceof Error ? e.message : 'Unknown error' };
     }
+
+    // Test actual connection
+    const testResults = [];
     
-    // All configurations failed
+    // Test 1: Basic connection
+    try {
+      const pool = new Pool({
+        connectionString: databaseUrl,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 5000
+      });
+      
+      const result = await pool.query('SELECT NOW()');
+      await pool.end();
+      
+      testResults.push({
+        test: 'Basic SSL connection',
+        success: true,
+        time: result.rows[0].now
+      });
+    } catch (error) {
+      testResults.push({
+        test: 'Basic SSL connection',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorCode: (error as any).code,
+        errorDetail: (error as any).detail
+      });
+    }
+
+    // Test 2: Check if vanity_keypairs table exists
+    try {
+      const pool = new Pool({
+        connectionString: databaseUrl,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 5000
+      });
+      
+      const result = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'vanity_keypairs'
+        );
+      `);
+      await pool.end();
+      
+      testResults.push({
+        test: 'Check vanity_keypairs table',
+        success: true,
+        tableExists: result.rows[0].exists
+      });
+    } catch (error) {
+      testResults.push({
+        test: 'Check vanity_keypairs table',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
     return NextResponse.json({
-      error: 'All database connection attempts failed',
-      attempts: results,
-      nodeEnv: process.env.NODE_ENV,
-      urlPattern
-    }, { status: 500 });
-    
+      status: 'Database connection test complete',
+      urlInfo,
+      testResults,
+      environment: process.env.NODE_ENV || 'development'
+    });
+
   } catch (error) {
-    console.error('Test DB error:', error);
     return NextResponse.json({
       error: 'Test failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 } 

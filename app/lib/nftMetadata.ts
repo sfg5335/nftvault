@@ -35,17 +35,14 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
       let collectionData: { key: string; verified: boolean } | undefined = undefined;
 
       // Check for a verified collection
-      if (asset.grouping.length > 0 && asset.grouping[0].group_key === 'collection') {
-        // Assuming the first group is the collection
-        const collectionAddress = asset.grouping[0].group_value;
-        // We can't verify the collection with just the address from here.
-        // We'd need another fetch. For now, we'll check if it exists.
-        // Also, the concept of a "verified" collection in this context might need
-        // to be handled differently. We will consider it "verified" if it's part of the grouping.
-        collectionData = {
-          key: collectionAddress,
-          verified: true, // Assuming verification if part of grouping
-        };
+      if (asset.metadata.collection) {
+        const collection = asset.metadata.collection;
+        if ("key" in collection) {
+            collectionData = {
+                key: collection.key.toString(),
+                verified: true,
+            };
+        }
       }
 
       return {
@@ -63,5 +60,73 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
   } catch (error) {
     console.error(`Failed to fetch metadata for ${nftMint}:`, error);
     return null;
+  }
+}
+
+export async function fetchUserNFTs(walletAddress: string): Promise<NFTMetadata[]> {
+  const apiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY;
+  if (!apiKey) {
+    console.error("Helius API key not found. Please set NEXT_PUBLIC_HELIUS_API_KEY in your environment variables.");
+    return [];
+  }
+
+  const url = `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'my-id',
+        method: 'getAssetsByOwner',
+        params: {
+          ownerAddress: walletAddress,
+          page: 1,
+          limit: 1000,
+        },
+      }),
+    });
+
+    const { result } = await response.json();
+
+    if (!result || !result.items) {
+      return [];
+    }
+
+    const nfts: NFTMetadata[] = result.items
+      .filter((item: any) => item.content && item.content.metadata && item.content.files.some((file: any) => file.uri))
+      .map((item: any) => {
+        const metadata = item.content.metadata;
+        const image = item.content.files.find((file: any) => file.uri)?.uri || '';
+        
+        let collectionData: { key: string; verified: boolean } | undefined = undefined;
+        if (item.grouping?.find((group: any) => group.group_key === 'collection')) {
+            const collectionGroup = item.grouping.find((group: any) => group.group_key === 'collection');
+            if (collectionGroup) {
+                collectionData = {
+                    key: collectionGroup.group_value,
+                    verified: item.compression?.compressed || false,
+                };
+            }
+        }
+
+        return {
+          mint: item.id,
+          name: metadata.name || '',
+          symbol: metadata.symbol || '',
+          description: metadata.description || '',
+          image: image,
+          attributes: metadata.attributes || [],
+          collection: collectionData,
+        };
+      });
+
+    return nfts;
+  } catch (error) {
+    console.error(`Failed to fetch NFTs for ${walletAddress}:`, error);
+    return [];
   }
 }

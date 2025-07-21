@@ -27,38 +27,46 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
   try {
     const asset = await fetchDigitalAsset(umi, publicKey(nftMint));
 
-    if (asset) {
-      // Fetch off-chain JSON metadata
-      const response = await fetch(asset.metadata.uri);
-      const jsonMetadata = await response.json();
+    if (!asset) {
+      return null;
+    }
 
-      let collectionData: { key: string; verified: boolean } | undefined = undefined;
-
-      // Check for a verified collection
-      if (asset.metadata.collection) {
-        const collection = asset.metadata.collection;
-        if ("key" in collection) {
-            collectionData = {
-                key: collection.key.toString(),
-                verified: true,
-            };
+    let jsonMetadata: any = {};
+    if (asset.metadata.uri) {
+      try {
+        const response = await fetch(asset.metadata.uri);
+        if (response.ok) {
+          jsonMetadata = await response.json();
         }
+      } catch (e) {
+        // Gracefully fail if off-chain metadata is unavailable
       }
+    }
 
-      return {
-        mint: nftMint,
-        name: asset.metadata.name,
-        symbol: asset.metadata.symbol,
-        description: jsonMetadata.description || '',
-        image: jsonMetadata.image || '',
-        attributes: jsonMetadata.attributes || [],
-        collection: collectionData,
+    let collectionData: { key: string; verified: boolean } | undefined = undefined;
+
+    // Correctly handle Umi's Option type for collection
+    const collectionOption = asset.metadata.collection as any;
+    if (collectionOption && collectionOption.__option === 'Some') {
+      const collection = collectionOption.value;
+      collectionData = {
+        key: collection.key.toString(),
+        verified: collection.verified,
       };
     }
 
-    return null;
+    return {
+      mint: nftMint,
+      name: asset.metadata.name,
+      symbol: asset.metadata.symbol,
+      description: jsonMetadata.description || '',
+      image: jsonMetadata.image || '',
+      attributes: jsonMetadata.attributes || [],
+      collection: collectionData,
+    };
+
   } catch (error) {
-    console.error(`Failed to fetch metadata for ${nftMint}:`, error);
+    console.error(`Failed to fetch on-chain data for ${nftMint}:`, error);
     return null;
   }
 }

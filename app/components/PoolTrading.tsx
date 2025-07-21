@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchor } from '../hooks/useAnchor'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { Upload, Download, RefreshCw, AlertCircle, Info, Activity, Target, DollarSign, Loader2, Gift, Check } from 'lucide-react'
+import { 
+  Upload, Download, RefreshCw, AlertCircle, Info, Activity, 
+  Target, DollarSign, Loader2, Gift, Check, Image as ImageIcon, X 
+} from 'lucide-react'
 import { VaultNFTDisplay } from './VaultNFTDisplay'
 import { ImageSkeleton, NFTImage } from './OptimizedImage'
 import { toast } from 'react-hot-toast'
@@ -12,7 +15,6 @@ import { toast } from 'react-hot-toast'
 import { DexPriceOracle } from '../lib/dexPriceOracle'
 import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
-import { Gift, Image as ImageIcon, X } from 'lucide-react'
 
 interface NFT {
   mint: string

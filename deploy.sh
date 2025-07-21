@@ -34,20 +34,48 @@ module.exports = {
       env: {
         PORT: 3000,
         NODE_ENV: 'production'
-      }
+      },
+      restart_delay: 1000,
+      max_memory_restart: '1G',
+      error_file: './logs/frontend-error.log',
+      out_file: './logs/frontend-out.log',
+      log_file: './logs/frontend-combined.log'
     },
     {
       name: 'nftvault-backend',
       script: './dist/server.js',
       cwd: './backend',
       env: {
-        PORT: 3001,
+        BACKEND_PORT: 3001,
         NODE_ENV: 'production'
-      }
+      },
+      restart_delay: 1000,
+      max_memory_restart: '512M',
+      error_file: '../logs/backend-error.log',
+      out_file: '../logs/backend-out.log',
+      log_file: '../logs/backend-combined.log'
+    },
+    {
+      name: 'nftvault-webhook',
+      script: './webhook-server.ts',
+      cwd: './backend',
+      interpreter: 'node',
+      interpreter_args: '--loader ts-node/esm',
+      env: {
+        NODE_ENV: 'production'
+      },
+      restart_delay: 1000,
+      instances: 1,
+      error_file: '../logs/webhook-error.log',
+      out_file: '../logs/webhook-out.log',
+      log_file: '../logs/webhook-combined.log'
     }
   ]
 };
 EOF
+
+# Create logs directory
+mkdir -p logs
 
 # Start services
 echo "🏃 Starting services..."

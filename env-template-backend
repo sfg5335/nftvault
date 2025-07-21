@@ -1,0 +1,20 @@
+# Backend Environment Template  
+# Copy this to backend/.env
+
+# Backend Configuration
+BACKEND_PORT=3001
+NODE_ENV="production"
+
+# Database (Supabase) - Replace with your actual values
+DATABASE_URL="YOUR_POSTGRES_PRISMA_URL_HERE"
+POSTGRES_URL="YOUR_POSTGRES_PRISMA_URL_HERE"
+
+# Solana
+RPC_URL="https://api.devnet.solana.com"
+
+# Application
+FRONTEND_URL="https://your-domain.com"
+
+# Security (will be auto-generated)
+KEYPAIR_ENCRYPTION_KEY=""
+GITHUB_WEBHOOK_SECRET="" 

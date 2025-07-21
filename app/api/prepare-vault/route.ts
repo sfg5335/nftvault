@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction, Keypair } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { Program, AnchorProvider, Wallet } from '@project-serum/anchor';
-import idl from '../../../target/idl/fractional_vault.json';
+import { Program, AnchorProvider } from '@coral-xyz/anchor';
+import idl from '../../idl/fractional_vault.json';
 import { FractionalVault } from '../../../target/types/fractional_vault';
 import { getDatabaseKeypairManager } from '../../lib/databaseKeypairManager';
 import { isWhitelisted } from '../../lib/whitelist';
@@ -64,14 +64,27 @@ export async function POST(request: NextRequest) {
       'confirmed'
     );
     
+    // Create a simple wallet interface for server-side use
+    const walletInterface = {
+      publicKey: SERVER_WALLET.publicKey,
+      signTransaction: async (tx: any) => {
+        tx.partialSign(SERVER_WALLET);
+        return tx;
+      },
+      signAllTransactions: async (txs: any[]) => {
+        txs.forEach(tx => tx.partialSign(SERVER_WALLET));
+        return txs;
+      }
+    };
+    
     const provider = new AnchorProvider(
       connection,
-      new Wallet(SERVER_WALLET),
+      walletInterface,
       { commitment: 'confirmed' }
     );
     
     const program = new Program(
-      idl as FractionalVault,
+      idl as any,
       new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || 'CRHDSudZbtxts9am7ZDRwKSjFGsME6nXoNUCPBaRYRNB'),
       provider
     );
@@ -79,17 +92,15 @@ export async function POST(request: NextRequest) {
     // Get database keypair manager
     const keypairManager = getDatabaseKeypairManager();
     
-    // Reserve a vanity keypair
-    const reservedKeypair = await keypairManager.reserveKeypair();
-    if (!reservedKeypair) {
+    // Get a vanity keypair for this vault
+    const keypairInfo = await keypairManager.getKeypairForVault(collectionMint);
+    if (!keypairInfo) {
       throw new Error('No available vanity keypairs');
     }
     
-    const { id: keypairId, publicKey: vanityPublicKey, encryptedSecretKey } = reservedKeypair;
+    const { keypair: vanityKeypair, keypairId } = keypairInfo;
+    const vanityPublicKey = vanityKeypair.publicKey.toString();
     console.log('📦 Reserved vanity keypair:', vanityPublicKey);
-    
-    // Decrypt the vanity keypair
-    const vanityKeypair = keypairManager.decryptKeypair(encryptedSecretKey);
     
     // Derive vault state PDA
     const [vaultStatePDA] = PublicKey.findProgramAddressSync(

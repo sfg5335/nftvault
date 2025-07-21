@@ -32,10 +32,14 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
 });
 
-// Whitelist
-const WHITELIST = new Set([
-  '2pxLMQcs3PCysF7V7MrDRQY4Uqe8n5bBcPHdv7sprcaK'
-]);
+// Check whitelist from database
+async function isWhitelisted(address: string): Promise<boolean> {
+  const result = await pool.query(
+    'SELECT 1 FROM whitelist WHERE address = $1 AND active = true',
+    [address]
+  );
+  return result.rows.length > 0;
+}
 
 // Health check
 app.get('/health', (req, res) => {
@@ -48,7 +52,7 @@ app.post('/api/vault/create', async (req, res) => {
     const { collectionMint, creatorAddress } = req.body;
     
     // Check whitelist
-    if (!WHITELIST.has(creatorAddress)) {
+    if (!(await isWhitelisted(creatorAddress))) {
       return res.status(403).json({ error: 'Address not whitelisted' });
     }
     
@@ -83,17 +87,36 @@ app.post('/api/vault/create', async (req, res) => {
     const tx = new Transaction();
     // ... add your vault initialization instruction
     
-    // Sign and send
+    // Sign and send  
     tx.sign(vanityKeypair);
-    const signature = await connection.sendTransaction(tx);
+    const signature = await connection.sendTransaction(tx, [vanityKeypair]);
     
-    // Mark keypair as used
-    await pool.query(
-      `UPDATE vanity_keypairs SET status = 'used', used_at = NOW(), tx_signature = $1 WHERE id = $2`,
-      [signature, keypairId]
-    );
+    // Mark keypair as used and log vault creation
+    await pool.query('BEGIN');
+    try {
+      await pool.query(
+        `UPDATE vanity_keypairs SET status = 'used', used_at = NOW(), tx_signature = $1 WHERE id = $2`,
+        [signature, keypairId]
+      );
+      
+      await pool.query(
+        `INSERT INTO vault_creations (creator_address, collection_mint, vault_address, keypair_id, tx_signature) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        [creatorAddress, collectionMint, vanityKeypair.publicKey.toString(), keypairId, signature]
+      );
+      
+      await pool.query('COMMIT');
+    } catch (dbError) {
+      await pool.query('ROLLBACK');
+      throw dbError;
+    }
     
-    res.json({ success: true, signature, vaultAddress: vanityKeypair.publicKey.toString() });
+    res.json({ 
+      success: true, 
+      signature, 
+      vaultAddress: vanityKeypair.publicKey.toString(),
+      txUrl: `https://explorer.solana.com/tx/${signature}?cluster=devnet`
+    });
     
   } catch (error) {
     console.error('Vault creation error:', error);
@@ -116,6 +139,55 @@ function decryptKeypair(encryptedData: string): Keypair {
   
   return Keypair.fromSecretKey(new Uint8Array(decrypted));
 }
+
+// Admin endpoints for whitelist management (consider adding proper auth)
+app.get('/api/admin/whitelist', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT address, added_at, added_by, active FROM whitelist ORDER BY added_at DESC'
+    );
+    res.json({ whitelist: result.rows });
+  } catch (error) {
+    console.error('Error fetching whitelist:', error);
+    res.status(500).json({ error: 'Failed to fetch whitelist' });
+  }
+});
+
+app.post('/api/admin/whitelist', async (req, res) => {
+  try {
+    const { address, addedBy = 'api' } = req.body;
+    
+    if (!address) {
+      return res.status(400).json({ error: 'Address is required' });
+    }
+    
+    await pool.query(
+      'INSERT INTO whitelist (address, added_by) VALUES ($1, $2) ON CONFLICT (address) DO UPDATE SET active = true',
+      [address, addedBy]
+    );
+    
+    res.json({ success: true, message: `Address ${address} added to whitelist` });
+  } catch (error) {
+    console.error('Error adding to whitelist:', error);
+    res.status(500).json({ error: 'Failed to add to whitelist' });
+  }
+});
+
+app.delete('/api/admin/whitelist/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    
+    await pool.query(
+      'UPDATE whitelist SET active = false WHERE address = $1',
+      [address]
+    );
+    
+    res.json({ success: true, message: `Address ${address} removed from whitelist` });
+  } catch (error) {
+    console.error('Error removing from whitelist:', error);
+    res.status(500).json({ error: 'Failed to remove from whitelist' });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Vault backend server running on port ${PORT}`);

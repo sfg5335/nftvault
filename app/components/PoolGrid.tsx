@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { PublicKey } from '@solana/web3.js'
 import { useAnchor } from '../hooks/useAnchor'
 import { PoolStorage } from '../lib/poolStorage'
-import Link from 'next/link'
-import { PublicKey } from '@solana/web3.js'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
+import Link from 'next/link'
+import { Users, TrendingUp, Calendar, ExternalLink, Info, Loader2 } from 'lucide-react'
 
 interface Pool {
   id: string
@@ -182,24 +184,49 @@ function PoolGrid() {
                   name: collectionMetadata.name || `Collection ${collectionMintStr.slice(0, 8)}...`,
                   symbol: collectionMetadata.symbol || 'COLL',
                   imageUrl: collectionMetadata.image || '',
-                  description: '',
+                  description: collectionMetadata.description || '',
                   createdAt: new Date().toISOString(),
                   txSignature: 'fetched-from-blockchain'
                 }
                 
-                // Optionally save to localStorage for future use
+                // Save to localStorage for future use
                 PoolStorage.addCreatedPool(metadata)
                 console.log(`Fetched and saved metadata for ${collectionMintStr}:`, metadata)
+              } else {
+                // Create fallback metadata if fetch fails
+                metadata = {
+                  collectionMint: collectionMintStr,
+                  name: `Collection ${collectionMintStr.slice(0, 8)}...`,
+                  symbol: 'COLL',
+                  imageUrl: '',
+                  description: '',
+                  createdAt: new Date().toISOString(),
+                  txSignature: 'unknown'
+                }
               }
             } catch (err) {
               console.error(`Error fetching metadata for ${collectionMintStr}:`, err)
+              // Create fallback metadata on error
+              metadata = {
+                collectionMint: collectionMintStr,
+                name: `Collection ${collectionMintStr.slice(0, 8)}...`,
+                symbol: 'COLL',
+                imageUrl: '',
+                description: '',
+                createdAt: new Date().toISOString(),
+                txSignature: 'unknown'
+              }
             }
           }
+          
+          // Create token symbol with 's' prefix
+          const collectionSymbol = metadata?.symbol || 'COLL'
+          const tokenSymbol = `s${collectionSymbol}`
           
           const pool: Pool = {
             id: collectionMintStr,
             name: metadata?.name || `Collection ${collectionMintStr.slice(0, 8)}...`,
-            symbol: metadata?.symbol || 'COLL',
+            symbol: tokenSymbol, // Use the 's' prefixed token symbol
             image: metadata?.imageUrl || '',
             floorPrice: 0,
             totalValue: vault.data.totalFractionsMinted / 1000000, // Convert to tokens

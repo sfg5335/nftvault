@@ -1,9 +1,5 @@
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { Pool } from 'pg'
-import * as crypto from 'crypto'
-
-// Encryption settings
-const ALGORITHM = 'aes-256-gcm'
 
 export interface DatabaseKeypairInfo {
   id: number
@@ -18,7 +14,6 @@ export interface DatabaseKeypairInfo {
 
 export class DatabaseKeypairManager {
   private pool: Pool
-  private encryptionKey: Buffer
 
   constructor() {
     // Initialize database connection - support both DATABASE_URL and POSTGRES_URL
@@ -48,85 +43,65 @@ export class DatabaseKeypairManager {
     
     // If we don't have a full URL but have components, try to construct it
     if (!databaseUrl || (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://'))) {
-      // Check if we have individual components from Vercel
-      if (process.env.POSTGRES_HOST && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD && process.env.POSTGRES_DATABASE) {
-        console.log('Constructing database URL from components...');
-        const host = process.env.POSTGRES_HOST;
-        const user = process.env.POSTGRES_USER;
-        const password = process.env.POSTGRES_PASSWORD;
-        const database = process.env.POSTGRES_DATABASE;
-        const port = process.env.POSTGRES_PORT || '5432';
-        
-        // Construct the URL
-        databaseUrl = `postgresql://${user}:${password}@${host}:${port}/${database}`;
-        
-        // Add SSL mode for production
-        if (isProduction) {
-          databaseUrl += '?sslmode=require';
-        }
+      const host = process.env.POSTGRES_HOST || process.env.PGHOST || 'localhost'
+      const port = process.env.POSTGRES_PORT || process.env.PGPORT || '5432'
+      const database = process.env.POSTGRES_DB || process.env.PGDATABASE || 'nftvault'
+      const user = process.env.POSTGRES_USER || process.env.PGUSER || 'postgres'
+      const password = process.env.POSTGRES_PASSWORD || process.env.PGPASSWORD || ''
+      
+      if (password) {
+        databaseUrl = `postgresql://${user}:${password}@${host}:${port}/${database}`
+      } else {
+        databaseUrl = `postgresql://${user}@${host}:${port}/${database}`
       }
+      
+      console.log(`Constructed database URL with host: ${host}:${port}`)
     }
-    
-    if (!databaseUrl) {
-      throw new Error('Neither DATABASE_URL nor POSTGRES_URL environment variable is set, and could not construct from components')
-    }
-    
-    // Validate database URL format
-    if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
-      throw new Error(`Invalid database URL format. Expected postgres:// or postgresql:// but got: ${databaseUrl.substring(0, 20)}...`)
-    }
-    
-    // Create pool configuration
-    const poolConfig: any = {
-      connectionString: databaseUrl,
-      // Connection pool settings for production
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000, // Increased timeout
-      // SSL configuration for production databases
-      ssl: isProduction ? {
-        rejectUnauthorized: false
-      } : undefined
-    };
-    
-    // For Supabase in production, we might need additional settings
-    if (isProduction && databaseUrl.includes('supabase.co')) {
-      // Ensure we're using the connection pooler
-      poolConfig.statement_timeout = 30000;
-      poolConfig.query_timeout = 30000;
-    }
-    
-    this.pool = new Pool(poolConfig)
 
-    // Load encryption key
-    if (!process.env.KEYPAIR_ENCRYPTION_KEY) {
-      throw new Error('KEYPAIR_ENCRYPTION_KEY environment variable is required')
+    if (!databaseUrl) {
+      throw new Error('No database URL could be determined. Please set DATABASE_URL or individual POSTGRES_* environment variables.')
     }
-    this.encryptionKey = Buffer.from(process.env.KEYPAIR_ENCRYPTION_KEY, 'hex')
+
+    // Additional connection options for production/cloud environments
+    const connectionOptions: any = {
+      connectionString: databaseUrl,
+    }
+
+    // For production, add SSL and connection pool settings
+    if (isProduction || databaseUrl.includes('.com')) {
+      connectionOptions.ssl = {
+        rejectUnauthorized: false // Many cloud providers require this
+      }
+      connectionOptions.max = 20 // Maximum pool connections
+      connectionOptions.idleTimeoutMillis = 30000 // Close idle connections after 30s
+      connectionOptions.connectionTimeoutMillis = 10000 // 10s connection timeout
+    }
+
+    this.pool = new Pool(connectionOptions)
+    
+    // Test the connection
+    this.pool.on('error', (err) => {
+      console.error('Unexpected error on idle client', err)
+    })
+
+    this.testConnection()
+      .then(() => console.log('✅ Database keypair manager initialized successfully'))
+      .catch((err) => {
+        console.error('❌ Database connection failed:', err.message)
+        // Don't throw here, let individual operations handle failures
+      })
   }
 
   /**
-   * Decrypt a keypair from the database
+   * Test database connection
    */
-  private decryptKeypair(encryptedData: {
-    encryptedSecretKey: string
-    iv: string
-    authTag: string
-  }): Uint8Array {
-    const decipher = crypto.createDecipheriv(
-      ALGORITHM,
-      this.encryptionKey,
-      Buffer.from(encryptedData.iv, 'base64')
-    )
-    
-    decipher.setAuthTag(Buffer.from(encryptedData.authTag, 'base64'))
-    
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(encryptedData.encryptedSecretKey, 'base64')),
-      decipher.final()
-    ])
-    
-    return new Uint8Array(decrypted)
+  private async testConnection(): Promise<void> {
+    const client = await this.pool.connect()
+    try {
+      await client.query('SELECT 1')
+    } finally {
+      client.release()
+    }
   }
 
   /**
@@ -139,10 +114,9 @@ export class DatabaseKeypairManager {
     const client = await this.pool.connect()
     
     try {
-      // Start transaction
       await client.query('BEGIN')
       
-      // Atomically select and reserve an available keypair
+      // Get an available keypair and mark it as reserved atomically
       const reserveQuery = `
         UPDATE vanity_keypairs 
         SET 
@@ -157,7 +131,7 @@ export class DatabaseKeypairManager {
           LIMIT 1
           FOR UPDATE SKIP LOCKED
         )
-        RETURNING id, public_key, encrypted_secret_key, iv, auth_tag, suffix
+        RETURNING id, public_key, secret_key, suffix
       `
       
       const result = await client.query(reserveQuery, [collectionMint])
@@ -168,18 +142,13 @@ export class DatabaseKeypairManager {
       
       const row = result.rows[0]
       
-      // Decrypt the keypair
-      const secretKey = this.decryptKeypair({
-        encryptedSecretKey: row.encrypted_secret_key,
-        iv: row.iv,
-        authTag: row.auth_tag
-      })
-      
-      const keypair = Keypair.fromSecretKey(secretKey)
+      // Create keypair from stored secret key (base64 encoded)
+      const secretKeyBytes = new Uint8Array(Buffer.from(row.secret_key, 'base64'))
+      const keypair = Keypair.fromSecretKey(secretKeyBytes)
       
       // Verify the public key matches
       if (keypair.publicKey.toBase58() !== row.public_key) {
-        throw new Error('Decrypted keypair public key mismatch')
+        throw new Error('Keypair public key mismatch')
       }
       
       await client.query('COMMIT')

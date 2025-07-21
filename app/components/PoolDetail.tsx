@@ -60,12 +60,49 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
       if (state) {
         setVaultState(state)
         
-        // Get metadata from localStorage
+        // Get metadata from localStorage first
         const storedPools = PoolStorage.getCreatedPools()
-        const metadata = storedPools.find(p => p.collectionMint === poolId)
-        if (metadata) {
-          setPoolMetadata(metadata)
+        let metadata = storedPools.find(p => p.collectionMint === poolId)
+        
+        // If no metadata in localStorage, fetch from blockchain/Helius
+        if (!metadata) {
+          try {
+            console.log(`Fetching metadata for collection ${poolId} from blockchain...`)
+            const connection = client.getConnection()
+            
+            // Import the fetchNFTMetadata function
+            const { fetchNFTMetadata } = await import('../lib/nftMetadata')
+            const collectionMetadata = await fetchNFTMetadata(poolId, connection)
+            
+            if (collectionMetadata) {
+              // Create metadata from blockchain data
+              metadata = {
+                collectionMint: poolId,
+                name: collectionMetadata.name || `Collection ${poolId.slice(0, 8)}...`,
+                symbol: collectionMetadata.symbol || 'COLL',
+                imageUrl: collectionMetadata.image || '',
+                description: collectionMetadata.description || '',
+                createdAt: new Date().toISOString(),
+                txSignature: 'fetched-from-blockchain'
+              }
+              console.log(`Fetched metadata for ${poolId}:`, metadata)
+            }
+          } catch (err) {
+            console.error(`Error fetching metadata for ${poolId}:`, err)
+            // Create fallback metadata
+            metadata = {
+              collectionMint: poolId,
+              name: `Collection ${poolId.slice(0, 8)}...`,
+              symbol: 'COLL',
+              imageUrl: '',
+              description: '',
+              createdAt: new Date().toISOString(),
+              txSignature: 'unknown'
+            }
+          }
         }
+        
+        setPoolMetadata(metadata)
       } else {
         console.log('Vault state is null')
         setError('Unable to load vault data')

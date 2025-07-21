@@ -1,0 +1,40 @@
+# Frontend Environment Template
+# Copy this to .env in the root directory
+
+# Database (Supabase) - Replace with your actual values
+DATABASE_URL="YOUR_POSTGRES_PRISMA_URL_HERE"
+POSTGRES_URL="YOUR_POSTGRES_PRISMA_URL_HERE"
+
+# Individual database components
+POSTGRES_HOST="YOUR_POSTGRES_HOST_HERE"
+POSTGRES_USER="YOUR_POSTGRES_USER_HERE"
+POSTGRES_PASSWORD="YOUR_POSTGRES_PASSWORD_HERE"
+POSTGRES_DATABASE="postgres"
+POSTGRES_PORT="5432"
+
+# Supabase - Replace with your actual values
+SUPABASE_URL="YOUR_SUPABASE_URL_HERE"
+NEXT_PUBLIC_SUPABASE_URL="YOUR_NEXT_PUBLIC_SUPABASE_URL_HERE"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="YOUR_NEXT_PUBLIC_SUPABASE_ANON_KEY_HERE"
+SUPABASE_SERVICE_ROLE_KEY="YOUR_SUPABASE_SERVICE_ROLE_KEY_HERE"
+SUPABASE_JWT_SECRET="YOUR_SUPABASE_JWT_SECRET_HERE"
+
+# Solana Configuration
+NEXT_PUBLIC_RPC_URL="https://api.devnet.solana.com"
+NEXT_PUBLIC_PROGRAM_ID="YOUR_NEXT_PUBLIC_PROGRAM_ID_HERE"
+
+# Helius API (add if you have them)
+NEXT_PUBLIC_HELIUS_API_KEY=""
+NEXT_PUBLIC_HELIUS_URL="https://devnet.helius-rpc.com"
+
+# Application
+NODE_ENV="production"
+FRONTEND_URL="https://your-domain.com"
+
+# Security (will be auto-generated)
+KEYPAIR_ENCRYPTION_KEY=""
+GITHUB_WEBHOOK_SECRET=""
+
+# VPS specific
+VERCEL="false"
+VERCEL_ENV="production" 

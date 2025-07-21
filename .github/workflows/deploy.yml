@@ -20,12 +20,27 @@ jobs:
         port: 22
         script: |
           cd /root/nftvault
+          echo "🔄 Pulling latest changes..."
           git pull origin main
+          
+          echo "📦 Installing frontend dependencies..."
           npm install
+          
+          echo "🏗️ Building frontend..."
           npm run build
+          
+          echo "📦 Installing backend dependencies..."
           cd backend
           npm install
+          
+          echo "🏗️ Building backend..."
           npm run build
           cd ..
+          
+          echo "🔄 Restarting services..."
           pm2 restart all
-          echo "Deployment complete!" 
+          
+          echo "📊 Service status:"
+          pm2 status
+          
+          echo "✅ Deployment complete!" 

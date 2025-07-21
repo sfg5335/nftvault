@@ -35,9 +35,8 @@ export async function POST(request: NextRequest) {
       
       if (txInfo.meta?.err) {
         console.log('❌ Transaction failed:', txInfo.meta.err);
-        // Release the keypair back to the pool
-        const keypairManager = getDatabaseKeypairManager();
-        await keypairManager.releaseReservation(reservationId);
+        // Note: Keypair will remain reserved in database for audit purposes
+        console.log('Keypair reservation maintained for audit trail');
         
         return NextResponse.json(
           { error: 'Transaction failed', details: txInfo.meta.err },

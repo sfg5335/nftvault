@@ -229,7 +229,22 @@ function CreatePoolPageContent() {
               
               collectionMap.get(collectionKey)!.push(nft)
             } else {
-              console.log(`NFT ${mint.toString()} has no collection metadata, skipping`)
+              console.log(`NFT ${mint.toString()} has no collection metadata`)
+              // For testing: treat individual NFTs as their own collection
+              const fakeCollectionKey = mint.toString()
+              const nft: WalletNFT = {
+                mint,
+                metadata,
+                collection: fakeCollectionKey
+              }
+              
+              if (!collectionMap.has(fakeCollectionKey)) {
+                collectionMap.set(fakeCollectionKey, [])
+                // For individual NFTs, consider them valid
+                validCollections.add(fakeCollectionKey)
+              }
+              
+              collectionMap.get(fakeCollectionKey)!.push(nft)
             }
           }
         } catch (err) {

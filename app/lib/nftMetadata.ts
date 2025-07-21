@@ -64,13 +64,13 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
 }
 
 export async function fetchUserNFTs(walletAddress: string): Promise<NFTMetadata[]> {
-  const apiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY || '53e800cd-546f-443f-aa96-5bf2b3369b95';
   if (!apiKey) {
     console.error("Helius API key not found. Please set NEXT_PUBLIC_HELIUS_API_KEY in your environment variables.");
     return [];
   }
 
-  const url = `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
+  const url = `https://devnet.helius-rpc.com/?api-key=${apiKey}`;
 
   try {
     const response = await fetch(url, {

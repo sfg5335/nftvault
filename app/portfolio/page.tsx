@@ -118,7 +118,7 @@ function PortfolioContent() {
       setLoading(true)
       setError(null)
       Promise.all([
-          fetchPortfolioNFTs(publicKey, connection),
+          fetchPortfolioNFTs(publicKey),
         fetchPools(client)
       ]).then(([userNfts, allPools]) => {
         setNfts(userNfts)
@@ -439,7 +439,7 @@ async function fetchPools(client: any): Promise<Pool[]> {
   }
 }
 
-async function fetchPortfolioNFTs(publicKey: PublicKey, connection: any): Promise<Nft[]> {
+async function fetchPortfolioNFTs(publicKey: PublicKey): Promise<Nft[]> {
   try {
     console.log('Fetching NFTs for wallet:', publicKey.toBase58())
     

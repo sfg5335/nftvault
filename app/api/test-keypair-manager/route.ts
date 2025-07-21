@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabaseKeypairManager } from '@/lib/databaseKeypairManager';
+import { getDatabaseKeypairManager } from '@/app/lib/databaseKeypairManager';
 
 export const dynamic = 'force-dynamic';
 

@@ -103,7 +103,7 @@ export function useAnchor() {
     }
   }
 
-  const depositNFT = async (collectionMint: PublicKey, nftMint: PublicKey): Promise<string> => {
+  const depositNFT = async (collectionMint: PublicKey, nftMint: PublicKey, referencePriceLamports?: number): Promise<string> => {
     if (!client) throw new Error('Client not initialized')
     
     setLoading(true)
@@ -111,7 +111,7 @@ export function useAnchor() {
     
     try {
       // Use collectionMint as vaultId since they're the same in this implementation
-      const tx = await client.depositNFT(collectionMint.toString(), nftMint)
+      const tx = await client.depositNFT(collectionMint.toString(), nftMint, referencePriceLamports)
       console.log('NFT deposited:', tx)
       await fetchVaultState(collectionMint)
       return tx

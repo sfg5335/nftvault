@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     anchor.setProvider(provider);
 
     // Load the program
-    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || 'AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa');
+    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || '9YHyNhtaJnp1j1ZLbB6w2rXoT5GuWTSnShiHqeAbyo45');
     
     // Import the IDL
     const { IDL } = await import('../../../target/types/fractional_vault');

@@ -31,7 +31,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa");
+declare_id!("9YHyNhtaJnp1j1ZLbB6w2rXoT5GuWTSnShiHqeAbyo45");
 
 /// Constants for the sNFT (smol NFT) fractional vault program
 pub mod constants {

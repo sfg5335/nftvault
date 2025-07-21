@@ -33,7 +33,7 @@ KEYPAIR_ENCRYPTION_KEY=your-64-character-hex-key-here
 
 # Existing Solana config
 NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_PROGRAM_ID=AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa
+NEXT_PUBLIC_PROGRAM_ID=9YHyNhtaJnp1j1ZLbB6w2rXoT5GuWTSnShiHqeAbyo45
 ```
 
 ### 3. Install Dependencies
@@ -185,17 +185,4 @@ LIMIT 10;
 - Add to `.env.local`
 
 ### Database connection errors
-- Verify `DATABASE_URL` is correct
-- Check database is running and accessible
-- Ensure SSL settings match your provider
-
-## Performance Comparison
-
-| Operation | File-Based | Database |
-|-----------|------------|----------|
-| Get random keypair (1k) | ~200ms | ~5ms |
-| Get random keypair (10k) | ~2s | ~5ms |
-| Get random keypair (50k) | ~10s | ~5ms |
-| Memory usage (10k) | ~190MB | ~5MB |
-| Concurrent safety | ❌ | ✅ |
-| Persistent tracking | ❌ | ✅ | 
+- Verify `

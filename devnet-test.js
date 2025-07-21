@@ -1,5 +1,7 @@
 const anchor = require("@project-serum/anchor");
 const { Connection, Keypair, PublicKey, SystemProgram } = require("@solana/web3.js");
+const fs = require("fs");
+const { Program } = require("@project-serum/anchor");
 
 async function main() {
   console.log("smol.markets - Devnet Deployment Test");
@@ -9,7 +11,9 @@ async function main() {
   const connection = new Connection("https://api.devnet.solana.com", "confirmed");
   
   // Replace with your actual program ID
-  const programId = new PublicKey("AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa");
+  const programId = new PublicKey("9YHyNhtaJnp1j1ZLbB6w2rXoT5GuWTSnShiHqeAbyo45");
+  const idl = JSON.parse(fs.readFileSync("./target/idl/fractional_vault.json", "utf-8"));
+  const program = new Program(idl, programId, { connection });
   console.log("Program ID:", programId.toString());
   
   // Get program info

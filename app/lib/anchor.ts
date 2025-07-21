@@ -6,7 +6,7 @@ import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, g
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa");
+const PROGRAM_ID = new PublicKey("9YHyNhtaJnp1j1ZLbB6w2rXoT5GuWTSnShiHqeAbyo45");
 
 // Network configuration
 export const NETWORK = "devnet";

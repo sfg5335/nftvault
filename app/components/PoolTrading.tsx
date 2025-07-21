@@ -7,7 +7,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { Upload, Download, RefreshCw, AlertCircle, Info, Activity, Target, DollarSign, Loader2 } from 'lucide-react'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
 import { VaultNFTDisplay } from './VaultNFTDisplay'
-import { ImageSkeleton } from './OptimizedImage'
+import { ImageSkeleton, NFTImage } from './OptimizedImage'
 import { toast } from 'react-hot-toast'
 import { DexPriceOracle } from '../lib/dexPriceOracle'
 

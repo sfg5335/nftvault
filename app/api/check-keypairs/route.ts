@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   let pool: Pool | null = null;
   

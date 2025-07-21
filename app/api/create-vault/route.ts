@@ -10,6 +10,8 @@ import { getDatabaseKeypairManager } from '../../lib/databaseKeypairManager';
 import walletSecretKey from '../../../temp-wallet.json';
 const SERVER_WALLET = Keypair.fromSecretKey(new Uint8Array(walletSecretKey));
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     // Debug logging for environment variables

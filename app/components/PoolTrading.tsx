@@ -12,7 +12,7 @@ import { toast } from 'react-hot-toast'
 import { DexPriceOracle } from '../lib/dexPriceOracle'
 import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
-import { Check, Gift, Image as ImageIcon, X } from 'lucide-react'
+import { Gift, Image as ImageIcon, X } from 'lucide-react'
 
 interface NFT {
   mint: string

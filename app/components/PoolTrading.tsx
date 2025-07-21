@@ -121,8 +121,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                 mint: mintAddress,
                 name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
                 image: metadata.image || '',
-                symbol: metadata.symbol || 'NFT',
-                metadata
+                symbol: metadata.symbol || 'NFT'
               })
               console.log(`✅ Added NFT ${metadata.name} to collection`)
             } else if (!nftCollectionKey) {

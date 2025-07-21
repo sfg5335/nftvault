@@ -60,13 +60,32 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Database check error:', error);
+    
+    // Log the full error for debugging
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
     return NextResponse.json({
       error: 'Database connection failed',
       details: error instanceof Error ? error.message : 'Unknown error',
+      errorName: error instanceof Error ? error.name : 'Unknown',
       // Check if it's an SSL error
-      isSSLError: error instanceof Error && error.message.includes('SSL'),
+      isSSLError: error instanceof Error && (error.message.includes('SSL') || error.message.includes('ssl')),
+      // Check for common connection issues
+      isConnectionError: error instanceof Error && (
+        error.message.includes('ECONNREFUSED') || 
+        error.message.includes('ETIMEDOUT') ||
+        error.message.includes('ENOTFOUND')
+      ),
       suggestion: error instanceof Error && error.message.includes('SSL') ? 
-        'Try adding ?sslmode=require to your database URL' : null
+        'Try adding ?sslmode=require to your database URL' : 
+        error instanceof Error && error.message.includes('ECONNREFUSED') ?
+        'Database server may be down or URL is incorrect' : null,
+      databaseUrl: process.env.DATABASE_URL ? 'DATABASE_URL is set' : 
+                   process.env.POSTGRES_URL ? 'POSTGRES_URL is set' : 'No database URL found'
     }, { status: 500 });
   } finally {
     if (pool) {

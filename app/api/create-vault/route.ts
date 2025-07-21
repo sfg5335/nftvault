@@ -5,10 +5,37 @@ import * as anchor from '@coral-xyz/anchor';
 import { Program } from '@coral-xyz/anchor';
 import { FractionalVault } from '../../../target/types/fractional_vault';
 import { getDatabaseKeypairManager } from '../../lib/databaseKeypairManager';
+import path from 'path';
+import fs from 'fs';
 
-// Load server wallet from temp-wallet.json
-import walletSecretKey from '../../../temp-wallet.json';
-const SERVER_WALLET = Keypair.fromSecretKey(new Uint8Array(walletSecretKey));
+// Load server wallet - support both file and env var for serverless
+let SERVER_WALLET: Keypair;
+
+// First try environment variable (for Vercel)
+if (process.env.SERVER_WALLET_SECRET_KEY) {
+  console.log('Loading server wallet from environment variable');
+  try {
+    const secretKeyArray = JSON.parse(process.env.SERVER_WALLET_SECRET_KEY);
+    SERVER_WALLET = Keypair.fromSecretKey(new Uint8Array(secretKeyArray));
+    console.log('✅ Server wallet loaded from env:', SERVER_WALLET.publicKey.toString());
+  } catch (error) {
+    console.error('❌ Failed to parse SERVER_WALLET_SECRET_KEY:', error);
+    throw new Error('Invalid SERVER_WALLET_SECRET_KEY environment variable');
+  }
+} else {
+  // Fallback to file (for local development)
+  console.log('Loading server wallet from file');
+  try {
+    const walletPath = path.join(process.cwd(), 'temp-wallet.json');
+    const walletData = fs.readFileSync(walletPath, 'utf-8');
+    const secretKeyArray = JSON.parse(walletData);
+    SERVER_WALLET = Keypair.fromSecretKey(new Uint8Array(secretKeyArray));
+    console.log('✅ Server wallet loaded from file:', SERVER_WALLET.publicKey.toString());
+  } catch (error) {
+    console.error('❌ Failed to load server wallet from file:', error);
+    throw new Error('Server wallet not found. Set SERVER_WALLET_SECRET_KEY env var or ensure temp-wallet.json exists');
+  }
+}
 
 export const dynamic = 'force-dynamic';
 

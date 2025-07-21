@@ -11,6 +11,7 @@ import { ImageSkeleton, NFTImage } from './OptimizedImage'
 import { toast } from 'react-hot-toast'
 // Force rebuild - all components properly imported
 import { DexPriceOracle } from '../lib/dexPriceOracle'
+import { isCollectionVerified } from '../lib/onchainCollection'
 
 interface NFT {
   mint: string
@@ -70,31 +71,15 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     try {
       const connection = client.getConnection()
       
-      // First, validate the collection itself
-      console.log(`🔍 Validating pool collection: ${poolId}`)
-      try {
-        const collectionMintPubkey = new PublicKey(poolId)
-        const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
-        
-        if (!collectionMintInfo) {
-          console.log(`❌ Pool collection ${poolId} does not exist on-chain`)
-          setUserNfts([])
-          return
-        }
-        
-        const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-        if (!collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-          console.log(`❌ Pool collection ${poolId} is not a valid mint`)
-          setUserNfts([])
-          return
-        }
-        
-        console.log(`✅ Pool collection ${poolId} validation passed`)
-      } catch (validationError) {
-        console.error(`❌ Error validating pool collection:`, validationError)
+      // On-chain verification of collection
+      console.log(`🔍 On-chain verifying pool collection: ${poolId}`)
+      const poolVerified = await isCollectionVerified(new PublicKey(poolId), connection)
+      if (!poolVerified) {
+        console.log('❌ Pool collection is not verified on-chain')
         setUserNfts([])
         return
       }
+      console.log('✅ Pool collection verified on-chain')
       
       // Get all token accounts owned by the user
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {

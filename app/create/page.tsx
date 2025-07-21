@@ -13,6 +13,7 @@ import { Connection } from '@solana/web3.js'
 import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
 import { SendTransactionError } from '@solana/web3.js'
+import { fetchOnchainCollection, isCollectionVerified } from '../lib/onchainCollection'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -175,50 +176,14 @@ function CreatePoolPageContent() {
                 const collectionMintPubkey = new PublicKey(collectionKey)
                 
                 try {
-                  // Step 1: Check if collection mint exists and is valid
-                  const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
-                  
-                  if (!collectionMintInfo) {
-                    console.log(`❌ Collection mint ${collectionKey} does not exist on-chain`)
-                    // Don't add to validCollections - will be filtered out later
+                  // On-chain verification using Metaplex metadata
+                  console.log(`🔍 On-chain verifying collection: ${collectionKey}`)
+                  const verified = await isCollectionVerified(collectionMintPubkey, connection)
+                  if (verified) {
+                    console.log(`✅ Collection ${collectionKey} is verified on-chain`)
+                    validCollections.add(collectionKey)
                   } else {
-                    // Step 2: Verify it's a valid mint account (owned by Token Program)
-                    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-                    if (!collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-                      console.log(`❌ Collection ${collectionKey} exists but is not a valid mint (owner: ${collectionMintInfo.owner.toString()})`)
-                      // Don't add to validCollections - will be filtered out later
-                    } else {
-                      // Step 3: Check if collection has Metaplex metadata
-                      const [metadataPDA] = PublicKey.findProgramAddressSync(
-                        [
-                          Buffer.from("metadata"),
-                          new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s").toBuffer(), // Metaplex Metadata Program ID
-                          collectionMintPubkey.toBuffer(),
-                        ],
-                        new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
-                      )
-                      
-                      const metadataAccount = await connection.getAccountInfo(metadataPDA)
-                      if (metadataAccount) {
-                        console.log(`✅ Collection ${collectionKey} has Metaplex metadata`)
-                      } else {
-                        console.log(`⚠️ Collection ${collectionKey} is a valid mint but has no Metaplex metadata`)
-                      }
-                      
-                      // Step 4: Verify this is actually used as a collection (has supply)
-                      const mintData = await connection.getParsedAccountInfo(collectionMintPubkey)
-                      if (mintData.value?.data && 'parsed' in mintData.value.data) {
-                        const supply = mintData.value.data.parsed.info.supply
-                        console.log(`📊 Collection ${collectionKey} supply: ${supply}`)
-                        
-                        if (supply === "0") {
-                          console.log(`⚠️ Collection ${collectionKey} has zero supply - might not be a real collection`)
-                        }
-                      }
-                      
-                      console.log(`✅ Collection ${collectionKey} passed all validation checks`)
-                      validCollections.add(collectionKey)
-                    }
+                    console.log(`❌ Collection ${collectionKey} is NOT verified on-chain, skipping`)
                   }
                   
                 } catch (validationError) {

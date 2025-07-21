@@ -13,6 +13,7 @@ import { Connection } from '@solana/web3.js'
 import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
 import { SendTransactionError } from '@solana/web3.js'
+import { searchWalletNFTsWithValidation, validateNFTCollection } from '../lib/nftCollectionValidation'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -132,103 +133,55 @@ function CreatePoolPageContent() {
       
       const connection = client.getConnection()
       
-      // Get all NFTs owned by the user
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-        programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-      })
-
-      // Filter for NFTs (amount = 1, decimals = 0)
-      const nftAccounts = tokenAccounts.value.filter(account => {
-        const amount = account.account.data.parsed.info.tokenAmount
-        return amount.uiAmount === 1 && amount.decimals === 0
-      })
-
-      console.log(`Found ${nftAccounts.length} NFTs in wallet`)
-
-      // Group NFTs by collection
-      const collectionMap = new Map<string, WalletNFT[]>()
-      const validCollections = new Set<string>()
+      console.log('Using improved Helius DAS API for NFT collection validation...')
       
-      for (const account of nftAccounts) {
-        const mint = new PublicKey(account.account.data.parsed.info.mint)
-        
-        try {
-          // Fetch NFT metadata
-          const metadata = await fetchNFTMetadata(mint.toString(), connection)
-          
-          if (metadata) {
-            // Process NFTs that have collection metadata (even if not verified by Helius)
-            if (metadata.collection?.key) {
-              const collectionKey = metadata.collection.key
-              
-              const nft: WalletNFT = {
-                mint,
-                metadata,
-                collection: collectionKey
-              }
-              
-              if (!collectionMap.has(collectionKey)) {
-                collectionMap.set(collectionKey, [])
-                
-                // Check if this collection NFT exists and is valid
-                console.log(`Checking collection NFT: ${collectionKey}`)
-                const collectionMintPubkey = new PublicKey(collectionKey)
-                const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
-                
-                if (collectionMintInfo) {
-                  // Verify it's a valid mint account (owned by Token Program)
-                  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-                  if (collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-                    console.log(`✅ Collection ${collectionKey} is a valid mint`)
-                    validCollections.add(collectionKey)
-                  } else {
-                    console.log(`❌ Collection ${collectionKey} exists but is not a valid mint`)
-                  }
-                } else {
-                  console.log(`❌ Collection NFT ${collectionKey} does not exist on-chain`)
-                }
-              }
-              
-              collectionMap.get(collectionKey)!.push(nft)
-            } else {
-              console.log(`NFT ${mint.toString()} has no collection metadata, skipping`)
-            }
-          }
-        } catch (err) {
-          console.error(`Error fetching metadata for ${mint.toString()}:`, err)
-        }
-      }
+      // Use the improved validation method
+      const validatedCollections = await searchWalletNFTsWithValidation(
+        publicKey.toString(),
+        connection
+      )
 
-      // Convert to CollectionInfo array - only include valid collections
+      console.log(`Found ${validatedCollections.size} valid collections`)
+
+      // Convert to CollectionInfo array
       const collectionsArray: CollectionInfo[] = []
       
-      for (const [collectionMint, nfts] of collectionMap) {
-        // Only include collections that exist on-chain and are valid
-        if (nfts.length > 0 && validCollections.has(collectionMint)) {
-          const sampleNFT = nfts[0]
-          const collectionName = sampleNFT.metadata?.name?.split('#')[0].trim() || 'Unknown Collection'
+      for (const [collectionKey, collectionData] of validatedCollections) {
+        if (collectionData.nfts.length > 0) {
+          const sampleNFT = collectionData.nfts[0]
+          
+          // Fetch full metadata for the sample NFT to get more details
+          const metadata = await fetchNFTMetadata(sampleNFT.mint, connection)
           
           collectionsArray.push({
-            mint: collectionMint,
-            name: collectionName,
-            symbol: sampleNFT.metadata?.symbol || 'NFT',
-            image: sampleNFT.metadata?.image || '',
-            nftCount: nfts.length,
-            sampleNFT
+            mint: collectionKey,
+            name: collectionData.collectionName,
+            symbol: metadata?.symbol || 'NFT',
+            image: sampleNFT.image || metadata?.image || '',
+            nftCount: collectionData.nfts.length,
+            sampleNFT: {
+              mint: new PublicKey(sampleNFT.mint),
+              metadata: metadata || {
+                mint: sampleNFT.mint,
+                name: sampleNFT.name,
+                symbol: 'NFT',
+                description: '',
+                image: sampleNFT.image,
+                collection: {
+                  key: collectionKey,
+                  verified: collectionData.verified
+                }
+              },
+              collection: collectionKey
+            }
           })
         }
       }
-      
-      console.log(`Found ${collectionsArray.length} valid collections out of ${collectionMap.size} total`)
 
       setCollections(collectionsArray)
       
       if (collectionsArray.length === 0) {
-        if (collectionMap.size > 0) {
-          setError('Found NFTs in your wallet, but none have valid collection metadata that exists on-chain. Only NFTs with verified collection metadata can be used to create vaults.')
-        } else {
-          setError('No NFTs found in your wallet. Please add some NFTs with verified collection metadata to your wallet first.')
-        }
+        setError('No valid NFT collections found in your wallet. Please add some NFTs with verified collection metadata to your wallet first.')
       }
     } catch (err) {
       console.error('Error loading collections:', err)

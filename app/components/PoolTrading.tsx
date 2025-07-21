@@ -9,6 +9,7 @@ import { NFTImage, ImageSkeleton } from './OptimizedImage'
 import { Shuffle, Target, Gift, AlertCircle, Loader2, Check } from 'lucide-react'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
 import { PriceOracleManager } from './PriceOracleManager'
+import { getNFTsByCollection } from '../lib/nftCollectionValidation'
 
 interface PoolTradingProps {
   poolId: string
@@ -57,7 +58,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     }
   }
 
-  // Fetch user's NFTs from this collection with optimized metadata loading
+  // Fetch user's NFTs from this collection using Helius DAS API
   const fetchUserNfts = async () => {
     if (!publicKey || !client) return
 
@@ -65,77 +66,51 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     try {
       const connection = client.getConnection()
       
-      // Get all token accounts owned by the user
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-        programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-      })
-
-      // Filter for NFTs (amount = 1, decimals = 0)
-      const nftAccounts = tokenAccounts.value.filter(account => {
-        const amount = account.account.data.parsed.info.tokenAmount
-        return amount.uiAmount === 1 && amount.decimals === 0
-      })
-
-      console.log(`Found ${nftAccounts.length} NFT accounts in user wallet`)
-
-      if (nftAccounts.length === 0) {
-        setUserNfts([])
-        return
-      }
-
-      // Extract mint addresses
-      const mintAddresses = nftAccounts.map(account => 
-        account.account.data.parsed.info.mint
+      console.log(`Using Helius DAS API to fetch NFTs from collection: ${poolId}`)
+      
+      // Use the improved getNFTsByCollection method
+      const { nfts: heliusNfts } = await getNFTsByCollection(
+        poolId,
+        publicKey.toString()
       )
 
-      console.log(`Fetching metadata for ${mintAddresses.length} NFTs...`)
+      console.log(`Found ${heliusNfts.length} NFTs from collection ${poolId} in user wallet`)
 
       const collectionNfts: NFT[] = []
       
-      // Log the pool ID we're looking for
-      console.log(`Looking for NFTs with collection key: ${poolId}`)
-      
-      // Fetch metadata for each NFT directly
-      for (const mintAddress of mintAddresses) {
+      // Convert Helius assets to our NFT format
+      for (const asset of heliusNfts) {
         try {
-          const metadata = await fetchNFTMetadata(mintAddress, connection)
+          const metadata = asset.content?.metadata
+          const files = asset.content?.files
           
           if (metadata) {
-            // Check if this NFT belongs to the current collection
-            const nftCollectionKey = metadata.collection?.key
-            const isVerified = metadata.collection?.verified
-            
-            console.log(`NFT ${mintAddress}:`)
-            console.log(`  - name: ${metadata.name}`)
-            console.log(`  - collection key: ${nftCollectionKey}`)
-            console.log(`  - verified: ${isVerified}`)
-            console.log(`  - matches pool: ${nftCollectionKey === poolId}`)
-            
-            // Check if this NFT's collection key matches the pool's collection mint
-            // Remove the verification requirement since Helius doesn't provide it
-            if (nftCollectionKey === poolId) {
-              collectionNfts.push({
-                mint: mintAddress,
-                name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
-                image: metadata.image || '',
-                symbol: metadata.symbol || 'NFT',
-                metadata
-              })
-              console.log(`✅ Added NFT ${metadata.name} to collection`)
-            } else if (!nftCollectionKey) {
-              console.log(`⚠️ NFT ${mintAddress} has no collection key`)
-            } else {
-              console.log(`❌ NFT ${mintAddress} belongs to different collection: ${nftCollectionKey}`)
-            }
-          } else {
-            console.log(`⚠️ No metadata found for NFT ${mintAddress}`)
+            collectionNfts.push({
+              mint: asset.id,
+              name: metadata.name || `NFT ${asset.id.slice(0, 8)}...`,
+              image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
+              symbol: metadata.symbol || 'NFT',
+              metadata: {
+                mint: asset.id,
+                name: metadata.name || '',
+                symbol: metadata.symbol || '',
+                description: metadata.description || '',
+                image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
+                attributes: metadata.attributes || [],
+                collection: {
+                  key: poolId,
+                  verified: true // Assets returned by getAssetsByGroup are verified
+                }
+              }
+            })
+            console.log(`✅ Added NFT ${metadata.name} to collection`)
           }
         } catch (err) {
-          console.error(`Error fetching metadata for ${mintAddress}:`, err)
+          console.error(`Error processing NFT ${asset.id}:`, err)
         }
       }
 
-      console.log(`Found ${collectionNfts.length} NFTs from collection ${poolId}`)
+      console.log(`Processed ${collectionNfts.length} NFTs from collection`)
       setUserNfts(collectionNfts)
     } catch (error) {
       console.error('Error fetching user NFTs:', error)

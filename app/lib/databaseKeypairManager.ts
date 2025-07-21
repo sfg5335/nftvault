@@ -22,10 +22,31 @@ export class DatabaseKeypairManager {
 
   constructor() {
     // Initialize database connection - support both DATABASE_URL and POSTGRES_URL
-    const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+    let databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+    
+    // If we don't have a full URL but have components, try to construct it
+    if (!databaseUrl || (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://'))) {
+      // Check if we have individual components from Vercel
+      if (process.env.POSTGRES_HOST && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD && process.env.POSTGRES_DATABASE) {
+        console.log('Constructing database URL from components...');
+        const host = process.env.POSTGRES_HOST;
+        const user = process.env.POSTGRES_USER;
+        const password = process.env.POSTGRES_PASSWORD;
+        const database = process.env.POSTGRES_DATABASE;
+        const port = process.env.POSTGRES_PORT || '5432';
+        
+        // Construct the URL
+        databaseUrl = `postgresql://${user}:${password}@${host}:${port}/${database}`;
+        
+        // Add SSL mode for production
+        if (process.env.NODE_ENV === 'production') {
+          databaseUrl += '?sslmode=require';
+        }
+      }
+    }
     
     if (!databaseUrl) {
-      throw new Error('Neither DATABASE_URL nor POSTGRES_URL environment variable is set')
+      throw new Error('Neither DATABASE_URL nor POSTGRES_URL environment variable is set, and could not construct from components')
     }
     
     // Validate database URL format

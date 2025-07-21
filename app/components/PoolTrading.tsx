@@ -12,6 +12,9 @@ import { toast } from 'react-hot-toast'
 // Force rebuild - all components properly imported
 import { DexPriceOracle } from '../lib/dexPriceOracle'
 import { isCollectionVerified } from '../lib/onchainCollection'
+import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
+import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
+import { Check, Gift, Image as ImageIcon, X } from 'lucide-react'
 
 interface NFT {
   mint: string
@@ -71,16 +74,6 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     try {
       const connection = client.getConnection()
       
-      // On-chain verification of collection
-      console.log(`🔍 On-chain verifying pool collection: ${poolId}`)
-      const poolVerified = await isCollectionVerified(new PublicKey(poolId), connection)
-      if (!poolVerified) {
-        console.log('❌ Pool collection is not verified on-chain')
-        setUserNfts([])
-        return
-      }
-      console.log('✅ Pool collection verified on-chain')
-      
       // Get all token accounts owned by the user
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
         programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
@@ -111,50 +104,32 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       // Log the pool ID we're looking for
       console.log(`Looking for NFTs with collection key: ${poolId}`)
       
-      // Fetch metadata for each NFT with enhanced collection verification
+      // Fetch metadata for each NFT directly
       for (const mintAddress of mintAddresses) {
         try {
           const metadata = await fetchNFTMetadata(mintAddress, connection)
           
           if (metadata) {
-            // Enhanced collection verification
+            // Check if this NFT belongs to the current collection
             const nftCollectionKey = metadata.collection?.key
-            const isVerified = metadata.collection?.verified
             
-            console.log(`NFT ${mintAddress}:`)
-            console.log(`  - name: ${metadata.name}`)
-            console.log(`  - collection key: ${nftCollectionKey}`)
-            console.log(`  - verified: ${isVerified}`)
-            console.log(`  - matches pool: ${nftCollectionKey === poolId}`)
-            
-            // Strict collection matching with verification
+            // Check if this NFT's collection key matches the pool's collection mint
             if (nftCollectionKey === poolId) {
-              // Additional on-chain verification for NFT's collection
-              if (isVerified !== false) { // Allow undefined (Helius doesn't always provide this)
-                collectionNfts.push({
-                  mint: mintAddress,
-                  name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
-                  image: metadata.image || '',
-                  symbol: metadata.symbol || 'NFT'
-                })
-                console.log(`✅ Added verified NFT ${metadata.name} to collection`)
-              } else {
-                console.log(`⚠️ NFT ${mintAddress} matches collection but is not verified`)
-              }
-            } else if (!nftCollectionKey) {
-              console.log(`⚠️ NFT ${mintAddress} has no collection key`)
-            } else {
-              console.log(`❌ NFT ${mintAddress} belongs to different collection: ${nftCollectionKey}`)
+              collectionNfts.push({
+                mint: mintAddress,
+                name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
+                image: metadata.image || '',
+                symbol: metadata.symbol || 'NFT'
+              })
+              console.log(`✅ Added NFT ${metadata.name} to collection`)
             }
-          } else {
-            console.log(`⚠️ No metadata found for NFT ${mintAddress}`)
           }
         } catch (err) {
           console.error(`Error fetching metadata for ${mintAddress}:`, err)
         }
       }
 
-      console.log(`Found ${collectionNfts.length} verified NFTs from collection ${poolId}`)
+      console.log(`Found ${collectionNfts.length} NFTs from collection ${poolId}`)
       setUserNfts(collectionNfts)
     } catch (error) {
       console.error('Error fetching user NFTs:', error)

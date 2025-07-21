@@ -158,7 +158,7 @@ function CreatePoolPageContent() {
           const metadata = await fetchNFTMetadata(mint.toString(), connection)
           
           if (metadata) {
-            // Process NFTs that have collection metadata (even if not verified by Helius)
+            // Process NFTs that have collection metadata
             if (metadata.collection?.key) {
               const collectionKey = metadata.collection.key
               
@@ -171,45 +171,28 @@ function CreatePoolPageContent() {
               if (!collectionMap.has(collectionKey)) {
                 collectionMap.set(collectionKey, [])
                 
-                // Enhanced on-chain collection validation
-                console.log(`🔍 Validating collection: ${collectionKey}`)
+                // Check if this collection NFT exists and is valid
+                console.log(`Checking collection NFT: ${collectionKey}`)
                 const collectionMintPubkey = new PublicKey(collectionKey)
+                const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
                 
-                try {
-                  // On-chain verification using Metaplex metadata
-                  console.log(`🔍 On-chain verifying collection: ${collectionKey}`)
-                  const verified = await isCollectionVerified(collectionMintPubkey, connection)
-                  if (verified) {
-                    console.log(`✅ Collection ${collectionKey} is verified on-chain`)
+                if (collectionMintInfo) {
+                  // Verify it's a valid mint account (owned by Token Program)
+                  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+                  if (collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+                    console.log(`✅ Collection ${collectionKey} is a valid mint`)
                     validCollections.add(collectionKey)
                   } else {
-                    console.log(`❌ Collection ${collectionKey} is NOT verified on-chain, skipping`)
+                    console.log(`❌ Collection ${collectionKey} exists but is not a valid mint`)
                   }
-                  
-                } catch (validationError) {
-                  console.error(`❌ Error validating collection ${collectionKey}:`, validationError)
-                  // Don't add to valid collections if validation fails
+                } else {
+                  console.log(`❌ Collection NFT ${collectionKey} does not exist on-chain`)
                 }
               }
               
               collectionMap.get(collectionKey)!.push(nft)
             } else {
-              console.log(`NFT ${mint.toString()} has no collection metadata`)
-              // For testing: treat individual NFTs as their own collection
-              const fakeCollectionKey = mint.toString()
-              const nft: WalletNFT = {
-                mint,
-                metadata,
-                collection: fakeCollectionKey
-              }
-              
-              if (!collectionMap.has(fakeCollectionKey)) {
-                collectionMap.set(fakeCollectionKey, [])
-                // For individual NFTs, consider them valid
-                validCollections.add(fakeCollectionKey)
-              }
-              
-              collectionMap.get(fakeCollectionKey)!.push(nft)
+              console.log(`NFT ${mint.toString()} has no collection metadata, skipping`)
             }
           }
         } catch (err) {

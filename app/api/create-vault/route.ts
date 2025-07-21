@@ -12,6 +12,21 @@ const SERVER_WALLET = Keypair.fromSecretKey(new Uint8Array(walletSecretKey));
 
 export async function POST(request: NextRequest) {
   try {
+    // Debug environment variables
+    console.log('🔍 Environment check:')
+    console.log('NODE_ENV:', process.env.NODE_ENV)
+    console.log('VERCEL_ENV:', process.env.VERCEL_ENV)
+    console.log('DATABASE_URL available:', !!process.env.DATABASE_URL)
+    console.log('KEYPAIR_ENCRYPTION_KEY available:', !!process.env.KEYPAIR_ENCRYPTION_KEY)
+    console.log('NEXT_PUBLIC_PROGRAM_ID:', process.env.NEXT_PUBLIC_PROGRAM_ID)
+    
+    if (process.env.KEYPAIR_ENCRYPTION_KEY) {
+      console.log('✅ KEYPAIR_ENCRYPTION_KEY found, length:', process.env.KEYPAIR_ENCRYPTION_KEY.length)
+    } else {
+      console.error('❌ KEYPAIR_ENCRYPTION_KEY not found in environment')
+      console.log('Available env vars with KEY:', Object.keys(process.env).filter(k => k.includes('KEY')))
+    }
+
     const { collectionMint } = await request.json();
 
     if (!collectionMint) {

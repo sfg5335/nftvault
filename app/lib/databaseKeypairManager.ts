@@ -30,11 +30,24 @@ export class DatabaseKeypairManager {
       connectionTimeoutMillis: 2000,
     })
 
-    // Load encryption key
-    if (!process.env.KEYPAIR_ENCRYPTION_KEY) {
-      throw new Error('KEYPAIR_ENCRYPTION_KEY environment variable is required')
+    // Load encryption key with better error handling
+    const encryptionKey = process.env.KEYPAIR_ENCRYPTION_KEY
+    
+    if (!encryptionKey) {
+      console.error('❌ Environment variable check:')
+      console.error('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET')
+      console.error('KEYPAIR_ENCRYPTION_KEY:', process.env.KEYPAIR_ENCRYPTION_KEY ? 'SET' : 'NOT SET')
+      console.error('All env vars:', Object.keys(process.env).filter(k => k.includes('KEY') || k.includes('DATABASE')))
+      throw new Error('KEYPAIR_ENCRYPTION_KEY environment variable is required. Please add it to your Vercel environment variables.')
     }
-    this.encryptionKey = Buffer.from(process.env.KEYPAIR_ENCRYPTION_KEY, 'hex')
+    
+    try {
+      this.encryptionKey = Buffer.from(encryptionKey, 'hex')
+      console.log('✅ Database keypair manager initialized successfully')
+    } catch (error) {
+      console.error('❌ Failed to parse KEYPAIR_ENCRYPTION_KEY:', error)
+      throw new Error('KEYPAIR_ENCRYPTION_KEY must be a valid hex string. Generate one with: openssl rand -hex 32')
+    }
   }
 
   /**

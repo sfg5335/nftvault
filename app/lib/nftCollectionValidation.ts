@@ -1,4 +1,5 @@
 import { Connection, PublicKey } from '@solana/web3.js'
+import { HELIUS_CONFIG } from './heliusConfig'
 
 interface HeliusAsset {
   id: string
@@ -49,18 +50,8 @@ interface CollectionValidationResult {
  * Get Helius API URL with API key
  */
 function getHeliusApiUrl(): string {
-  const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
-  const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
-  
-  // Check if we have a valid API key (not the placeholder)
-  if (heliusApiKey && heliusApiKey !== 'your-helius-api-key-here') {
-    const separator = heliusUrl.includes('?') ? '&' : '/?'
-    return `${heliusUrl}${separator}api-key=${heliusApiKey}`
-  }
-  
-  // Log warning if no valid API key
-  console.warn('Helius API key not configured. DAS API methods will not work.')
-  return heliusUrl
+  // Use centralized configuration
+  return HELIUS_CONFIG.getApiUrl()
 }
 
 /**

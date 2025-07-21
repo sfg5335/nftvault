@@ -1,4 +1,5 @@
 import { Connection, PublicKey } from '@solana/web3.js'
+import { HELIUS_CONFIG } from './heliusConfig'
 
 export interface NFTMetadata {
   mint: string
@@ -53,25 +54,15 @@ interface HeliusNFT {
 
 export async function fetchNFTMetadata(nftMint: string, connection: Connection): Promise<NFTMetadata | null> {
   try {
-    // Try Helius API first
-    const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
-    const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
+    // Use centralized Helius configuration
+    const apiUrl = HELIUS_CONFIG.getApiUrl()
     
-    console.log(`Fetching metadata for ${nftMint} using Helius: ${heliusUrl}`)
+    console.log(`Fetching metadata for ${nftMint} using Helius`)
     
-    // Only try Helius if we have a URL (API key is optional for devnet)
-    if (heliusUrl) {
+    // Only try Helius if we have a valid configuration
+    if (HELIUS_CONFIG.hasValidApiKey() || HELIUS_CONFIG.baseUrl) {
       try {
         console.log('Fetching NFT metadata from Helius for mint:', nftMint)
-        
-        // Construct URL with optional API key
-        // Fix: Check if URL already has query parameters
-        let apiUrl = heliusUrl
-        if (heliusApiKey) {
-          // Check if URL already has query parameters
-          const separator = heliusUrl.includes('?') ? '&' : '/?'
-          apiUrl = `${heliusUrl}${separator}api-key=${heliusApiKey}`
-        }
         
         const response = await fetch(apiUrl, {
           method: 'POST',

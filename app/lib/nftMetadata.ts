@@ -55,83 +55,82 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
   try {
     // Try Helius DAS API first
     const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
-    console.log('Helius API Key available:', heliusApiKey ? 'Yes' : 'No', heliusApiKey === 'your-helius-api-key-here' ? '(placeholder)' : '')
-    
+    console.log('Helius API Key available:', heliusApiKey ? 'Yes' : 'No')
+
+    // Use devnet endpoint without key if key not provided
     const heliusDasUrl = heliusApiKey && heliusApiKey !== 'your-helius-api-key-here'
       ? `https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`
-      : null
-    
-    console.log(`Fetching metadata for ${nftMint} using Helius DAS: ${heliusDasUrl ? 'Yes' : 'No'}`)
-    
-    // Only try Helius if we have a URL (API key is required)
-    if (heliusDasUrl) {
-      try {
-        console.log('Fetching NFT metadata from Helius DAS for mint:', nftMint)
-        
-        const response = await fetch(heliusDasUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 'helius-nft-metadata',
-            method: 'getAsset',
-            params: {
-              id: nftMint,
-              displayOptions: {
-                showFungible: false
-              }
+      : 'https://devnet.helius-rpc.com'
+
+    console.log(`Fetching metadata for ${nftMint} using Helius DAS endpoint: ${heliusDasUrl}`)
+
+    // Always try Helius DAS first (API key optional on devnet)
+    try {
+      console.log('Fetching NFT metadata from Helius DAS for mint:', nftMint)
+      
+      const response = await fetch(heliusDasUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'helius-nft-metadata',
+          method: 'getAsset',
+          params: {
+            id: nftMint,
+            displayOptions: {
+              showFungible: false
             }
-          })
+          }
         })
+      })
 
-        console.log(`Helius DAS API Response Status: ${response.status} for mint: ${nftMint}`)
-        
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error(`Helius DAS API error response: ${errorText}`)
-          throw new Error(`Helius DAS API error: ${response.status}`)
-        }
-
-        const data = await response.json()
-        
-        if (data.error) {
-          console.log('Helius DAS API error:', data.error)
-          throw new Error(data.error.message || 'Helius DAS API error')
-        }
-
-        const asset = data.result
-        if (!asset) {
-          console.log('No asset data from Helius DAS')
-          throw new Error('No asset data')
-        }
-
-        // Map the Helius DAS response to our NFTMetadata format
-        const metadata = asset.content?.metadata
-        const files = asset.content?.files
-        const grouping = asset.grouping
-
-        // Find collection info from grouping
-        const collection = grouping?.find((g: any) => g.group_key === 'collection')
-        
-        console.log(`NFT ${nftMint} - Collection found:`, collection ? collection.group_value : 'None')
-
-        return {
-          mint: nftMint,
-          name: metadata?.name || 'Unknown NFT',
-          symbol: metadata?.symbol || '',
-          description: metadata?.description || '',
-          image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
-          attributes: metadata?.attributes || [],
-          collection: collection ? {
-            key: collection.group_value,
-            verified: collection.verified !== undefined ? collection.verified : true // Default to true if not specified
-          } : undefined
-        }
-      } catch (heliusError) {
-        console.log('Helius DAS API failed, falling back to RPC:', heliusError)
+      console.log(`Helius DAS API Response Status: ${response.status} for mint: ${nftMint}`)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Helius DAS API error response: ${errorText}`)
+        throw new Error(`Helius DAS API error: ${response.status}`)
       }
+
+      const data = await response.json()
+      
+      if (data.error) {
+        console.log('Helius DAS API error:', data.error)
+        throw new Error(data.error.message || 'Helius DAS API error')
+      }
+
+      const asset = data.result
+      if (!asset) {
+        console.log('No asset data from Helius DAS')
+        throw new Error('No asset data')
+      }
+
+      // Map the Helius DAS response to our NFTMetadata format
+      const metadata = asset.content?.metadata
+      const files = asset.content?.files
+      const grouping = asset.grouping
+
+      // Find collection info from grouping
+      const collection = grouping?.find((g: any) => g.group_key === 'collection')
+      
+      console.log(`NFT ${nftMint} - Collection found:`, collection ? collection.group_value : 'None')
+
+      return {
+        mint: nftMint,
+        name: metadata?.name || 'Unknown NFT',
+        symbol: metadata?.symbol || '',
+        description: metadata?.description || '',
+        image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
+        attributes: metadata?.attributes || [],
+        collection: collection ? {
+          key: collection.group_value,
+          verified: collection.verified !== undefined ? collection.verified : true // Default to true if not specified
+        } : undefined
+      }
+    } catch (heliusError) {
+      console.log('Helius DAS API failed, falling back to RPC:', heliusError)
     }
 
     // Fallback to basic RPC call

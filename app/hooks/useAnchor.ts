@@ -124,14 +124,14 @@ export function useAnchor() {
     }
   }
 
-  const redeemSpecificNFT = async (collectionMint: PublicKey, nftMint: PublicKey): Promise<string> => {
+  const redeemSpecificNFT = async (collectionMint: PublicKey, nftMint: PublicKey, referencePriceLamports?: number): Promise<string> => {
     setLoading(true)
     setError(null)
     
     try {
       if (!client) throw new Error('Anchor client not initialized')
       
-      const tx = await client.redeemSpecificNFT(collectionMint, nftMint)
+      const tx = await client.redeemSpecificNFT(collectionMint, nftMint, referencePriceLamports)
       console.log('Specific NFT redeemed:', tx)
       return tx
     } catch (err) {

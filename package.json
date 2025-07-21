@@ -1,6 +1,6 @@
 {
   "name": "smol-markets",
-  "version": "1.8.6",
+  "version": "1.8.7",
   "description": "A Solana fractional NFT marketplace built with Anchor",
   "scripts": {
     "dev": "next dev",

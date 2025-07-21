@@ -476,7 +476,6 @@ function CreatePoolPageContent() {
           setTimeout(() => {
             window.location.href = `/pool/${collectionMint.toString()}`
           }, 1500)
-        }
         } else if (isSendTransactionErrorWithLogs(err)) {
           try {
             const logs = await err.getLogs()

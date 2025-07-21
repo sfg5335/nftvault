@@ -10,8 +10,7 @@ import { useAnchor } from '../hooks/useAnchor'
 import { PublicKey } from '@solana/web3.js'
 import { PoolStorage } from '../lib/poolStorage'
 import { Connection } from '@solana/web3.js'
-import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
-import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
+import { fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 import { SendTransactionError } from '@solana/web3.js'
 
 // Force dynamic rendering for this route

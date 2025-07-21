@@ -1,6 +1,6 @@
 {
   "name": "smol-markets",
-  "version": "1.9.5",
+  "version": "1.9.6",
   "description": "A Solana fractional NFT marketplace built with Anchor",
   "scripts": {
     "dev": "next dev",
@@ -17,6 +17,9 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.26.0",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.2.0",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
     "@solana/spl-token": "^0.3.11",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",

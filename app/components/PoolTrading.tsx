@@ -13,8 +13,7 @@ import { ImageSkeleton, NFTImage } from './OptimizedImage'
 import { toast } from 'react-hot-toast'
 // Force rebuild - all components properly imported
 import { DexPriceOracle } from '../lib/dexPriceOracle'
-import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
-import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
+import { fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 
 interface NFT {
   mint: string

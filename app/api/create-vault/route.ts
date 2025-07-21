@@ -12,6 +12,13 @@ const SERVER_WALLET = Keypair.fromSecretKey(new Uint8Array(walletSecretKey));
 
 export async function POST(request: NextRequest) {
   try {
+    // Debug logging for environment variables
+    console.log('🔍 Debugging vault creation environment:');
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    console.log('POSTGRES_URL exists:', !!process.env.POSTGRES_URL);
+    console.log('KEYPAIR_ENCRYPTION_KEY exists:', !!process.env.KEYPAIR_ENCRYPTION_KEY);
+    console.log('KEYPAIR_ENCRYPTION_KEY prefix:', process.env.KEYPAIR_ENCRYPTION_KEY?.substring(0, 8) + '...');
+    
     const { collectionMint } = await request.json();
 
     if (!collectionMint) {
@@ -58,8 +65,16 @@ export async function POST(request: NextRequest) {
 
     console.log('🏛️ Vault state PDA:', vaultStatePDA.toString());
 
-    // Get database keypair manager
-    const keypairManager = getDatabaseKeypairManager();
+    // Get database keypair manager with error handling
+    let keypairManager;
+    try {
+      keypairManager = getDatabaseKeypairManager();
+      console.log('✅ Database keypair manager initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize database keypair manager:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      throw new Error(`Keypair manager initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
     
     // Clean up any stale reservations first
     await keypairManager.cleanupStaleReservations();

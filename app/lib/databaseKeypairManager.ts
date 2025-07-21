@@ -28,6 +28,11 @@ export class DatabaseKeypairManager {
       throw new Error('Neither DATABASE_URL nor POSTGRES_URL environment variable is set')
     }
     
+    // Validate database URL format
+    if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
+      throw new Error(`Invalid database URL format. Expected postgres:// or postgresql:// but got: ${databaseUrl.substring(0, 20)}...`)
+    }
+    
     this.pool = new Pool({
       connectionString: databaseUrl,
       // Connection pool settings for production

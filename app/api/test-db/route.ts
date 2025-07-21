@@ -15,6 +15,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No database URL found' });
     }
     
+    // Check URL format
+    if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
+      return NextResponse.json({
+        error: 'Invalid database URL format',
+        details: 'Database URL must start with postgres:// or postgresql://',
+        actualFormat: databaseUrl.substring(0, 20) + '...',
+        suggestion: 'In Supabase, use the "Connection pooling" connection string from Settings > Database, not the API URL'
+      }, { status: 400 });
+    }
+    
     // Log the database URL pattern (hiding sensitive parts)
     const urlPattern = databaseUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...';
     console.log('Database URL pattern:', urlPattern);

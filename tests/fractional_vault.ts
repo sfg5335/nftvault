@@ -35,8 +35,10 @@ describe("fractional_vault", () => {
   let userFractionalAccount: PublicKey;
 
   // Helius API configuration
-  const HELIUS_API_KEY = process.env.HELIUS_API_KEY || "YOUR_API_KEY";
-  const HELIUS_URL = `https://devnet.helius-rpc.com`;
+  const HELIUS_API_KEY = process.env.NEXT_PUBLIC_HELIUS_API_KEY || "YOUR_API_KEY";
+  const HELIUS_URL = HELIUS_API_KEY && HELIUS_API_KEY !== "YOUR_API_KEY"
+    ? `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+    : "https://api.devnet.solana.com";
 
   before(async () => {
     console.log("Setting up test accounts...");

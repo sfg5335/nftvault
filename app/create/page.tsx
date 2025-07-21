@@ -191,7 +191,22 @@ function CreatePoolPageContent() {
               
               collectionMap.get(collectionKey)!.push(nft)
             } else {
-              console.log(`NFT ${mint.toString()} has no collection metadata, skipping`)
+              console.log(`NFT ${mint.toString()} has no collection metadata`)
+              // For testing: treat individual NFTs as their own collection
+              const fakeCollectionKey = mint.toString()
+              const nft: WalletNFT = {
+                mint,
+                metadata,
+                collection: fakeCollectionKey
+              }
+              
+              if (!collectionMap.has(fakeCollectionKey)) {
+                collectionMap.set(fakeCollectionKey, [])
+                // For individual NFTs, consider them valid
+                validCollections.add(fakeCollectionKey)
+              }
+              
+              collectionMap.get(fakeCollectionKey)!.push(nft)
             }
           }
         } catch (err) {
@@ -401,7 +416,7 @@ function CreatePoolPageContent() {
             2: 'The wallet might not have enough SOL for rent exemption',
             3: 'The program might not be properly deployed',
             walletBalance: 'Check if your wallet has at least 0.1 SOL',
-            programId: 'AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR'
+            programId: 'AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa'
           })
         } else if (message.includes('already exists')) {
           errorMessage = 'A vault for this collection already exists. Redirecting to pool page...'
@@ -681,4 +696,4 @@ function CreatePoolPageContent() {
       </main>
     </div>
   )
-} 
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import { VaultState } from '../lib/anchor'
-import { Settings, DollarSign, Crown, AlertCircle } from 'lucide-react'
+import { Settings, DollarSign, AlertCircle, Crown, Percent } from 'lucide-react'
 
 interface SettingsCardProps {
   vaultState: VaultState
@@ -46,21 +46,40 @@ export function SettingsCard({ vaultState }: SettingsCardProps) {
           </div>
           
           <div className="space-y-3">
-
-          </div>
-        </div>
-
-        {/* Fee Structure Info */}
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">Current Fee Structure</h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-green-400">0.015 SOL</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Redeem Fee:</span>
-              <span className="text-blue-400">0.025 SOL</span>
+            {/* Dynamic Fee Structure */}
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-2">
+                <Percent className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-medium text-white">Dynamic Fee Structure</span>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="text-gray-300">With sNFT token price from DEX:</span>
+                  <div className="ml-4 mt-1 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">• Deposit:</span>
+                      <span className="text-green-400">1.5% of token value</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">• Redeem:</span>
+                      <span className="text-blue-400">2.5% of token value</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/10">
+                  <span className="text-gray-300">Without price (fallback):</span>
+                  <div className="ml-4 mt-1 space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">• Deposit:</span>
+                      <span className="text-green-400">0.015 SOL flat</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">• Redeem:</span>
+                      <span className="text-blue-400">0.025 SOL flat</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -104,7 +104,14 @@ export type FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "referencePriceLamports",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
     },
     {
       "name": "mintFractional",
@@ -242,7 +249,14 @@ export type FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "referencePriceLamports",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
     },
     {
       "name": "mintFractionalMultiple",
@@ -450,6 +464,16 @@ export type FractionalVault = {
       "code": 6010,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidReferencePrice",
+      "msg": "Invalid reference price"
+    },
+    {
+      "code": 6012,
+      "name": "FeeCalculationOverflow",
+      "msg": "Overflow in fee calculation"
     }
   ]
 };
@@ -560,7 +584,14 @@ export const IDL: FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "referencePriceLamports",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
     },
     {
       "name": "mintFractional",
@@ -698,7 +729,14 @@ export const IDL: FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "referencePriceLamports",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
     },
     {
       "name": "mintFractionalMultiple",
@@ -906,6 +944,16 @@ export const IDL: FractionalVault = {
       "code": 6010,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidReferencePrice",
+      "msg": "Invalid reference price"
+    },
+    {
+      "code": 6012,
+      "name": "FeeCalculationOverflow",
+      "msg": "Overflow in fee calculation"
     }
   ]
 };

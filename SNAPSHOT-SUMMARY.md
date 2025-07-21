@@ -10,8 +10,12 @@
 - ⚠️ **Multiple NFT Deposits**: Commented out due to Anchor framework limitations
 
 ### Fee Structure
-- **Deposit Fee**: 0.015 SOL flat fee
-- **Redemption Fee**: 0.025 SOL flat fee
+- **Dynamic Percentage-Based Fees**: When sNFT tokens have DEX liquidity
+  - Deposit Fee: 1.5% of token value
+  - Redemption Fee: 2.5% of token value
+- **Fallback Flat Fees**: When no reference price available
+  - Deposit Fee: 0.015 SOL
+  - Redemption Fee: 0.025 SOL
 
 All fees are collected in SOL and sent to the protocol treasury.
 
@@ -21,12 +25,14 @@ All fees are collected in SOL and sent to the protocol treasury.
 - ✅ **SPL Token Integration**: Standard token operations for fractional tokens
 - ✅ **Collection Verification**: Manual verification (Metaplex-independent)
 - ✅ **Comprehensive Error Handling**: Custom error types for all edge cases
+- ✅ **Dynamic Pricing**: Supports percentage-based fees using DEX price oracles
 
 ### Token Economics
 
 - **1 NFT = 1,000,000 tokens** (with 6 decimals)
 - No token fees - all fees are in SOL
 - Predictable token supply based on deposited NFTs
+- Fee calculation: `price = reserve_sol / reserve_sNFT` from DEX pools
 
 ## 🚧 Known Issues & Limitations
 
@@ -56,13 +62,4 @@ pub struct VaultState {
 ## 📈 Performance Metrics
 
 - **Gas Efficiency**: Optimized for minimal transaction costs
-- **Scalability**: Each vault handles one collection independently
-- **Security**: No critical vulnerabilities identified
-
-## 🎯 Next Steps
-
-1. Enable batch NFT deposits when Anchor supports it
-2. Implement analytics dashboard
-3. Add liquidity pool integration
-4. Improve frontend UX/UI
-5. Add governance features 
+- **Dynamic Fees**: Automatically adjusts based on token market value 

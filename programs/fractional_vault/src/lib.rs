@@ -31,7 +31,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR");
+declare_id!("AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa");
 
 /// Constants for the sNFT (smol NFT) fractional vault program
 pub mod constants {
@@ -41,6 +41,14 @@ pub mod constants {
     
     /// Protocol treasury address - SOL fees are sent here
     pub const PROTOCOL_TREASURY: &str = "2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt";
+    
+    /// Percentage-based fees (in basis points, 100 = 1%)
+    pub const DEPOSIT_FEE_BPS: u64 = 150;  // 1.5% = 150 basis points
+    pub const WITHDRAW_FEE_BPS: u64 = 250; // 2.5% = 250 basis points
+    
+    /// Flat fees (in lamports) when no reference price is available
+    pub const FLAT_DEPOSIT_FEE: u64 = 15_000_000;  // 0.015 SOL
+    pub const FLAT_WITHDRAW_FEE: u64 = 25_000_000; // 0.025 SOL
 }
 
 /// Errors that can be returned by the vault program
@@ -68,6 +76,51 @@ pub enum VaultError {
     InvalidTokenAmount,
     #[msg("Not implemented due to Anchor framework limitations")]
     NotImplemented,
+    #[msg("Invalid reference price")]
+    InvalidReferencePrice,
+    #[msg("Overflow in fee calculation")]
+    FeeCalculationOverflow,
+}
+
+/// Helper functions for fee calculations
+pub mod fee_utils {
+    use super::*;
+    
+    /// Calculate fee based on reference price or fall back to flat fee
+    pub fn calculate_deposit_fee(reference_price_lamports: Option<u64>) -> Result<u64> {
+        match reference_price_lamports {
+            Some(price) => {
+                // Calculate percentage-based fee
+                // fee = price * DEPOSIT_FEE_BPS / 10000
+                price
+                    .checked_mul(constants::DEPOSIT_FEE_BPS)
+                    .and_then(|v| v.checked_div(10000))
+                    .ok_or(VaultError::FeeCalculationOverflow.into())
+            }
+            None => {
+                // Use flat fee when no reference price
+                Ok(constants::FLAT_DEPOSIT_FEE)
+            }
+        }
+    }
+    
+    /// Calculate withdrawal fee based on reference price or fall back to flat fee
+    pub fn calculate_withdraw_fee(reference_price_lamports: Option<u64>) -> Result<u64> {
+        match reference_price_lamports {
+            Some(price) => {
+                // Calculate percentage-based fee
+                // fee = price * WITHDRAW_FEE_BPS / 10000
+                price
+                    .checked_mul(constants::WITHDRAW_FEE_BPS)
+                    .and_then(|v| v.checked_div(10000))
+                    .ok_or(VaultError::FeeCalculationOverflow.into())
+            }
+            None => {
+                // Use flat fee when no reference price
+                Ok(constants::FLAT_WITHDRAW_FEE)
+            }
+        }
+    }
 }
 
 /// State account for the vault - manages sNFT (smol NFT) fractionalization
@@ -402,7 +455,7 @@ impl<'info> InitializeVault<'info> {
 }
 
 impl<'info> DepositNft<'info> {
-    pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
+    pub fn deposit_nft(ctx: Context<DepositNft>, reference_price_lamports: Option<u64>) -> Result<()> {
         let user_nft_account = &ctx.accounts.user_nft_account;
         // amount check after Anchor's automatic validation
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
@@ -440,8 +493,9 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
         
-        // Flat SOL fee: 0.015 SOL
-        let fee_lamports = 15_000_000u64;
+        // Calculate fee based on reference price or use flat fee
+        let fee_lamports = fee_utils::calculate_deposit_fee(reference_price_lamports)?;
+        
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.protocol_treasury.key(),
@@ -513,7 +567,7 @@ impl<'info> MintFractionalExisting<'info> {
 }
 
 impl<'info> RedeemSpecificNft<'info> {
-    pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
+    pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>, reference_price_lamports: Option<u64>) -> Result<()> {
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let vault_bump = *ctx.bumps.get("vault_state").unwrap();
 
@@ -558,8 +612,9 @@ impl<'info> RedeemSpecificNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
 
-        // Flat SOL fee: 0.025 SOL
-        let fee_lamports = 25_000_000u64;
+        // Calculate fee based on reference price or use flat fee
+        let fee_lamports = fee_utils::calculate_withdraw_fee(reference_price_lamports)?;
+        
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.protocol_treasury.key(),
@@ -655,8 +710,8 @@ pub mod fractional_vault {
         InitializeVault::initialize_vault(&mut ctx.accounts)
     }
 
-    pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
-        DepositNft::deposit_nft(ctx)
+    pub fn deposit_nft(ctx: Context<DepositNft>, reference_price_lamports: Option<u64>) -> Result<()> {
+        DepositNft::deposit_nft(ctx, reference_price_lamports)
     }
 
     pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
@@ -667,8 +722,8 @@ pub mod fractional_vault {
         MintFractionalExisting::mint_fractional_existing(ctx)
     }
 
-    pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
-        RedeemSpecificNft::redeem_specific_nft(ctx)
+    pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>, reference_price_lamports: Option<u64>) -> Result<()> {
+        RedeemSpecificNft::redeem_specific_nft(ctx, reference_price_lamports)
     }
 
     // Temporarily disabled due to lifetime issues with remaining_accounts

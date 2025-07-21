@@ -1,15 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Target, AlertCircle } from 'lucide-react'
+import { VaultState } from '../lib/anchor'
+import { Download, Target, Percent } from 'lucide-react'
 
 interface RedeemCardProps {
-  vaultState: any
+  vaultState: VaultState
   onRedeemSpecific: (nftMint: string) => Promise<void>
   loading: boolean
+  referencePrice?: number | null // Price in lamports
 }
 
-export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCardProps) {
+export function RedeemCard({ vaultState, onRedeemSpecific, loading, referencePrice }: RedeemCardProps) {
   const [amount, setAmount] = useState('')
   const [selectedNft, setSelectedNft] = useState('')
 
@@ -24,7 +26,21 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
 
   const redeemAmount = parseInt(amount) || 0
   const totalCost = redeemAmount // No token fees
-  const solFee = 0.025 // Flat 0.025 SOL fee
+
+  // Calculate fee based on reference price
+  const calculateFee = () => {
+    if (referencePrice) {
+      // Percentage-based fee: 2.5% of NFT value
+      const feeInLamports = Math.floor(referencePrice * 0.025)
+      const feeInSol = feeInLamports / 1e9
+      return { feeInSol, isPercentage: true }
+    } else {
+      // Flat fee: 0.025 SOL
+      return { feeInSol: 0.025, isPercentage: false }
+    }
+  }
+
+  const fee = calculateFee()
 
   return (
     <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6">
@@ -60,67 +76,50 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
         {/* Token Amount */}
         <div>
           <label className="block text-sm font-medium text-white/70 mb-2">
-            Number of NFTs
+            Tokens Required
           </label>
-          <input
-            type="number"
-            min="1"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="1"
-            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        {/* Cost Breakdown */}
-        {redeemAmount > 0 && (
-          <div className="bg-white/5 rounded-lg p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-white/70">sNFT Token Cost</span>
-              <span className="text-white">{totalCost.toLocaleString()} sNFTs</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/70">SOL Fee</span>
-              <span className="text-white">{solFee} SOL</span>
-            </div>
-            <div className="border-t border-white/10 pt-2 flex justify-between font-semibold">
-              <span className="text-white">Total</span>
-              <div className="text-right">
-                <div className="text-white">{totalCost.toLocaleString()} sNFTs</div>
-                <div className="text-sm text-white/70">+ {solFee} SOL</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Info Box */}
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-2">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-white/80 space-y-1">
-              <p>Redemption Details:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>• <span className="text-blue-400">Specific:</span> Choose the exact NFT from the pool (0.025 SOL fee)</li>
-                <li>• Each NFT requires 1,000,000 tokens to redeem</li>
-                <li>• SOL fees go to the protocol treasury</li>
-              </ul>
-            </div>
+          <div className="px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white">
+            1,000,000 sNFT
           </div>
         </div>
 
-        {/* Redeem Button */}
+        {/* Fee Display */}
+        <div className="bg-white/5 rounded-lg p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">You burn:</span>
+            <span className="text-red-400 font-medium">1,000,000 sNFT</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">You receive:</span>
+            <span className="text-green-400 font-medium">1 NFT</span>
+          </div>
+          <div className="flex justify-between text-sm pt-2 border-t border-white/10">
+            <span className="text-gray-400 flex items-center gap-1">
+              Redemption Fee:
+              {fee.isPercentage && <Percent className="w-3 h-3 text-blue-400" />}
+            </span>
+            <span className="text-yellow-400 font-medium">
+              {fee.feeInSol.toFixed(4)} SOL
+              {fee.isPercentage && <span className="text-xs text-gray-400 ml-1">(2.5%)</span>}
+            </span>
+          </div>
+        </div>
+
         <button
           onClick={handleRedeem}
-          disabled={loading || !selectedNft || redeemAmount <= 0}
-          className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
+          disabled={loading || !selectedNft}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
         >
           {loading ? (
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-              <span>Processing...</span>
-            </div>
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>Redeeming...</span>
+            </>
           ) : (
-            <span>Redeem Specific NFT</span>
+            <>
+              <Download className="w-4 h-4" />
+              <span>Redeem NFT</span>
+            </>
           )}
         </button>
       </div>

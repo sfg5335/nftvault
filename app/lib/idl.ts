@@ -1,7 +1,8 @@
 // AUTO-GENERATED: DO NOT EDIT MANUALLY.
 // Sourced from target/idl/fractional_vault.json by build script to keep frontend IDL in sync.
 
-export const IDL = {
+export const IDL = 
+{
   "version": "0.1.0",
   "name": "fractional_vault",
   "instructions": [
@@ -26,7 +27,19 @@ export const IDL = {
         {
           "name": "fractionalMint",
           "isMut": true,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "Pre-generated vanity mint that will be used for sNFT tokens",
+            "This mint should end in \"smol\" for branding purposes - not yet initialized"
+          ]
+        },
+        {
+          "name": "mintKeypair",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "The keypair for the sNFT mint (must sign the transaction)"
+          ]
         },
         {
           "name": "systemProgram",
@@ -95,7 +108,14 @@ export const IDL = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "referencePriceLamports",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
     },
     {
       "name": "mintFractional",
@@ -233,7 +253,14 @@ export const IDL = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "referencePriceLamports",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
     },
     {
       "name": "mintFractionalMultiple",
@@ -276,7 +303,7 @@ export const IDL = {
     {
       "name": "VaultState",
       "docs": [
-        "State account for the vault"
+        "State account for the vault - manages sNFT (smol NFT) fractionalization"
       ],
       "type": {
         "kind": "struct",
@@ -441,6 +468,16 @@ export const IDL = {
       "code": 6010,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidReferencePrice",
+      "msg": "Invalid reference price"
+    },
+    {
+      "code": 6012,
+      "name": "FeeCalculationOverflow",
+      "msg": "Overflow in fee calculation"
     }
   ]
-};
+}

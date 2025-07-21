@@ -1,26 +1,30 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useWallet } from '@solana/wallet-adapter-react'
-import { Connection, PublicKey } from '@solana/web3.js'
-import { getAccount } from '@solana/spl-token'
+import { PublicKey } from '@solana/web3.js'
 import { useAnchor } from '../hooks/useAnchor'
-import { NFTImage, ImageSkeleton } from './OptimizedImage'
-import { Shuffle, Target, Gift, AlertCircle, Loader2, Check } from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { Upload, Download, RefreshCw, AlertCircle, Info, Activity, Target, DollarSign } from 'lucide-react'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
+import { VaultNFTDisplay } from './VaultNFTDisplay'
+import { toast } from 'react-hot-toast'
+import { DexPriceOracle } from '../lib/dexPriceOracle'
+
+interface NFT {
+  mint: string
+  name: string
+  symbol: string
+  image: string
+  collection?: {
+    key: string
+    verified: boolean
+  }
+}
 
 interface PoolTradingProps {
   poolId: string
   selectedVaultNFTs: string[]
   onSelectVaultNFTs: (nfts: string[]) => void
-}
-
-interface NFT {
-  mint: string
-  name: string
-  image: string
-  symbol: string
-  metadata?: any
 }
 
 export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: PoolTradingProps) {
@@ -206,6 +210,29 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       
       console.log('Depositing NFTs to pool:', poolId, 'NFTs:', nftMints)
       
+      // Get sNFT token price from DEX
+      let referencePriceLamports: number | undefined
+      if (poolVaultState?.fractionalMint) {
+        try {
+          const priceOracle = new DexPriceOracle(client.getConnection())
+          const fractionalMint = new PublicKey(poolVaultState.fractionalMint)
+          
+          // Get price per token in lamports
+          const pricePerToken = await priceOracle.getTokenPrice(fractionalMint)
+          
+          if (pricePerToken !== null) {
+            // Calculate value of 1 NFT (1,000,000 tokens) in lamports
+            referencePriceLamports = Math.floor(pricePerToken * 1_000_000)
+            console.log(`sNFT token price: ${priceOracle.formatPrice(pricePerToken)} per token`)
+            console.log(`1 NFT value: ${(referencePriceLamports / 1e9).toFixed(4)} SOL`)
+          } else {
+            console.log('No DEX price found, using flat fee')
+          }
+        } catch (error) {
+          console.error('Error fetching token price:', error)
+        }
+      }
+      
       // Deposit NFTs one by one
       const txSignatures: string[] = []
       const successfulDeposits: string[] = []
@@ -217,7 +244,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         
         try {
           console.log(`Depositing NFT ${i + 1}/${nftMints.length}: ${nftMint}`)
-          const txSignature = await depositNFT(collectionMint, new PublicKey(nftMint))
+          const txSignature = await depositNFT(collectionMint, new PublicKey(nftMint), referencePriceLamports)
           txSignatures.push(txSignature)
           successfulDeposits.push(nftMint)
           
@@ -299,6 +326,29 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     try {
       const collectionMint = new PublicKey(poolId)
       
+      // Get sNFT token price from DEX
+      let referencePriceLamports: number | undefined
+      if (poolVaultState?.fractionalMint) {
+        try {
+          const priceOracle = new DexPriceOracle(client.getConnection())
+          const fractionalMint = new PublicKey(poolVaultState.fractionalMint)
+          
+          // Get price per token in lamports
+          const pricePerToken = await priceOracle.getTokenPrice(fractionalMint)
+          
+          if (pricePerToken !== null) {
+            // Calculate value of 1 NFT (1,000,000 tokens) in lamports
+            referencePriceLamports = Math.floor(pricePerToken * 1_000_000)
+            console.log(`sNFT token price: ${priceOracle.formatPrice(pricePerToken)} per token`)
+            console.log(`1 NFT value: ${(referencePriceLamports / 1e9).toFixed(4)} SOL`)
+          } else {
+            console.log('No DEX price found, using flat fee')
+          }
+        } catch (error) {
+          console.error('Error fetching token price:', error)
+        }
+      }
+      
       // Redeem NFTs one by one
       const txSignatures: string[] = []
       const successfulRedeems: string[] = []
@@ -312,7 +362,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           console.log(`Redeeming NFT ${i + 1}/${selectedVaultNFTs.length}: ${nftMint}`)
           
           const nftMintPubkey = new PublicKey(nftMint)
-          const txSignature = await redeemSpecificNFT(collectionMint, nftMintPubkey)
+          const txSignature = await redeemSpecificNFT(collectionMint, nftMintPubkey, referencePriceLamports)
           
           // Check if it's a success indicator
           if (txSignature === 'success' || txSignature) {
@@ -683,11 +733,16 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
 
       {/* Info Box */}
       <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                        <h4 className="text-blue-400 font-semibold mb-2">Pool Info</h4>
+        <h4 className="text-blue-400 font-semibold mb-2">Pool Info</h4>
         <ul className="text-white/70 text-sm space-y-1">
-          <li>• Deposit: 1 NFT → 1,000,000 tokens (0.015 SOL fee)</li>
-          <li>• Redeem: 1,000,000 tokens → 1 NFT (0.025 SOL fee)</li>
-      
+          <li>• Deposit: 1 NFT → 1,000,000 tokens</li>
+          <li>• Redeem: 1,000,000 tokens → 1 NFT</li>
+          <li className="text-xs mt-2 pt-2 border-t border-blue-500/20">
+            <span className="text-blue-300">Dynamic fees:</span> 1.5% deposit / 2.5% redeem based on sNFT token price
+          </li>
+          <li className="text-xs">
+            <span className="text-gray-400">Fallback:</span> 0.015 SOL deposit / 0.025 SOL redeem when no price available
+          </li>
         </ul>
       </div>
     </div>

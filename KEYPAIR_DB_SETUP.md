@@ -33,7 +33,7 @@ KEYPAIR_ENCRYPTION_KEY=your-64-character-hex-key-here
 
 # Existing Solana config
 NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_PROGRAM_ID=AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR
+NEXT_PUBLIC_PROGRAM_ID=AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa
 ```
 
 ### 3. Install Dependencies

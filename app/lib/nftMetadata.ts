@@ -54,24 +54,21 @@ interface HeliusNFT {
 export async function fetchNFTMetadata(nftMint: string, connection: Connection): Promise<NFTMetadata | null> {
   try {
     // Try Helius API first
-    const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
     const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
+    console.log('Helius API Key available:', heliusApiKey ? 'Yes' : 'No', heliusApiKey === 'your-helius-api-key-here' ? '(placeholder)' : '')
+    const heliusUrl = heliusApiKey && heliusApiKey !== 'your-helius-api-key-here'
+      ? `https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`
+      : null
     
     console.log(`Fetching metadata for ${nftMint} using Helius: ${heliusUrl}`)
     
-    // Only try Helius if we have a URL (API key is optional for devnet)
+    // Only try Helius if we have a URL (API key is required)
     if (heliusUrl) {
       try {
         console.log('Fetching NFT metadata from Helius for mint:', nftMint)
         
-        // Construct URL with optional API key
-        // Fix: Check if URL already has query parameters
-        let apiUrl = heliusUrl
-        if (heliusApiKey) {
-          // Check if URL already has query parameters
-          const separator = heliusUrl.includes('?') ? '&' : '/?'
-          apiUrl = `${heliusUrl}${separator}api-key=${heliusApiKey}`
-        }
+        // Use the constructed URL (API key already included)
+        const apiUrl = heliusUrl
         
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -103,22 +100,24 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
         
         if (data.error) {
           console.log('Helius API error:', data.error)
-          return null
+          throw new Error(data.error.message || 'Helius API error')
         }
 
         const asset = data.result as HeliusNFT
         if (!asset) {
           console.log('No asset data from Helius')
-          return null
+          throw new Error('No asset data')
         }
 
-        // Extract metadata
+        // Map the Helius response to our NFTMetadata format
         const metadata = asset.content?.metadata
         const files = asset.content?.files
         const grouping = asset.grouping
 
         // Find collection info
         const collection = grouping?.find(g => g.group_key === 'collection')
+        
+        console.log(`NFT ${nftMint} - Collection found:`, collection ? collection.group_value : 'None')
 
         return {
           mint: nftMint,
@@ -165,8 +164,10 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
 
 // Helper function to fetch multiple NFTs efficiently using Helius
 export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMetadata[]> {
-  const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
   const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
+  const heliusUrl = heliusApiKey && heliusApiKey !== 'your-helius-api-key-here'
+    ? `https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`
+    : null
   
   if (!heliusUrl || mints.length === 0) {
     return []
@@ -175,14 +176,8 @@ export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMet
   try {
     console.log(`Fetching ${mints.length} NFTs from Helius`)
     
-    // Construct URL with optional API key
-    // Fix: Check if URL already has query parameters
-    let apiUrl = heliusUrl
-    if (heliusApiKey) {
-      // Check if URL already has query parameters
-      const separator = heliusUrl.includes('?') ? '&' : '/?'
-      apiUrl = `${heliusUrl}${separator}api-key=${heliusApiKey}`
-    }
+    // Use the constructed URL (API key already included)
+    const apiUrl = heliusUrl
     
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -240,25 +235,21 @@ export async function fetchMultipleNFTsMetadata(mints: string[]): Promise<NFTMet
 
 // Function to get user's NFTs using Helius
 export async function fetchUserNFTs(walletAddress: string): Promise<NFTMetadata[]> {
-  const heliusUrl = process.env.NEXT_PUBLIC_HELIUS_URL || 'https://devnet.helius-rpc.com'
   const heliusApiKey = process.env.NEXT_PUBLIC_HELIUS_API_KEY
+  const heliusUrl = heliusApiKey && heliusApiKey !== 'your-helius-api-key-here'
+    ? `https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`
+    : null
   
   if (!heliusUrl) {
-    console.log('Helius URL not configured')
+    console.log('Helius API key not configured')
     return []
   }
 
   try {
     console.log('Fetching user NFTs from Helius for wallet:', walletAddress)
     
-    // Construct URL with optional API key
-    // Fix: Check if URL already has query parameters
-    let apiUrl = heliusUrl
-    if (heliusApiKey) {
-      // Check if URL already has query parameters
-      const separator = heliusUrl.includes('?') ? '&' : '/?'
-      apiUrl = `${heliusUrl}${separator}api-key=${heliusApiKey}`
-    }
+    // Use the constructed URL (API key already included)
+    const apiUrl = heliusUrl
     
     const response = await fetch(apiUrl, {
       method: 'POST',

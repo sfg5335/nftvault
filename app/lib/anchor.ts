@@ -6,7 +6,7 @@ import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, g
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("AiL4fvJibuooy2mKGmcFsQyQV9XZNBU4DC8ysJnStTXR");
+const PROGRAM_ID = new PublicKey("AiSQS6UsKeAwZY49zxiU6x4kPtaHWGXZ7E8iCD7Xu3xa");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -135,11 +135,12 @@ export class AnchorClient {
     }
   }
 
-  async depositNFT(vaultId: string, nftMint: PublicKey): Promise<string> {
+  async depositNFT(vaultId: string, nftMint: PublicKey, referencePriceLamports?: number): Promise<string> {
     try {
       console.log('Starting deposit NFT process...');
       console.log('Vault ID:', vaultId);
       console.log('NFT Mint:', nftMint.toString());
+      console.log('Reference Price (lamports):', referencePriceLamports || 'None (using flat fee)');
 
       // Check if the NFT is Token-2022 FIRST before doing anything else
       const mintInfo = await this.provider.connection.getAccountInfo(nftMint);
@@ -274,7 +275,7 @@ export class AnchorClient {
 
       // Add deposit NFT instruction
       const depositIx = await this.program.methods
-        .depositNft()
+        .depositNft(referencePriceLamports ? new anchor.BN(referencePriceLamports) : null)
         .accounts({
           user: this.provider.wallet.publicKey,
           vaultState: vaultStatePDA,
@@ -352,8 +353,13 @@ export class AnchorClient {
   }
 
   // Redeem specific NFT
-  async redeemSpecificNFT(collectionMint: PublicKey, nftMint: PublicKey): Promise<string> {
+  async redeemSpecificNFT(collectionMint: PublicKey, nftMint: PublicKey, referencePriceLamports?: number): Promise<string> {
     try {
+      console.log('Starting redeem specific NFT process...');
+      console.log('Collection Mint:', collectionMint.toString());
+      console.log('NFT Mint:', nftMint.toString());
+      console.log('Reference Price (lamports):', referencePriceLamports || 'None (using flat fee)');
+      
       const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
       
       // Get vault state to access the fractional mint address
@@ -460,7 +466,7 @@ export class AnchorClient {
       const protocolTreasuryAddress = new PublicKey("2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt");
       
       const redeemIx = await this.program.methods
-        .redeemSpecificNft()
+        .redeemSpecificNft(referencePriceLamports ? new anchor.BN(referencePriceLamports) : null)
         .accounts({
           user: this.provider.wallet.publicKey,
           vaultState: vaultStatePDA,

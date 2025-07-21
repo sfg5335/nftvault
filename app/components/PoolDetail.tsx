@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchor } from '../hooks/useAnchor'
 import { PoolStorage } from '../lib/poolStorage'
-import { TrendingUp, Users, Coins, Activity, Lock, ExternalLink, Copy, Check } from 'lucide-react'
+import { TrendingUp, Users, Coins, Activity, Lock, ExternalLink, Copy, Check, Percent } from 'lucide-react'
 import { VaultNFTDisplay } from './VaultNFTDisplay'
 
 interface PoolDetailProps {
@@ -245,14 +245,40 @@ export function PoolDetail({ poolId, selectedNFTs, onSelectNFTs }: PoolDetailPro
       {/* Fee Structure */}
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-xl p-6">
         <h2 className="text-xl font-bold text-white mb-4">Fee Structure</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white/5 rounded-lg p-4">
-            <p className="text-white/60 text-sm mb-1">Deposit Fee</p>
-            <p className="text-white font-bold text-lg">0.015 SOL</p>
+        <div className="space-y-4">
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-3">
+              <Percent className="w-5 h-5 text-blue-400" />
+              <h3 className="text-sm font-semibold text-white">Dynamic Percentage-Based Fees</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">When sNFT token has DEX liquidity:</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-white/60 text-xs mb-1">Deposit Fee</p>
+                <p className="text-green-400 font-bold text-lg">1.5%</p>
+                <p className="text-xs text-gray-400">of token value</p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-white/60 text-xs mb-1">Redeem Fee</p>
+                <p className="text-blue-400 font-bold text-lg">2.5%</p>
+                <p className="text-xs text-gray-400">of token value</p>
+              </div>
+            </div>
           </div>
-          <div className="bg-white/5 rounded-lg p-4">
-            <p className="text-white/60 text-sm mb-1">Redeem Fee</p>
-            <p className="text-white font-bold text-lg">0.025 SOL</p>
+
+          <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-white mb-3">Fallback Flat Fees</h3>
+            <p className="text-xs text-gray-400 mb-3">When no DEX price available:</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-white/60 text-xs mb-1">Deposit Fee</p>
+                <p className="text-white font-bold">0.015 SOL</p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-white/60 text-xs mb-1">Redeem Fee</p>
+                <p className="text-white font-bold">0.025 SOL</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

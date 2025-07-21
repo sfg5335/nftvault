@@ -1,16 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { Upload, AlertCircle, Percent } from 'lucide-react'
 import { VaultState } from '../lib/anchor'
-import { Upload, Coins, AlertCircle } from 'lucide-react'
 
 interface MintCardProps {
   vaultState: VaultState
   onDeposit: () => Promise<void>
-  loading?: boolean
+  loading: boolean
+  referencePrice?: number | null // Price in lamports
 }
 
-export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
+export function MintCard({ vaultState, onDeposit, loading, referencePrice }: MintCardProps) {
   const [amount, setAmount] = useState('1')
 
   const handleDeposit = async () => {
@@ -21,6 +22,21 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
   const tokensPerNft = 1000000
   const totalTokens = parseInt(amount) * tokensPerNft
   const tokensToReceive = totalTokens // No token fees
+
+  // Calculate fee based on reference price
+  const calculateFee = () => {
+    if (referencePrice) {
+      // Percentage-based fee: 1.5% of NFT value
+      const feeInLamports = Math.floor(referencePrice * 0.015)
+      const feeInSol = feeInLamports / 1e9
+      return { feeInSol, isPercentage: true }
+    } else {
+      // Flat fee: 0.015 SOL
+      return { feeInSol: 0.015, isPercentage: false }
+    }
+  }
+
+  const fee = calculateFee()
 
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
@@ -45,38 +61,27 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
         </div>
 
         {/* Fee Breakdown */}
-        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-white mb-3 flex items-center">
-            <Coins className="w-4 h-4 text-green-400 mr-1" />
-            sNFT Token Breakdown
-          </h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-300">NFTs Deposited:</span>
-              <span className="text-white">{amount}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">sNFT Tokens per NFT:</span>
-              <span className="text-white">{tokensPerNft.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Total sNFT Tokens:</span>
-              <span className="text-white">{totalTokens.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Deposit Fee:</span>
-              <span className="text-red-400">0.015 SOL per NFT</span>
-            </div>
-            <div className="border-t border-green-500/20 pt-2">
-              <div className="flex justify-between font-semibold">
-                <span className="text-green-400">sNFT Tokens You'll Receive:</span>
-                <span className="text-green-400">{tokensToReceive.toLocaleString()}</span>
-              </div>
-            </div>
+        <div className="bg-white/5 rounded-lg p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">You deposit:</span>
+            <span className="text-white font-medium">{amount} NFT{parseInt(amount) > 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">You receive:</span>
+            <span className="text-green-400 font-medium">{tokensToReceive.toLocaleString()} sNFT</span>
+          </div>
+          <div className="flex justify-between text-sm pt-2 border-t border-white/10">
+            <span className="text-gray-400 flex items-center gap-1">
+              Deposit Fee:
+              {fee.isPercentage && <Percent className="w-3 h-3 text-blue-400" />}
+            </span>
+            <span className="text-yellow-400 font-medium">
+              {fee.feeInSol.toFixed(4)} SOL
+              {fee.isPercentage && <span className="text-xs text-gray-400 ml-1">(1.5%)</span>}
+            </span>
           </div>
         </div>
 
-        {/* Info Alert */}
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
           <div className="flex items-start space-x-2">
             <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
@@ -85,7 +90,7 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
               <ul className="space-y-1">
                 <li>• Deposit your NFTs from this collection</li>
                 <li>• Receive exactly 1,000,000 tokens per NFT (no token fees)</li>
-                <li>• Pay 0.015 SOL deposit fee per NFT</li>
+                <li>• Pay {fee.isPercentage ? '1.5% of token value' : '0.015 SOL'} deposit fee per NFT</li>
                 <li>• Trade tokens on DEXs for liquidity</li>
                 <li>• Anyone can deposit into the shared pool</li>
                 <li>• Simple 1M tokens per NFT</li>

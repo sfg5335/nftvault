@@ -9,7 +9,7 @@ This project implements a fractional NFT marketplace system where:
 1. **Deposit NFTs**: Users deposit their NFTs into a collection-specific vault
 2. **Receive Fractional Tokens**: Get tokens representing fractional ownership (1,000,000 tokens per NFT)
 3. **Redeem NFTs**: Use tokens to redeem specific NFTs from the vault
-4. **Fee System**: Flat SOL fee system
+4. **Dynamic Fee System**: Percentage-based fees when sNFT tokens have DEX liquidity, flat fees as fallback
 
 ## 🏗️ Architecture
 
@@ -22,6 +22,7 @@ This project implements a fractional NFT marketplace system where:
 - **Redemption**: Specific NFT redemption 
 - **PDA-based Security**: Uses Program Derived Addresses for secure account management
 - **Metaplex Integration**: Verifies NFT collection membership using Metaplex metadata
+- **Dynamic Pricing**: Fees calculated based on sNFT token DEX price when available
 
 ## 🚀 Quick Start
 
@@ -69,14 +70,15 @@ wallet = "~/.config/solana/id.json"
 - Initializes fractional token mint with 6 decimals
 - Sets default fee rates 
 
-#### `deposit_nft()`
+#### `deposit_nft(reference_price_lamports: Option<u64>)`
 - Transfers NFT from user to vault (verifies collection membership)
-- Mints 1,000,000 fractional tokens to user 
-- Mints deposit fee tokens to protocol treasury
+- Mints 1,000,000 fractional tokens to user
+- Charges dynamic fee based on reference price or flat fee
 
-#### `redeem_specific_nft(amount: u64)`
-- Burns fractional tokens (1,000,000 tokens)
+#### `redeem_specific_nft(reference_price_lamports: Option<u64>)`
+- Burns 1,000,000 fractional tokens
 - Transfers specific NFT to user
+- Charges dynamic fee based on reference price or flat fee
 
 ### Account Structures
 
@@ -148,8 +150,16 @@ npm run test-vault     # Test vault functionality
 - **Token Decimals**: 6 decimal places
 
 ### Fee Structure
+
+#### Dynamic Percentage-Based Fees
+When sNFT tokens have DEX liquidity (price = reserve_sol / reserve_sNFT):
+- **Deposit Fee**: 1.5% of token value
+- **Redeem Fee**: 2.5% of token value
+
+#### Fallback Flat Fees
+When no DEX price is available:
 - **Deposit Fee**: 0.015 SOL (flat fee)
-- **Specific Redeem Fee**: 0.025 SOL (flat fee)
+- **Redeem Fee**: 0.025 SOL (flat fee)
 
 All fees are paid in SOL to the protocol treasury: `2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt`
 

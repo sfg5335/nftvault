@@ -21,9 +21,15 @@ export class DatabaseKeypairManager {
   private encryptionKey: Buffer
 
   constructor() {
-    // Initialize database connection
+    // Initialize database connection - support both DATABASE_URL and POSTGRES_URL
+    const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+    
+    if (!databaseUrl) {
+      throw new Error('Neither DATABASE_URL nor POSTGRES_URL environment variable is set')
+    }
+    
     this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: databaseUrl,
       // Connection pool settings for production
       max: 20,
       idleTimeoutMillis: 30000,

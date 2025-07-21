@@ -12,8 +12,15 @@ const ALGORITHM = 'aes-256-gcm'
 const ENCRYPTION_KEY = process.env.KEYPAIR_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex')
 
 // Database connection
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+
+if (!databaseUrl) {
+  console.error('❌ Neither DATABASE_URL nor POSTGRES_URL found in environment variables')
+  process.exit(1)
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
 })
 
 interface EncryptedKeypair {

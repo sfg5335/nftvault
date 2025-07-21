@@ -6,14 +6,19 @@ dotenv.config({ path: '.env.local' })
 async function testConnection() {
   console.log('🔍 Testing database connection...\n')
   
-  if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL not found in environment variables')
-    console.log('\nPlease add DATABASE_URL to your .env.local file')
+  const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+  
+  if (!databaseUrl) {
+    console.error('❌ Neither DATABASE_URL nor POSTGRES_URL found in environment variables')
+    console.log('\nPlease add one of these to your .env.local file:')
+    console.log('DATABASE_URL=your-database-url')
+    console.log('or')
+    console.log('POSTGRES_URL=your-postgres-url (Vercel Postgres)')
     return
   }
   
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: databaseUrl,
   })
   
   try {

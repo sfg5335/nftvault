@@ -3,11 +3,21 @@ import * as dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local' })
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-})
+async function getKeypairStats() {
+  console.log('📊 Vanity Keypair Statistics')
+  console.log('============================\n')
+  
+  const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+  
+  if (!databaseUrl) {
+    console.error('❌ Neither DATABASE_URL nor POSTGRES_URL found in environment variables')
+    return
+  }
+  
+  const pool = new Pool({
+    connectionString: databaseUrl,
+  })
 
-async function showStats() {
   try {
     // Overall stats
     const statsResult = await pool.query(`
@@ -22,8 +32,6 @@ async function showStats() {
     
     const stats = statsResult.rows[0]
     
-    console.log('📊 Vanity Keypair Statistics')
-    console.log('============================')
     console.log(`Total keypairs:     ${stats.total}`)
     console.log(`Available:          ${stats.available} (${((stats.available / stats.total) * 100).toFixed(1)}%)`)
     console.log(`Reserved:           ${stats.reserved}`)
@@ -98,4 +106,4 @@ async function showStats() {
   }
 }
 
-showStats().catch(console.error) 
+getKeypairStats().catch(console.error) 

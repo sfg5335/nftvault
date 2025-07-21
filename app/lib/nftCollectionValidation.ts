@@ -76,11 +76,7 @@ export async function validateNFTCollection(
         id: 'validate-collection',
         method: 'getAsset',
         params: {
-          id: nftMint,
-          displayOptions: {
-            showFungible: false,
-            showCollectionMetadata: true
-          }
+          id: nftMint
         }
       })
     })
@@ -288,10 +284,7 @@ export async function searchWalletNFTsWithValidation(
         method: 'searchAssets',
         params: {
           ownerAddress: walletAddress,
-          tokenType: 'nft',
-          displayOptions: {
-            showCollectionMetadata: true
-          }
+          tokenType: 'nonFungible'
         }
       })
     })

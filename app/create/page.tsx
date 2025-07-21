@@ -13,7 +13,6 @@ import { Connection } from '@solana/web3.js'
 import { getCollectionNFTs, fetchNFTMetadata, NFTMetadata } from '../lib/nftMetadata'
 import { getNFTsByOwner, getCollectionInfo, getNFTsByCollection, HeliusNFT } from '../lib/helius'
 import { SendTransactionError } from '@solana/web3.js'
-import { fetchOnchainCollection, isCollectionVerified } from '../lib/onchainCollection'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'

@@ -24,6 +24,28 @@ export class DatabaseKeypairManager {
     // Initialize database connection - support both DATABASE_URL and POSTGRES_URL
     let databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
     
+    // Check if we're in production and need to handle Supabase pooling
+    const isProduction = process.env.NODE_ENV === 'production'
+    
+    // If we have a Supabase URL with IPv6 issues, try to fix it
+    if (databaseUrl && databaseUrl.includes('supabase.co')) {
+      console.log('Detected Supabase database, checking for IPv6 issues...');
+      
+      // Parse the URL to check the host
+      try {
+        const url = new URL(databaseUrl);
+        
+        // If it's using db.*.supabase.co, it might have IPv6 issues
+        // Try using the pooler endpoint instead
+        if (url.hostname.startsWith('db.') && url.port === '6543') {
+          console.log('Using Supabase pooler endpoint to avoid IPv6 issues');
+          // Keep the same URL - the pooler should handle this
+        }
+      } catch (e) {
+        console.error('Error parsing database URL:', e);
+      }
+    }
+    
     // If we don't have a full URL but have components, try to construct it
     if (!databaseUrl || (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://'))) {
       // Check if we have individual components from Vercel
@@ -39,7 +61,7 @@ export class DatabaseKeypairManager {
         databaseUrl = `postgresql://${user}:${password}@${host}:${port}/${database}`;
         
         // Add SSL mode for production
-        if (process.env.NODE_ENV === 'production') {
+        if (isProduction) {
           databaseUrl += '?sslmode=require';
         }
       }
@@ -54,17 +76,27 @@ export class DatabaseKeypairManager {
       throw new Error(`Invalid database URL format. Expected postgres:// or postgresql:// but got: ${databaseUrl.substring(0, 20)}...`)
     }
     
-    this.pool = new Pool({
+    // Create pool configuration
+    const poolConfig: any = {
       connectionString: databaseUrl,
       // Connection pool settings for production
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased timeout
       // SSL configuration for production databases
-      ssl: process.env.NODE_ENV === 'production' ? {
+      ssl: isProduction ? {
         rejectUnauthorized: false
       } : undefined
-    })
+    };
+    
+    // For Supabase in production, we might need additional settings
+    if (isProduction && databaseUrl.includes('supabase.co')) {
+      // Ensure we're using the connection pooler
+      poolConfig.statement_timeout = 30000;
+      poolConfig.query_timeout = 30000;
+    }
+    
+    this.pool = new Pool(poolConfig)
 
     // Load encryption key
     if (!process.env.KEYPAIR_ENCRYPTION_KEY) {

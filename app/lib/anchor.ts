@@ -89,6 +89,11 @@ export class AnchorClient {
         totalDeposits: vaultState.totalDeposits.toNumber(),
         totalFractionsMinted: vaultState.totalFractionsMinted.toNumber(),
         isActive: vaultState.isActive,
+        depositFeeBps: vaultState.depositFeeBps || 150, // Default 1.5%
+        redeemFeeBps: vaultState.redeemFeeBps || 250, // Default 2.5%
+        lastPriceUpdate: vaultState.lastPriceUpdate ? vaultState.lastPriceUpdate.toNumber() : 0,
+        tokenPriceNumerator: vaultState.tokenPriceNumerator ? vaultState.tokenPriceNumerator.toNumber() : 0,
+        tokenPriceDenominator: vaultState.tokenPriceDenominator ? vaultState.tokenPriceDenominator.toNumber() : 1,
       };
       
       console.log(`[getVaultState] Returning formatted vault state:`, result);
@@ -589,6 +594,11 @@ export class AnchorClient {
           totalDeposits: vault.account.totalDeposits.toNumber(),
           totalFractionsMinted: vault.account.totalFractionsMinted ? vault.account.totalFractionsMinted.toNumber() : 0,
           isActive: vault.account.isActive,
+          depositFeeBps: vault.account.depositFeeBps || 150, // Default 1.5%
+          redeemFeeBps: vault.account.redeemFeeBps || 250, // Default 2.5%
+          lastPriceUpdate: vault.account.lastPriceUpdate ? vault.account.lastPriceUpdate.toNumber() : 0,
+          tokenPriceNumerator: vault.account.tokenPriceNumerator ? vault.account.tokenPriceNumerator.toNumber() : 0,
+          tokenPriceDenominator: vault.account.tokenPriceDenominator ? vault.account.tokenPriceDenominator.toNumber() : 1,
         }
       }));
     } catch (error) {

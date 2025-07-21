@@ -238,67 +238,9 @@ export class PriceOracle {
     }
   }
 
-  /**
-   * Get sToken price in USDC
-   * @param sTokenMint - The fractional token mint
-   * @returns Price in USDC with numerator/denominator for precision
-   */
-  async getSTokenPriceInUSDC(sTokenMint: PublicKey): Promise<TokenPrice | null> {
-    // USDC mint on mainnet
-    const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
-    
-    // Try to find direct pool
-    const directPool = await this.findPool(sTokenMint, USDC_MINT)
-    if (directPool) {
-      const baseIsToken = await this.checkIfBaseToken(directPool, sTokenMint)
-      return await this.getTokenPriceFromPool(directPool, baseIsToken)
-    }
 
-    // If no direct pool, try to find SOL pool and calculate via SOL/USDC
-    const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112')
-    
-    const solPool = await this.findPool(sTokenMint, SOL_MINT)
-    const solUsdcPool = await this.findPool(SOL_MINT, USDC_MINT)
-    
-    if (solPool && solUsdcPool) {
-      // Get sToken/SOL price
-      const sTokenSolBaseIsToken = await this.checkIfBaseToken(solPool, sTokenMint)
-      const sTokenSolPrice = await this.getTokenPriceFromPool(solPool, sTokenSolBaseIsToken)
-      
-      // Get SOL/USDC price
-      const solUsdcBaseIsToken = await this.checkIfBaseToken(solUsdcPool, SOL_MINT)
-      const solUsdcPrice = await this.getTokenPriceFromPool(solUsdcPool, solUsdcBaseIsToken)
-      
-      if (sTokenSolPrice && solUsdcPrice) {
-        // Calculate sToken/USDC price
-        const price = sTokenSolPrice.price * solUsdcPrice.price
-        
-        // Calculate combined numerator/denominator
-        const priceNumerator = sTokenSolPrice.priceNumerator.mul(solUsdcPrice.priceNumerator)
-        const priceDenominator = sTokenSolPrice.priceDenominator.mul(solUsdcPrice.priceDenominator)
-        
-        return {
-          price,
-          priceNumerator,
-          priceDenominator,
-          lastUpdate: Date.now()
-        }
-      }
-    }
 
-    return null
-  }
 
-  /**
-   * Check if a token is the base token in a pool
-   */
-  private async checkIfBaseToken(poolId: PublicKey, tokenMint: PublicKey): Promise<boolean> {
-    const poolAccount = await this.connection.getAccountInfo(poolId)
-    if (!poolAccount) return false
-    
-    const poolState = LIQUIDITY_STATE_LAYOUT_V4.decode(poolAccount.data)
-    return poolState.baseMint.equals(tokenMint)
-  }
 }
 
 // Helper function to format price for display

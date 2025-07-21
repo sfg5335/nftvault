@@ -693,11 +693,11 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       </div>
 
       {/* Price Oracle Manager - Only shown to vault creator */}
-      {vaultState && publicKey && (
+      {poolVaultState && publicKey && (
         <div className="mt-6">
           <PriceOracleManager 
-            vaultState={vaultState} 
-            isCreator={publicKey.toString() === vaultState.creator.toString()}
+            vaultState={poolVaultState} 
+            isCreator={publicKey.toString() === poolVaultState.creator.toString()}
           />
         </div>
       )}

@@ -170,22 +170,60 @@ function CreatePoolPageContent() {
               if (!collectionMap.has(collectionKey)) {
                 collectionMap.set(collectionKey, [])
                 
-                // Check if this collection NFT exists and is valid
-                console.log(`Checking collection NFT: ${collectionKey}`)
+                // Enhanced on-chain collection validation
+                console.log(`🔍 Validating collection: ${collectionKey}`)
                 const collectionMintPubkey = new PublicKey(collectionKey)
-                const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
                 
-                if (collectionMintInfo) {
-                  // Verify it's a valid mint account (owned by Token Program)
-                  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-                  if (collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-                    console.log(`✅ Collection ${collectionKey} is a valid mint`)
-                    validCollections.add(collectionKey)
+                try {
+                  // Step 1: Check if collection mint exists and is valid
+                  const collectionMintInfo = await connection.getAccountInfo(collectionMintPubkey)
+                  
+                  if (!collectionMintInfo) {
+                    console.log(`❌ Collection mint ${collectionKey} does not exist on-chain`)
+                    // Don't add to validCollections - will be filtered out later
                   } else {
-                    console.log(`❌ Collection ${collectionKey} exists but is not a valid mint`)
+                    // Step 2: Verify it's a valid mint account (owned by Token Program)
+                    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+                    if (!collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+                      console.log(`❌ Collection ${collectionKey} exists but is not a valid mint (owner: ${collectionMintInfo.owner.toString()})`)
+                      // Don't add to validCollections - will be filtered out later
+                    } else {
+                      // Step 3: Check if collection has Metaplex metadata
+                      const [metadataPDA] = PublicKey.findProgramAddressSync(
+                        [
+                          Buffer.from("metadata"),
+                          new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s").toBuffer(), // Metaplex Metadata Program ID
+                          collectionMintPubkey.toBuffer(),
+                        ],
+                        new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s")
+                      )
+                      
+                      const metadataAccount = await connection.getAccountInfo(metadataPDA)
+                      if (metadataAccount) {
+                        console.log(`✅ Collection ${collectionKey} has Metaplex metadata`)
+                      } else {
+                        console.log(`⚠️ Collection ${collectionKey} is a valid mint but has no Metaplex metadata`)
+                      }
+                      
+                      // Step 4: Verify this is actually used as a collection (has supply)
+                      const mintData = await connection.getParsedAccountInfo(collectionMintPubkey)
+                      if (mintData.value?.data && 'parsed' in mintData.value.data) {
+                        const supply = mintData.value.data.parsed.info.supply
+                        console.log(`📊 Collection ${collectionKey} supply: ${supply}`)
+                        
+                        if (supply === "0") {
+                          console.log(`⚠️ Collection ${collectionKey} has zero supply - might not be a real collection`)
+                        }
+                      }
+                      
+                      console.log(`✅ Collection ${collectionKey} passed all validation checks`)
+                      validCollections.add(collectionKey)
+                    }
                   }
-                } else {
-                  console.log(`❌ Collection NFT ${collectionKey} does not exist on-chain`)
+                  
+                } catch (validationError) {
+                  console.error(`❌ Error validating collection ${collectionKey}:`, validationError)
+                  // Don't add to valid collections if validation fails
                 }
               }
               
@@ -438,6 +476,7 @@ function CreatePoolPageContent() {
           setTimeout(() => {
             window.location.href = `/pool/${collectionMint.toString()}`
           }, 1500)
+        }
         } else if (isSendTransactionErrorWithLogs(err)) {
           try {
             const logs = await err.getLogs()

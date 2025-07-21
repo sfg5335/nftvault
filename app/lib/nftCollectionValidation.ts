@@ -334,7 +334,7 @@ export async function searchWalletNFTsWithValidation(
     return collectionMap
 
   } catch (error) {
-    console.error('Error searching wallet NFTs:', error)
-    return new Map()
+    // Don't log here - the calling function will handle fallback
+    throw error
   }
 } 

@@ -82,11 +82,9 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
           })
         })
 
-        console.log(`Helius API Response Status: ${response.status} for mint: ${nftMint}`)
-        
         if (!response.ok) {
           const errorText = await response.text()
-          console.error(`Helius API error response: ${errorText}`)
+          // Don't log here - let the fallback handle it
           throw new Error(`Helius API error: ${response.status}`)
         }
 
@@ -124,7 +122,7 @@ export async function fetchNFTMetadata(nftMint: string, connection: Connection):
           } : undefined
         }
       } catch (heliusError) {
-        console.log('Helius API failed, falling back to RPC:', heliusError)
+        // Silently fall back to RPC without logging
       }
     }
 

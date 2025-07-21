@@ -133,7 +133,7 @@ function CreatePoolPageContent() {
       
       const connection = client.getConnection()
       
-      console.log('Using improved Helius DAS API for NFT collection validation...')
+      // Try Helius DAS API first, then fall back to RPC if needed
       
       // Try using the improved validation method first
       let validatedCollections: Map<string, any> | null = null
@@ -144,12 +144,12 @@ function CreatePoolPageContent() {
           connection
         )
       } catch (heliusError) {
-        console.warn('Helius DAS API failed, falling back to RPC method:', heliusError)
+        // Silently fall back to RPC method
       }
 
       // If Helius failed or returned no results, fall back to RPC method
       if (!validatedCollections || validatedCollections.size === 0) {
-        console.log('Falling back to RPC-based NFT discovery...')
+        // Use RPC-based NFT discovery
         
         // Get all NFTs owned by the user
         const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
@@ -162,7 +162,7 @@ function CreatePoolPageContent() {
           return amount.uiAmount === 1 && amount.decimals === 0
         })
 
-        console.log(`Found ${nftAccounts.length} NFTs in wallet`)
+        // Process NFTs found in wallet
 
         // Group NFTs by collection
         const collectionMap = new Map<string, WalletNFT[]>()
@@ -210,7 +210,7 @@ function CreatePoolPageContent() {
                 
                 collectionMap.get(collectionKey)!.push(nft)
               } else {
-                console.log(`NFT ${mint.toString()} has no collection metadata, skipping`)
+                // NFT has no collection metadata, skipping
               }
             }
           } catch (err) {
@@ -238,11 +238,11 @@ function CreatePoolPageContent() {
           }
         }
         
-        console.log(`Found ${collectionsArray.length} valid collections out of ${collectionMap.size} total`)
+        // Process valid collections found
         setCollections(collectionsArray)
       } else {
         // Use Helius results
-        console.log(`Found ${validatedCollections.size} valid collections`)
+        // Process valid collections found
 
         // Convert to CollectionInfo array
         const collectionsArray: CollectionInfo[] = []
@@ -286,7 +286,8 @@ function CreatePoolPageContent() {
         setError('No valid NFT collections found in your wallet. Please add some NFTs with verified collection metadata to your wallet first.')
       }
     } catch (err) {
-      console.error('Error loading collections:', err)
+      // Both Helius and RPC methods failed - now we log the error
+      console.error('Failed to load NFT collections after trying both Helius and RPC methods:', err)
       setError('Failed to load your NFT collections. Please try again.')
     } finally {
       setIsLoadingCollections(false)

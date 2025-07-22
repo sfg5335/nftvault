@@ -2,7 +2,8 @@
 
 ## 📋 Program Information
 
-**Program ID:** `GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY`  
+**Current Deployment Status:** ✅ DEPLOYED  
+**Program ID:** `94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c`  
 **Network:** Solana Devnet  
 **Framework:** Anchor v0.26.0  
 **Deployment Date:** July 2024  
@@ -113,7 +114,7 @@
 ### **Quick Verification Commands:**
 ```bash
 # Check all program ID locations
-grep -r "PROGRAM_ID\|GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY" .env* programs/ app/
+grep -r "PROGRAM_ID\|94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c" .env* programs/ app/
 
 # Verify IDL matches program
 node -e "console.log(require('./app/idl/fractional_vault.json').metadata.address)"
@@ -142,7 +143,7 @@ cd programs/fractional_vault && cargo check
 - ✅ Implemented borsh-based NFT verification
 - ✅ Removed Metaplex dependency  
 - ✅ Fixed unsafe math operations
-- ✅ Updated to program ID: `GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY`
+- ✅ Updated to program ID: `94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c`
 - ✅ SOL-based fee structure with minimums
 
 ### **Previous Versions:**

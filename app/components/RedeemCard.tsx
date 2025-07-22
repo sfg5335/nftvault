@@ -25,24 +25,22 @@ export function RedeemCard({ vaultState, onRedeemSpecific, loading }: RedeemCard
   const redeemAmount = parseInt(amount) || 0
   const totalCost = redeemAmount // No token fees
   
-  // Calculate dynamic fee
+  // Calculate 2.5% fee based on token value
   const calculateDynamicFee = () => {
     const tokensPerNft = 1000000
     if (vaultState.tokenPriceNumerator > 0 && vaultState.tokenPriceDenominator > 0) {
-      // Calculate token value in USDC
+      // Calculate token value in SOL 
       const tokenPrice = vaultState.tokenPriceNumerator / vaultState.tokenPriceDenominator
-      const tokenValueUSDC = tokensPerNft * tokenPrice / 1_000_000 // Adjust for decimals
+      const tokenValueSOL = tokensPerNft * tokenPrice / 1_000_000_000 // Adjust for lamports (9 decimals)
       
-      // Apply fee percentage
-      const feeUSDC = tokenValueUSDC * vaultState.redeemFeeBps / 10000
-      
-      // Convert to SOL (simplified - assuming $100 per SOL)
-      const feeSOL = feeUSDC / 100
+      // Apply fixed 2.5% fee with minimum of 0.025 SOL
+      const calculatedFeeSOL = tokenValueSOL * 0.025
+      const feeSOL = Math.max(calculatedFeeSOL, 0.025) // Minimum 0.025 SOL
       
       return {
         feeSOL: feeSOL.toFixed(4),
-        feeUSDC: feeUSDC.toFixed(2),
-        feePercentage: (vaultState.redeemFeeBps / 100).toFixed(2)
+        feeUSDC: (feeSOL * 100).toFixed(2), // Assuming ~$100 per SOL for display
+        feePercentage: '2.5'
       }
     }
     

@@ -238,6 +238,95 @@ export class PriceOracle {
     }
   }
 
+  /**
+   * Get sToken price in SOL by finding pools that have the sToken
+   * @param sTokenMint - The mint address of the sToken
+   * @returns Token price data in SOL
+   */
+  async getSTokenPriceInSOL(sTokenMint: PublicKey): Promise<TokenPrice | null> {
+    try {
+      // Native SOL mint (wrapped SOL)
+      const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112')
+      
+      // First, try to find a direct sToken/SOL pool
+      const filters = [
+        { dataSize: LIQUIDITY_STATE_LAYOUT_V4.span },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf('baseMint'),
+            bytes: sTokenMint.toBase58(),
+          },
+        },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf('quoteMint'),
+            bytes: SOL_MINT.toBase58(),
+          },
+        },
+      ]
+
+      const poolAccounts = await this.connection.getProgramAccounts(
+        RAYDIUM_AMM_PROGRAM_ID,
+        { filters }
+      )
+
+      if (poolAccounts.length > 0) {
+        // Found direct pool
+        const poolData = poolAccounts[0]
+        return await this.getTokenPriceFromPool(poolData.pubkey, true)
+      }
+
+      // If no direct pool, try reverse (SOL/sToken)
+      const reverseFilters = [
+        { dataSize: LIQUIDITY_STATE_LAYOUT_V4.span },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf('baseMint'),
+            bytes: SOL_MINT.toBase58(),
+          },
+        },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf('quoteMint'),
+            bytes: sTokenMint.toBase58(),
+          },
+        },
+      ]
+
+      const reversePoolAccounts = await this.connection.getProgramAccounts(
+        RAYDIUM_AMM_PROGRAM_ID,
+        { filters: reverseFilters }
+      )
+
+      if (reversePoolAccounts.length > 0) {
+        // Found reverse pool
+        const poolData = reversePoolAccounts[0]
+        const priceData = await this.getTokenPriceFromPool(poolData.pubkey, false)
+        if (priceData) {
+          // Invert the price since it's SOL/sToken
+          return {
+            price: 1 / priceData.price,
+            priceNumerator: priceData.priceDenominator,
+            priceDenominator: priceData.priceNumerator,
+            lastUpdate: priceData.lastUpdate,
+          }
+        }
+      }
+
+      // If no SOL pool found, return a default price
+      console.warn('No SOL liquidity pool found for sToken, using default price')
+      return {
+        price: 0.00001, // Default to 0.00001 SOL per token
+        priceNumerator: new BN(1),
+        priceDenominator: new BN(100000),
+        lastUpdate: Date.now(),
+      }
+    } catch (error) {
+      console.error('Error getting sToken price in SOL:', error)
+      return null
+    }
+  }
+
 
 
 
@@ -248,8 +337,27 @@ export function formatPrice(price: number, decimals: number = 4): string {
   return price.toFixed(decimals)
 }
 
-// Helper function to calculate fee in SOL
+// Helper function to calculate fee in SOL (direct SOL pricing)
 export function calculateFeeInSol(
+  tokenAmount: BN,
+  tokenPriceSOL: number,
+  feeBps: number
+): BN {
+  // Calculate token value in SOL
+  const tokenValueSOL = tokenAmount.toNumber() * tokenPriceSOL / 1e9 // Adjust for 9 decimals (lamports)
+  
+  // Apply fee percentage
+  const feeSOL = tokenValueSOL * feeBps / 10000
+  
+  // Convert to lamports
+  const feeLamports = Math.floor(feeSOL * 1e9)
+  
+  // Minimum fee of 0.001 SOL
+  return new BN(Math.max(feeLamports, 1_000_000))
+}
+
+// Helper function to calculate fee in SOL (legacy USDC conversion - deprecated)
+export function calculateFeeInSolFromUSDC(
   tokenAmount: BN,
   tokenPriceUSDC: number,
   feeBps: number,

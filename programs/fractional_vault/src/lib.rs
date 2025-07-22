@@ -126,7 +126,7 @@ pub struct VaultState {
     pub deposit_fee_bps: u16,            // Deposit fee in basis points (100 bps = 1%)
     pub redeem_fee_bps: u16,             // Redeem fee in basis points
     pub last_price_update: i64,          // Last price update timestamp
-    pub token_price_numerator: u64,      // Token price numerator (e.g., USDC amount)
+    pub token_price_numerator: u64,      // Token price numerator (e.g., SOL amount)
     pub token_price_denominator: u64,    // Token price denominator (e.g., sToken amount)
 }
 
@@ -143,7 +143,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 2 + 2 + 8 + 8 + 8, // Added space for new fields
+        space = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 2 + 2 + 8 + 8 + 8, // Added space for fee fields
         seeds = [b"vault", collection_mint.key().as_ref()],
         bump
     )]
@@ -531,40 +531,34 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
         
-        // Calculate dynamic fee based on token price
+        // Calculate 1.5% fee based on token value in SOL
         let tokens_per_nft = constants::TOKENS_PER_NFT;
         let vault_state = &ctx.accounts.vault_state;
         
-        // Calculate fee in SOL based on token price and fee percentage
         let fee_lamports = if vault_state.token_price_numerator > 0 && vault_state.token_price_denominator > 0 {
-            // Calculate token value in USDC (assuming price is USDC/sToken)
-            let token_value_usdc = (tokens_per_nft as u128)
+            // Calculate token value in SOL (price is SOL/sToken ratio)
+            let token_value_lamports = (tokens_per_nft as u128)
                 .checked_mul(vault_state.token_price_numerator as u128)
-                .unwrap()
+                .ok_or(VaultError::InvalidTokenAmount)?
                 .checked_div(vault_state.token_price_denominator as u128)
-                .unwrap();
+                .ok_or(VaultError::InvalidTokenAmount)?;
             
-            // Apply fee percentage (deposit_fee_bps / 10000)
-            let fee_usdc = token_value_usdc
-                .checked_mul(vault_state.deposit_fee_bps as u128)
-                .unwrap()
+            // Apply 1.5% fee (150 basis points)
+            let fee_lamports = token_value_lamports
+                .checked_mul(150) // 1.5% = 150 basis points
+                .ok_or(VaultError::InvalidTokenAmount)?
                 .checked_div(10000)
-                .unwrap();
+                .ok_or(VaultError::InvalidTokenAmount)?;
             
-            // Convert USDC to SOL (assuming 1 SOL = $100 for now, should use real price)
-            // This is simplified - in production, we'd need SOL/USDC price too
-            let sol_price_usdc = 100_000_000u128; // $100 with 6 decimals
-            let fee_lamports = fee_usdc
-                .checked_mul(1_000_000_000) // SOL has 9 decimals
-                .unwrap()
-                .checked_div(sol_price_usdc)
-                .unwrap() as u64;
+            // Convert to u64 safely
+            let fee_lamports = u64::try_from(fee_lamports)
+                .map_err(|_| VaultError::InvalidTokenAmount)?;
             
-            // Minimum fee of 0.001 SOL
-            fee_lamports.max(1_000_000)
+            // Minimum fee of 0.015 SOL
+            fee_lamports.max(15_000_000)
         } else {
             // Fallback to flat fee if no price data
-            15_000_000u64
+            15_000_000u64 // 0.015 SOL
         };
         
         let ix = anchor_lang::solana_program::system_instruction::transfer(
@@ -640,7 +634,8 @@ impl<'info> MintFractionalExisting<'info> {
 impl<'info> RedeemSpecificNft<'info> {
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
         let collection_key = ctx.accounts.vault_state.collection_mint;
-        let vault_bump = *ctx.bumps.get("vault_state").unwrap();
+        let vault_bump = *ctx.bumps.get("vault_state")
+            .ok_or(VaultError::InvalidTokenAmount)?;
 
         let base_tokens_required = constants::TOKENS_PER_NFT;
         require!(
@@ -686,36 +681,31 @@ impl<'info> RedeemSpecificNft<'info> {
         // Calculate dynamic fee based on token price
         let vault_state = &ctx.accounts.vault_state;
         
-        // Calculate fee in SOL based on token price and fee percentage
+        // Calculate 2.5% fee based on token value in SOL
         let fee_lamports = if vault_state.token_price_numerator > 0 && vault_state.token_price_denominator > 0 {
-            // Calculate token value in USDC (assuming price is USDC/sToken)
-            let token_value_usdc = (base_tokens_required as u128)
+            // Calculate token value in SOL (price is SOL/sToken ratio)
+            let token_value_lamports = (base_tokens_required as u128)
                 .checked_mul(vault_state.token_price_numerator as u128)
-                .unwrap()
+                .ok_or(VaultError::InvalidTokenAmount)?
                 .checked_div(vault_state.token_price_denominator as u128)
-                .unwrap();
+                .ok_or(VaultError::InvalidTokenAmount)?;
             
-            // Apply fee percentage (redeem_fee_bps / 10000)
-            let fee_usdc = token_value_usdc
-                .checked_mul(vault_state.redeem_fee_bps as u128)
-                .unwrap()
+            // Apply 2.5% fee (250 basis points)
+            let fee_lamports = token_value_lamports
+                .checked_mul(250) // 2.5% = 250 basis points
+                .ok_or(VaultError::InvalidTokenAmount)?
                 .checked_div(10000)
-                .unwrap();
+                .ok_or(VaultError::InvalidTokenAmount)?;
             
-            // Convert USDC to SOL (assuming 1 SOL = $100 for now, should use real price)
-            // This is simplified - in production, we'd need SOL/USDC price too
-            let sol_price_usdc = 100_000_000u128; // $100 with 6 decimals
-            let fee_lamports = fee_usdc
-                .checked_mul(1_000_000_000) // SOL has 9 decimals
-                .unwrap()
-                .checked_div(sol_price_usdc)
-                .unwrap() as u64;
+            // Convert to u64 safely
+            let fee_lamports = u64::try_from(fee_lamports)
+                .map_err(|_| VaultError::InvalidTokenAmount)?;
             
-            // Minimum fee of 0.001 SOL
-            fee_lamports.max(1_000_000)
+            // Minimum fee of 0.025 SOL
+            fee_lamports.max(25_000_000)
         } else {
             // Fallback to flat fee if no price data
-            25_000_000u64
+            25_000_000u64 // 0.025 SOL
         };
         
         let ix = anchor_lang::solana_program::system_instruction::transfer(
@@ -859,7 +849,7 @@ pub mod fractional_vault {
         vault_state.token_price_denominator = price_denominator;
         vault_state.last_price_update = Clock::get()?.unix_timestamp;
         
-        msg!("Price updated: {} USDC per {} sToken", price_numerator, price_denominator);
+                msg!("Price updated: {} SOL per {} sToken", price_numerator, price_denominator);
         
         Ok(())
     }

@@ -18,8 +18,6 @@ export function PriceOracleManager({ vaultState, isCreator }: PriceOracleManager
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
-  const [depositFeeBps, setDepositFeeBps] = useState(vaultState.depositFeeBps)
-  const [redeemFeeBps, setRedeemFeeBps] = useState(vaultState.redeemFeeBps)
 
   useEffect(() => {
     if (vaultState.tokenPriceNumerator > 0 && vaultState.tokenPriceDenominator > 0) {
@@ -38,9 +36,16 @@ export function PriceOracleManager({ vaultState, isCreator }: PriceOracleManager
       const connection = client.getConnection()
       const priceOracle = new PriceOracle(connection)
       
-      // Get sToken price in USDC
+      // Get sToken price in SOL (preferred) or fallback to USDC
       const fractionalMint = new PublicKey(vaultState.fractionalMint)
-      const priceData = await priceOracle.getSTokenPriceInUSDC(fractionalMint)
+      let priceData = await priceOracle.getSTokenPriceInSOL(fractionalMint)
+      let priceUnit = 'SOL'
+      
+      if (!priceData) {
+        // Fallback to USDC pricing if no SOL pool exists
+        priceData = await priceOracle.getSTokenPriceInUSDC(fractionalMint)
+        priceUnit = 'USDC'
+      }
       
       if (!priceData) {
         throw new Error('Failed to fetch token price from liquidity pools')
@@ -54,7 +59,7 @@ export function PriceOracleManager({ vaultState, isCreator }: PriceOracleManager
       )
 
       setCurrentPrice(priceData.price)
-      setSuccess(`Price updated successfully: $${priceData.price.toFixed(4)} USDC per token`)
+      setSuccess(`Price updated successfully: ${priceData.price.toFixed(6)} ${priceUnit} per token`)
     } catch (err) {
       console.error('Error updating price:', err)
       setError(err instanceof Error ? err.message : 'Failed to update price')
@@ -63,28 +68,7 @@ export function PriceOracleManager({ vaultState, isCreator }: PriceOracleManager
     }
   }
 
-  const updateFees = async () => {
-    if (!client) return
 
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      await client.updateFeeParameters(
-        vaultState.collectionMint,
-        depositFeeBps,
-        redeemFeeBps
-      )
-
-      setSuccess('Fee parameters updated successfully')
-    } catch (err) {
-      console.error('Error updating fees:', err)
-      setError(err instanceof Error ? err.message : 'Failed to update fees')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (!isCreator) {
     return null
@@ -135,7 +119,7 @@ export function PriceOracleManager({ vaultState, isCreator }: PriceOracleManager
             <div>
               <p className="text-sm text-white/60">Current Price</p>
               <p className="text-xl font-bold text-white">
-                ${currentPrice?.toFixed(4) || '0.0000'} USDC
+                {currentPrice?.toFixed(6) || '0.000000'} SOL
               </p>
             </div>
             <button
@@ -149,56 +133,28 @@ export function PriceOracleManager({ vaultState, isCreator }: PriceOracleManager
           </div>
 
           <div className="text-xs text-purple-300">
-            <p>Price is fetched from on-chain liquidity pools (Raydium/Orca)</p>
+            <p>Price is fetched from on-chain SOL pools (Raydium/Orca). Falls back to USDC pools if needed.</p>
           </div>
         </div>
 
-        {/* Fee Management Section */}
+        {/* Fee Information Section */}
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-white mb-4">Fee Parameters</h3>
+          <h3 className="text-sm font-semibold text-white mb-4">Fee Structure</h3>
           
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-white/70 mb-2">
-                Deposit Fee (basis points)
-              </label>
-              <input
-                type="number"
-                value={depositFeeBps}
-                onChange={(e) => setDepositFeeBps(Number(e.target.value))}
-                min="0"
-                max="1000"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white"
-              />
-              <p className="text-xs text-white/50 mt-1">
-                {(depositFeeBps / 100).toFixed(2)}% of token value
-              </p>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-white/70">Deposit Fee:</span>
+              <span className="text-white font-semibold">1.5% of token value</span>
             </div>
-
-            <div>
-              <label className="block text-sm text-white/70 mb-2">
-                Redeem Fee (basis points)
-              </label>
-              <input
-                type="number"
-                value={redeemFeeBps}
-                onChange={(e) => setRedeemFeeBps(Number(e.target.value))}
-                min="0"
-                max="1000"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white"
-              />
-              <p className="text-xs text-white/50 mt-1">
-                {(redeemFeeBps / 100).toFixed(2)}% of token value
-              </p>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-white/70">Withdraw Fee:</span>
+              <span className="text-white font-semibold">2.5% of token value</span>
             </div>
-
-            <button
-              onClick={updateFees}
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-            >
-              {loading ? 'Updating...' : 'Update Fees'}
-            </button>
+            
+            <div className="text-xs text-blue-300 mt-3">
+              <p>Fees are calculated based on token price in SOL. Minimum: 0.015 SOL deposit, 0.025 SOL withdraw.</p>
+            </div>
           </div>
         </div>
 
@@ -210,9 +166,10 @@ export function PriceOracleManager({ vaultState, isCreator }: PriceOracleManager
               <p className="font-semibold mb-1">Important Notes:</p>
               <ul className="space-y-1">
                 <li>• Price updates should be done regularly for accurate fees</li>
-                <li>• Fees are calculated as a percentage of token value in USDC</li>
-                <li>• Maximum fee is 10% (1000 basis points)</li>
-                <li>• Only vault creators can update these settings</li>
+                <li>• Fees: 1.5% deposit, 2.5% withdraw of token value in SOL</li>
+                <li>• Minimum fees: 0.015 SOL deposit, 0.025 SOL withdraw</li>
+                <li>• System uses SOL pools for pricing (more efficient than USDC)</li>
+                <li>• Only vault creators can update price oracle</li>
               </ul>
             </div>
           </div>

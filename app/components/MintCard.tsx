@@ -22,23 +22,21 @@ export function MintCard({ vaultState, onDeposit, loading }: MintCardProps) {
   const totalTokens = parseInt(amount) * tokensPerNft
   const tokensToReceive = totalTokens // No token fees
 
-  // Calculate dynamic fee
+  // Calculate 1.5% fee based on token value
   const calculateDynamicFee = () => {
     if (vaultState.tokenPriceNumerator > 0 && vaultState.tokenPriceDenominator > 0) {
-      // Calculate token value in USDC
+      // Calculate token value in SOL
       const tokenPrice = vaultState.tokenPriceNumerator / vaultState.tokenPriceDenominator
-      const tokenValueUSDC = totalTokens * tokenPrice / 1_000_000 // Adjust for decimals
+      const tokenValueSOL = totalTokens * tokenPrice / 1_000_000_000 // Adjust for lamports (9 decimals)
       
-      // Apply fee percentage
-      const feeUSDC = tokenValueUSDC * vaultState.depositFeeBps / 10000
-      
-      // Convert to SOL (simplified - assuming $100 per SOL)
-      const feeSOL = feeUSDC / 100
+      // Apply fixed 1.5% fee with minimum of 0.015 SOL
+      const calculatedFeeSOL = tokenValueSOL * 0.015
+      const feeSOL = Math.max(calculatedFeeSOL, 0.015) // Minimum 0.015 SOL
       
       return {
         feeSOL: feeSOL.toFixed(4),
-        feeUSDC: feeUSDC.toFixed(2),
-        feePercentage: (vaultState.depositFeeBps / 100).toFixed(2)
+        feeUSDC: (feeSOL * 100).toFixed(2), // Assuming ~$100 per SOL for display
+        feePercentage: '1.5'
       }
     }
     

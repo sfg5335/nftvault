@@ -116,6 +116,77 @@ export type FractionalVault = {
       "args": []
     },
     {
+      "name": "depositNftWithPrice",
+      "docs": [
+        "New deposit function with automatic price discovery",
+        "The frontend fetches fresh prices from LP pools and passes them here",
+        "The smart contract validates the price and calculates fees safely"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
+        },
+        {
+          "name": "nftMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, nft_mint]"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "priceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "priceDenominator",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "mintFractional",
       "accounts": [
         {
@@ -252,92 +323,6 @@ export type FractionalVault = {
         }
       ],
       "args": []
-    },
-    {
-      "name": "mintFractionalMultiple",
-      "accounts": [
-        {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "fractionalMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "numNfts",
-          "type": "u8"
-        }
-      ]
-    },
-    {
-      "name": "updatePriceOracle",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "priceNumerator",
-          "type": "u64"
-        },
-        {
-          "name": "priceDenominator",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "updateFeeParameters",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "depositFeeBps",
-          "type": "u16"
-        },
-        {
-          "name": "redeemFeeBps",
-          "type": "u16"
-        }
-      ]
     }
   ],
   "accounts": [
@@ -598,6 +583,77 @@ export const IDL: FractionalVault = {
       "args": []
     },
     {
+      "name": "depositNftWithPrice",
+      "docs": [
+        "New deposit function with automatic price discovery",
+        "The frontend fetches fresh prices from LP pools and passes them here",
+        "The smart contract validates the price and calculates fees safely"
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
+        },
+        {
+          "name": "nftMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, nft_mint]"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "priceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "priceDenominator",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "mintFractional",
       "accounts": [
         {
@@ -734,92 +790,6 @@ export const IDL: FractionalVault = {
         }
       ],
       "args": []
-    },
-    {
-      "name": "mintFractionalMultiple",
-      "accounts": [
-        {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "fractionalMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "numNfts",
-          "type": "u8"
-        }
-      ]
-    },
-    {
-      "name": "updatePriceOracle",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "priceNumerator",
-          "type": "u64"
-        },
-        {
-          "name": "priceDenominator",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "updateFeeParameters",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "depositFeeBps",
-          "type": "u16"
-        },
-        {
-          "name": "redeemFeeBps",
-          "type": "u16"
-        }
-      ]
     }
   ],
   "accounts": [

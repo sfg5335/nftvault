@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer, SetAuthority};
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::spl_token::instruction::AuthorityType;
@@ -6,68 +7,32 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 // Metaplex Token Metadata Program ID - this is the official program ID and never changes
 pub const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
-    11, 112, 101, 177, 227, 209, 124, 69, 56, 157, 82, 127, 107, 4, 195, 205, 
-    88, 184, 108, 115, 26, 160, 253, 181, 73, 182, 209, 188, 3, 248, 41, 70
+    11, 112, 101, 177, 227, 209, 124, 69, 161, 108, 81, 17, 139, 35, 149, 124, 
+    90, 158, 223, 79, 251, 189, 69, 77, 167, 86, 131, 109, 132, 117, 156, 79
 ]);
 
-// Borsh-compatible Collection struct matching Metaplex exactly
-#[derive(BorshDeserialize, BorshSerialize, Clone, PartialEq, Eq)]
-pub struct Collection {
-    pub verified: bool,
-    pub key: Pubkey,
-}
-
-// Borsh-compatible Creator struct matching Metaplex exactly
+// Minimal metadata structure for safe data extraction (no security-critical fields)
+// Only includes basic fields that rarely change and are needed for UI/functionality
 #[derive(BorshDeserialize, BorshSerialize, Clone)]
-pub struct Creator {
-    pub address: Pubkey,
-    pub verified: bool,
-    pub share: u8,
+pub struct MinimalMetadata {
+    pub key: u8,  // Discriminator: 4 for MetadataV1
+    pub update_authority: Pubkey,
+    pub mint: Pubkey,
+    pub data: BasicMetadataData,
+    // STOP HERE - no complex optional fields for security reasons
 }
 
-// UseMethod enum matching Metaplex exactly
-#[derive(BorshDeserialize, BorshSerialize, Clone, PartialEq, Eq)]
-pub enum UseMethod {
-    Burn,
-    Multiple,
-    Single,
-}
-
-// Uses struct matching Metaplex exactly
+// Basic data structure with only essential fields
 #[derive(BorshDeserialize, BorshSerialize, Clone)]
-pub struct Uses {
-    pub use_method: UseMethod,
-    pub remaining: u64,
-    pub total: u64,
-}
-
-// MetadataData struct matching Metaplex layout exactly
-#[derive(BorshDeserialize, BorshSerialize, Clone)]
-pub struct MetadataData {
+pub struct BasicMetadataData {
     pub name: String,
     pub symbol: String,
     pub uri: String,
     pub seller_fee_basis_points: u16,
-    pub creators: Option<Vec<Creator>>,
+    // Skip creators field for simplicity
 }
 
-// Complete Metadata account structure matching Metaplex layout exactly
-// This must match the exact field order and types used by Metaplex
-#[derive(BorshDeserialize, BorshSerialize, Clone)]
-pub struct MetadataAccount {
-    pub key: u8,  // Discriminator: 4 for MetadataV1
-    pub update_authority: Pubkey,
-    pub mint: Pubkey,
-    pub data: MetadataData,
-    pub primary_sale_happened: bool,
-    pub is_mutable: bool,
-    pub edition_nonce: Option<u8>,
-    pub token_standard: Option<u8>,
-    pub collection: Option<Collection>,
-    pub uses: Option<Uses>,
-}
-
-declare_id!("GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY");
+declare_id!("94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c");
 
 /// Helper function to derive metadata PDA
 pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
@@ -80,14 +45,51 @@ pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
     pda
 }
 
-/// Comprehensive NFT verification function with enhanced security checks
-/// This function performs all necessary security checks for NFT collection verification
-pub fn verify_nft_collection_secure(
-    metadata_account: &AccountInfo,
-    expected_collection: &Pubkey,
+/// Hybrid collection verification using CPI for security + minimal parsing for data
+/// This combines official Metaplex verification with safe data extraction
+pub fn verify_collection_hybrid<'info>(
+    ctx: &Context<'_, '_, '_, 'info, DepositNft<'info>>,
     nft_mint: &Pubkey,
+    expected_collection: &Pubkey,
+) -> Result<(String, String, String)> {  // Returns (name, symbol, uri)
+    
+    // PART 1: SECURITY - Use official Metaplex CPI for collection verification
+    verify_collection_via_cpi(
+        &ctx.accounts.nft_metadata,
+        &ctx.accounts.collection_authority,
+        &ctx.accounts.user,
+        nft_mint,
+        expected_collection,
+        &ctx.accounts.collection_metadata,
+        &ctx.accounts.collection_master_edition,
+    )?;
+    
+    // PART 2: DATA EXTRACTION - Manual parse only basic, safe fields
+    let basic_metadata = parse_basic_metadata_safely(&ctx.accounts.nft_metadata)?;
+    
+    // Additional safety checks
+    require_keys_eq!(basic_metadata.mint, *nft_mint, VaultError::InvalidMetadata);
+    require!(basic_metadata.key == 4, VaultError::InvalidMetadata); // MetadataV1
+    
+    Ok((
+        basic_metadata.data.name,
+        basic_metadata.data.symbol,
+        basic_metadata.data.uri,
+    ))
+}
+
+/// Manual CPI call to verify collection without Metaplex dependencies
+pub fn verify_collection_via_cpi<'info>(
+    metadata_account: &AccountInfo<'info>,
+    collection_authority: &AccountInfo<'info>,
+    payer: &AccountInfo<'info>,
+    nft_mint: &Pubkey,
+    collection_mint: &Pubkey,
+    collection_metadata: &AccountInfo<'info>,
+    collection_master_edition: &AccountInfo<'info>,
 ) -> Result<()> {
-    // 1. PDA check - Verify the metadata PDA derivation matches expected
+    
+    // Verify PDA derivation first
     let metadata_pda = derive_metadata_pda(nft_mint);
     require_keys_eq!(
         metadata_pda, 
@@ -95,47 +97,83 @@ pub fn verify_nft_collection_secure(
         VaultError::InvalidMetadata
     );
 
-    // 2. Ownership check - Verify metadata account is owned by the official Metaplex program
+    // Verify metadata account is owned by official Metaplex program
     require_eq!(
         metadata_account.owner, 
         &METADATA_PROGRAM_ID, 
         VaultError::InvalidMetadataOwner
     );
     
-    // 3. Safe parsing - Borrow data and validate minimum length
-    let data = metadata_account.try_borrow_data()?;
-    require!(
-        data.len() >= METADATA_MIN_LENGTH, 
-        VaultError::InvalidMetadata
+    // Manual CPI instruction construction (no Metaplex dependencies)
+    let cpi_instruction = verify_sized_collection_item(
+        METADATA_PROGRAM_ID,
+        metadata_account.key(),
+        collection_authority.key(),
+        *nft_mint,
+        *collection_mint,
+        collection_metadata.key(),
+        collection_master_edition.key(),
+        None, // No size field needed
     );
     
-    // Parse metadata using borsh deserialization
-    let metadata_account: MetadataAccount = MetadataAccount::try_from_slice(&data)
-        .map_err(|_| VaultError::InvalidMetadata)?;
+    // Execute the CPI call
+    anchor_lang::solana_program::program::invoke(
+        &cpi_instruction,
+        &[
+            metadata_account.clone(),
+            collection_authority.clone(),
+            payer.clone(),
+            collection_metadata.clone(),
+            collection_master_edition.clone(),
+        ],
+    )?;
     
-    // 4. Verify this is a valid MetadataV1 account (discriminator should be 4)
-    require!(metadata_account.key == 4, VaultError::InvalidMetadata);
-    
-    // 5. Verify the mint in metadata matches the NFT mint passed in
-    require_keys_eq!(metadata_account.mint, *nft_mint, VaultError::InvalidMetadata);
-    
-    // 6. Collection check - Verify collection exists, is verified, and matches expected
-    let collection = metadata_account
-        .collection
-        .ok_or(VaultError::UnverifiedCollection)?;
-    
-    require!(
-        collection.verified, 
-        VaultError::UnverifiedCollection
-    );
-    
-    require_keys_eq!(
-        collection.key, 
-        *expected_collection,
-        VaultError::WrongCollection
-    );
-    
+    msg!("✅ Collection verified via official Metaplex CPI");
     Ok(())
+}
+
+/// Manual construction of verify_sized_collection_item instruction
+pub fn verify_sized_collection_item(
+    token_metadata_program: Pubkey,
+    metadata: Pubkey,
+    collection_authority: Pubkey,
+    nft_mint: Pubkey,
+    collection_mint: Pubkey,
+    collection_metadata: Pubkey,
+    collection_master_edition: Pubkey,
+    collection_authority_record: Option<Pubkey>,
+) -> anchor_lang::solana_program::instruction::Instruction {
+    
+    let mut accounts = vec![
+        anchor_lang::solana_program::instruction::AccountMeta::new(metadata, false),
+        anchor_lang::solana_program::instruction::AccountMeta::new_readonly(collection_authority, true),
+        anchor_lang::solana_program::instruction::AccountMeta::new_readonly(nft_mint, false),
+        anchor_lang::solana_program::instruction::AccountMeta::new_readonly(collection_mint, false),
+        anchor_lang::solana_program::instruction::AccountMeta::new(collection_metadata, false),
+        anchor_lang::solana_program::instruction::AccountMeta::new_readonly(collection_master_edition, false),
+    ];
+    
+    if let Some(record) = collection_authority_record {
+        accounts.push(anchor_lang::solana_program::instruction::AccountMeta::new_readonly(record, false));
+    }
+    
+    anchor_lang::solana_program::instruction::Instruction {
+        program_id: token_metadata_program,
+        accounts,
+        data: vec![18], // VerifySizedCollectionItem instruction discriminator
+    }
+}
+
+/// Safe parsing of basic metadata fields only (no security-critical collection data)
+pub fn parse_basic_metadata_safely<'info>(metadata_account: &AccountInfo<'info>) -> Result<MinimalMetadata> {
+    let account_data = metadata_account.try_borrow_data()?;
+    
+    // Only parse the first portion to avoid complex optional fields
+    let safe_length = std::cmp::min(account_data.len(), 400); // Conservative limit
+    let limited_data = &account_data[..safe_length];
+    
+    MinimalMetadata::try_from_slice(limited_data)
+        .map_err(|_| VaultError::InvalidMetadata.into())
 }
 
 /// Constants for the sNFT (smol NFT) fractional vault program
@@ -148,9 +186,6 @@ pub mod constants {
     pub const PROTOCOL_TREASURY: &str = "2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt";
 }
 
-/// Minimum metadata account length for safety checks
-pub const METADATA_MIN_LENGTH: usize = 679;
-
 /// Errors that can be returned by the vault program
 #[error_code]
 pub enum VaultError {
@@ -162,18 +197,10 @@ pub enum VaultError {
     InsufficientTokens,
     #[msg("No NFTs available for redemption")]
     NoNftsAvailable,
-    #[msg("Invalid fee rate")]
-    InvalidFeeRate,
     #[msg("Invalid metadata account")]
     InvalidMetadata,
     #[msg("Invalid metadata account owner")]
     InvalidMetadataOwner,
-    #[msg("Collection not verified")]
-    CollectionNotVerified,
-    #[msg("Collection is unverified or not set")]
-    UnverifiedCollection,
-    #[msg("Collection metadata missing")]
-    CollectionMetadataMissing,
     #[msg("Missing vault NFT token account")]
     MissingVaultAta,
     #[msg("Missing user fractional token account")]
@@ -279,77 +306,43 @@ pub struct DepositNft<'info> {
     )]
     pub nft_metadata: UncheckedAccount<'info>,
     
-    pub token_program: Program<'info, Token>,
-    pub system_program: Program<'info, System>,
-}
-
-/// Mint sNFT tokens after NFT deposit
-#[derive(Accounts)]
-pub struct MintFractional<'info> {
+    /// CHECK: Collection authority that can verify the collection (typically collection creator)
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub collection_authority: Signer<'info>,
     
+    /// CHECK: Collection metadata account - PDA derived from collection mint
+    /// Seeds: ["metadata", metadata_program_id, collection_mint]
     #[account(
-        mut,
-        seeds = [b"vault", vault_state.collection_mint.as_ref()],
-        bump
+        constraint = collection_metadata.key() == derive_metadata_pda(&vault_state.collection_mint) @ VaultError::InvalidMetadata
     )]
-    pub vault_state: Account<'info, VaultState>,
-
-    // sNFT token mint (authority = vault_state PDA)
+    pub collection_metadata: UncheckedAccount<'info>,
+    
+    /// CHECK: Collection master edition account - PDA derived from collection mint
+    /// Seeds: ["metadata", metadata_program_id, collection_mint, "edition"]
+    pub collection_master_edition: UncheckedAccount<'info>,
+    
+    // Fractional token mint (for minting tokens back to user)
     #[account(
         mut,
         constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
 
-    // User's sNFT token account – create if it doesn't exist
+    // User's fractional token account - create if needed
     #[account(
-        init,
+        init_if_needed,
         payer = user,
         associated_token::mint = fractional_mint,
         associated_token::authority = user,
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
-
+    
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
-/// Mint sNFT tokens when user already has a token account
-#[derive(Accounts)]
-pub struct MintFractionalExisting<'info> {
-    #[account(mut)]
-    pub user: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"vault", vault_state.collection_mint.as_ref()],
-        bump
-    )]
-    pub vault_state: Account<'info, VaultState>,
 
-    // sNFT token mint (authority = vault_state PDA)
-    #[account(
-        mut,
-        constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
-    )]
-    pub fractional_mint: Account<'info, Mint>,
-
-    // User's sNFT token account – must already exist
-    #[account(
-        mut,
-        associated_token::mint = fractional_mint,
-        associated_token::authority = user,
-    )]
-    pub user_fractional_account: Account<'info, TokenAccount>,
-
-    /// CHECK: Protocol treasury account for SOL fee
-    #[account(mut)]
-    pub protocol_treasury: UncheckedAccount<'info>,
-    pub token_program: Program<'info, Token>,
-}
 
 /// Redeem a specific NFT from the vault
 #[derive(Accounts)]
@@ -455,20 +448,7 @@ pub struct MintFractionalMultiple<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-/// Update price oracle data for dynamic fee calculation
-#[derive(Accounts)]
-pub struct UpdatePriceOracle<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"vault", vault_state.collection_mint.as_ref()],
-        bump,
-        constraint = authority.key() == vault_state.creator @ VaultError::InvalidFeeRate
-    )]
-    pub vault_state: Account<'info, VaultState>,
-}
+
 
 impl<'info> InitializeVault<'info> {
     pub fn initialize_vault(&mut self) -> Result<()> {
@@ -544,16 +524,14 @@ impl<'info> InitializeVault<'info> {
 
 impl<'info> DepositNft<'info> {
     pub fn deposit_nft_with_price(
-        ctx: Context<DepositNft>, 
+        ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>, 
         suggested_price_numerator: u64,
         suggested_price_denominator: u64
     ) -> Result<()> {
         let user_nft_account = &ctx.accounts.user_nft_account;
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
         
-        msg!("🔍 Starting NFT deposit with automatic price discovery");
-        msg!("🔍 NFT mint: {}", ctx.accounts.nft_mint.key());
-        msg!("🔍 Suggested price: {} / {}", suggested_price_numerator, suggested_price_denominator);
+
         
         // Verify the NFT mint matches what's in the token account
         let nft_mint_key = ctx.accounts.nft_mint.key();
@@ -562,13 +540,15 @@ impl<'info> DepositNft<'info> {
             VaultError::WrongCollection
         );
         
-        // SECURE COLLECTION VERIFICATION using our borsh-based implementation
+        // HYBRID COLLECTION VERIFICATION using CPI for security + minimal parsing for data
         let vault_collection = ctx.accounts.vault_state.collection_mint;
-        verify_nft_collection_secure(
-            &ctx.accounts.nft_metadata,
-            &vault_collection,
+        let (nft_name, nft_symbol, _nft_uri) = verify_collection_hybrid(
+            &ctx,
             &nft_mint_key,
+            &vault_collection,
         )?;
+        
+        msg!("✅ Collection verified and metadata extracted: {} ({})", nft_name, nft_symbol);
         
         // Update vault state BEFORE external calls for atomicity
         let vault_state = &mut ctx.accounts.vault_state;
@@ -585,7 +565,7 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
         
-        msg!("✅ NFT transfer completed, calculating fees with automatic price discovery");
+        msg!("✅ NFT transfer completed, calculating fees");
         
         // Calculate fee using validated price
         let fee_lamports = Self::calculate_deposit_fee_safe(
@@ -610,7 +590,39 @@ impl<'info> DepositNft<'info> {
             ],
         )?;
         
-        msg!("✅ Deposit completed successfully with automatic price discovery");
+        msg!("💰 Fee payment completed, now minting fractional tokens");
+        
+        // Update vault price data (fixing the price update bug)
+        vault_state.token_price_numerator = suggested_price_numerator;
+        vault_state.token_price_denominator = suggested_price_denominator;
+        vault_state.last_price_update = Clock::get()?.unix_timestamp;
+        vault_state.total_fractions_minted += constants::TOKENS_PER_NFT;
+        
+        msg!("📊 Updated vault price data: {}/{}", suggested_price_numerator, suggested_price_denominator);
+        
+        // Mint fractional tokens to user
+        let collection_key = vault_state.collection_mint;
+        let bump = ctx.bumps["vault_state"];
+        let signer_seeds: &[&[u8]] = &[
+            b"vault",
+            collection_key.as_ref(),
+            &[bump],
+        ];
+        let signer_binding = [signer_seeds];
+        
+        let mint_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.fractional_mint.to_account_info(),
+                to: ctx.accounts.user_fractional_account.to_account_info(),
+                authority: vault_state.to_account_info(),
+            },
+            &signer_binding,
+        );
+        
+        anchor_spl::token::mint_to(mint_ctx, constants::TOKENS_PER_NFT)?;
+        
+        msg!("✅ Atomic deposit completed! NFT deposited + {} fractional tokens minted", constants::TOKENS_PER_NFT);
         Ok(())
     }
     
@@ -685,66 +697,16 @@ impl<'info> DepositNft<'info> {
         Ok(final_fee)
     }
     
+
+
     // Keep backward compatibility with old deposit function
-    pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
+    pub fn deposit_nft(ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>) -> Result<()> {
         // Use flat fee for backward compatibility
         Self::deposit_nft_with_price(ctx, 0, 1)
     }
 }
 
-impl<'info> MintFractional<'info> {
-    pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
-        let collection_key = ctx.accounts.vault_state.collection_mint;
-        let bump = ctx.bumps["vault_state"];
-        let tokens_to_mint = constants::TOKENS_PER_NFT;
-        let seeds = &[
-            b"vault",
-            collection_key.as_ref(),
-            &[bump],
-        ];
-        let signer = &[&seeds[..]];
-        let mint_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.fractional_mint.to_account_info(),
-                to: ctx.accounts.user_fractional_account.to_account_info(),
-                authority: ctx.accounts.vault_state.to_account_info(),
-            },
-            signer,
-        );
-        anchor_spl::token::mint_to(mint_ctx, tokens_to_mint)?;
-        let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += tokens_to_mint;
-        Ok(())
-    }
-}
 
-impl<'info> MintFractionalExisting<'info> {
-    pub fn mint_fractional_existing(ctx: Context<MintFractionalExisting>) -> Result<()> {
-        let collection_key = ctx.accounts.vault_state.collection_mint;
-        let bump = ctx.bumps["vault_state"];
-        let tokens_to_mint = constants::TOKENS_PER_NFT;
-        let seeds = &[
-            b"vault",
-            collection_key.as_ref(),
-            &[bump],
-        ];
-        let signer = &[&seeds[..]];
-        let mint_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.fractional_mint.to_account_info(),
-                to: ctx.accounts.user_fractional_account.to_account_info(),
-                authority: ctx.accounts.vault_state.to_account_info(),
-            },
-            signer,
-        );
-        anchor_spl::token::mint_to(mint_ctx, tokens_to_mint)?;
-        let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += tokens_to_mint;
-        Ok(())
-    }
-}
 
 impl<'info> RedeemSpecificNft<'info> {
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
@@ -918,28 +880,22 @@ pub mod fractional_vault {
         InitializeVault::initialize_vault(&mut ctx.accounts)
     }
 
-    pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
+    pub fn deposit_nft<'info>(ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>) -> Result<()> {
         DepositNft::deposit_nft(ctx)
     }
 
-    /// New deposit function with automatic price discovery
+    /// Deposit function with price-based fee calculation
     /// The frontend fetches fresh prices from LP pools and passes them here
     /// The smart contract validates the price and calculates fees safely
-    pub fn deposit_nft_with_price(
-        ctx: Context<DepositNft>, 
+    pub fn deposit_nft_with_price<'info>(
+        ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>, 
         price_numerator: u64,
         price_denominator: u64
     ) -> Result<()> {
         DepositNft::deposit_nft_with_price(ctx, price_numerator, price_denominator)
     }
 
-    pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
-        MintFractional::mint_fractional(ctx)
-    }
 
-    pub fn mint_fractional_existing(ctx: Context<MintFractionalExisting>) -> Result<()> {
-        MintFractionalExisting::mint_fractional_existing(ctx)
-    }
 
     pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
         RedeemSpecificNft::redeem_specific_nft(ctx)
@@ -962,23 +918,6 @@ pub mod fractional_vault {
     }
     */
 
-    pub fn update_fee_parameters(
-        ctx: Context<UpdatePriceOracle>, 
-        deposit_fee_bps: u16,
-        redeem_fee_bps: u16
-    ) -> Result<()> {
-        let vault_state = &mut ctx.accounts.vault_state;
-        
-        // Validate fee parameters (max 10% = 1000 bps)
-        require!(deposit_fee_bps <= 1000, VaultError::InvalidFeeRate);
-        require!(redeem_fee_bps <= 1000, VaultError::InvalidFeeRate);
-        
-        vault_state.deposit_fee_bps = deposit_fee_bps;
-        vault_state.redeem_fee_bps = redeem_fee_bps;
-        
-        msg!("Fees updated: deposit {}bps, redeem {}bps", deposit_fee_bps, redeem_fee_bps);
-        
-        Ok(())
-    }
+
 }
 

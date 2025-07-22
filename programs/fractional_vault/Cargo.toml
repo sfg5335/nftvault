@@ -8,7 +8,7 @@ name = "fractional_vault"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-anchor-lang = "0.26.0"
+anchor-lang = { version = "0.26.0", features = ["init-if-needed"] }
 anchor-spl = "0.26.0"
 spl-token = "3.3.0"
 spl-associated-token-account = "1.0.5"

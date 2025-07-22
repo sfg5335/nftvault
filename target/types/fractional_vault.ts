@@ -103,7 +103,43 @@ export type FractionalVault = {
           ]
         },
         {
+          "name": "collectionAuthority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
+        },
+        {
+          "name": "fractionalMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -118,7 +154,7 @@ export type FractionalVault = {
     {
       "name": "depositNftWithPrice",
       "docs": [
-        "New deposit function with automatic price discovery",
+        "Deposit function with price-based fee calculation",
         "The frontend fetches fresh prices from LP pools and passes them here",
         "The smart contract validates the price and calculates fees safely"
       ],
@@ -165,39 +201,25 @@ export type FractionalVault = {
           ]
         },
         {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "priceNumerator",
-          "type": "u64"
-        },
-        {
-          "name": "priceDenominator",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "mintFractional",
-      "accounts": [
-        {
-          "name": "user",
+          "name": "collectionAuthority",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
         },
         {
           "name": "fractionalMint",
@@ -225,43 +247,16 @@ export type FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
-    },
-    {
-      "name": "mintFractionalExisting",
-      "accounts": [
+      "args": [
         {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true
+          "name": "priceNumerator",
+          "type": "u64"
         },
         {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "fractionalMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "priceDenominator",
+          "type": "u64"
         }
-      ],
-      "args": []
+      ]
     },
     {
       "name": "redeemSpecificNft",
@@ -359,31 +354,6 @@ export type FractionalVault = {
           "type": "u8"
         }
       ]
-    },
-    {
-      "name": "updateFeeParameters",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "depositFeeBps",
-          "type": "u16"
-        },
-        {
-          "name": "redeemFeeBps",
-          "type": "u16"
-        }
-      ]
     }
   ],
   "accounts": [
@@ -443,25 +413,6 @@ export type FractionalVault = {
       }
     }
   ],
-  "types": [
-    {
-      "name": "UseMethod",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Burn"
-          },
-          {
-            "name": "Multiple"
-          },
-          {
-            "name": "Single"
-          }
-        ]
-      }
-    }
-  ],
   "errors": [
     {
       "code": 6000,
@@ -485,51 +436,31 @@ export type FractionalVault = {
     },
     {
       "code": 6004,
-      "name": "InvalidFeeRate",
-      "msg": "Invalid fee rate"
-    },
-    {
-      "code": 6005,
       "name": "InvalidMetadata",
       "msg": "Invalid metadata account"
     },
     {
-      "code": 6006,
+      "code": 6005,
       "name": "InvalidMetadataOwner",
       "msg": "Invalid metadata account owner"
     },
     {
-      "code": 6007,
-      "name": "CollectionNotVerified",
-      "msg": "Collection not verified"
-    },
-    {
-      "code": 6008,
-      "name": "UnverifiedCollection",
-      "msg": "Collection is unverified or not set"
-    },
-    {
-      "code": 6009,
-      "name": "CollectionMetadataMissing",
-      "msg": "Collection metadata missing"
-    },
-    {
-      "code": 6010,
+      "code": 6006,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6011,
+      "code": 6007,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6012,
+      "code": 6008,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6013,
+      "code": 6009,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }
@@ -641,7 +572,43 @@ export const IDL: FractionalVault = {
           ]
         },
         {
+          "name": "collectionAuthority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
+        },
+        {
+          "name": "fractionalMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -656,7 +623,7 @@ export const IDL: FractionalVault = {
     {
       "name": "depositNftWithPrice",
       "docs": [
-        "New deposit function with automatic price discovery",
+        "Deposit function with price-based fee calculation",
         "The frontend fetches fresh prices from LP pools and passes them here",
         "The smart contract validates the price and calculates fees safely"
       ],
@@ -703,39 +670,25 @@ export const IDL: FractionalVault = {
           ]
         },
         {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "priceNumerator",
-          "type": "u64"
-        },
-        {
-          "name": "priceDenominator",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "mintFractional",
-      "accounts": [
-        {
-          "name": "user",
+          "name": "collectionAuthority",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
         },
         {
           "name": "fractionalMint",
@@ -763,43 +716,16 @@ export const IDL: FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
-    },
-    {
-      "name": "mintFractionalExisting",
-      "accounts": [
+      "args": [
         {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true
+          "name": "priceNumerator",
+          "type": "u64"
         },
         {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "fractionalMint",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "priceDenominator",
+          "type": "u64"
         }
-      ],
-      "args": []
+      ]
     },
     {
       "name": "redeemSpecificNft",
@@ -897,31 +823,6 @@ export const IDL: FractionalVault = {
           "type": "u8"
         }
       ]
-    },
-    {
-      "name": "updateFeeParameters",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "depositFeeBps",
-          "type": "u16"
-        },
-        {
-          "name": "redeemFeeBps",
-          "type": "u16"
-        }
-      ]
     }
   ],
   "accounts": [
@@ -981,25 +882,6 @@ export const IDL: FractionalVault = {
       }
     }
   ],
-  "types": [
-    {
-      "name": "UseMethod",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Burn"
-          },
-          {
-            "name": "Multiple"
-          },
-          {
-            "name": "Single"
-          }
-        ]
-      }
-    }
-  ],
   "errors": [
     {
       "code": 6000,
@@ -1023,51 +905,31 @@ export const IDL: FractionalVault = {
     },
     {
       "code": 6004,
-      "name": "InvalidFeeRate",
-      "msg": "Invalid fee rate"
-    },
-    {
-      "code": 6005,
       "name": "InvalidMetadata",
       "msg": "Invalid metadata account"
     },
     {
-      "code": 6006,
+      "code": 6005,
       "name": "InvalidMetadataOwner",
       "msg": "Invalid metadata account owner"
     },
     {
-      "code": 6007,
-      "name": "CollectionNotVerified",
-      "msg": "Collection not verified"
-    },
-    {
-      "code": 6008,
-      "name": "UnverifiedCollection",
-      "msg": "Collection is unverified or not set"
-    },
-    {
-      "code": 6009,
-      "name": "CollectionMetadataMissing",
-      "msg": "Collection metadata missing"
-    },
-    {
-      "code": 6010,
+      "code": 6006,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6011,
+      "code": 6007,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6012,
+      "code": 6008,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6013,
+      "code": 6009,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }

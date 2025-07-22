@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer, SetAuthority};
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::spl_token::instruction::AuthorityType;
+use mpl_token_metadata::accounts::Metadata as MplMetadata;
 
 // Metaplex Token Metadata Program ID
 pub const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
@@ -61,7 +62,7 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("3L2zzE1UV6oo2xkLpCMXPGB8zeZfYA3ygjYWXKhAJsRv");
+declare_id!("CR1id6wr6nm34sSgmPSLYS2CedHFrh61S2bNcpqhezUJ");
 
 /// Helper function to derive metadata PDA
 pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
@@ -484,41 +485,36 @@ impl<'info> DepositNft<'info> {
             VaultError::WrongCollection
         );
         
-        // Read and verify NFT metadata
+        // SECURE COLLECTION VERIFICATION using official Metaplex Token Metadata library
         let metadata_data = ctx.accounts.nft_metadata.try_borrow_data()?;
         
-        // Skip discriminator and read key (offset 0)
-        require!(metadata_data.len() > 100, VaultError::InvalidMetadata);
-        let key = metadata_data[0];
-        require!(key == 4, VaultError::InvalidMetadata); // Key 4 = MetadataV1
+        // Properly deserialize the metadata account using the official MPL library
+        let metadata = MplMetadata::safe_deserialize(&metadata_data)
+            .map_err(|_| VaultError::InvalidMetadata)?;
         
-        // The metadata account layout is complex, but the collection data is at a known offset
-        // We need to parse through the account to find the collection field
-        // For simplicity, we'll check if the vault's collection_mint appears in the metadata
-        
-        // In production, you would properly deserialize the metadata account
-        // For now, we'll do a basic verification that the collection is present and verified
         let vault_collection = ctx.accounts.vault_state.collection_mint;
         
-        // Search for the collection pubkey in the metadata (this is a simplified check)
-        let collection_bytes = vault_collection.to_bytes();
-        let mut found_collection = false;
-        let mut is_verified = false;
-        
-        // Look for the collection pubkey pattern in the metadata
-        for i in 0..metadata_data.len().saturating_sub(33) {
-            if &metadata_data[i..i+32] == collection_bytes {
-                // Check if the next byte indicates verification (1 = verified)
-                if i + 32 < metadata_data.len() {
-                    is_verified = metadata_data[i + 32] == 1;
-                    found_collection = true;
-                    break;
-                }
+        // Verify collection exists and is verified using the official structure
+        match metadata.collection {
+            Some(collection) => {
+                // Check that the collection key matches the vault's collection
+                require_keys_eq!(
+                    collection.key,
+                    vault_collection,
+                    VaultError::WrongCollection
+                );
+                
+                // CRITICAL SECURITY CHECK: Verify that the collection is verified
+                require!(
+                    collection.verified,
+                    VaultError::CollectionNotVerified
+                );
+            },
+            None => {
+                // No collection set on this NFT
+                return Err(VaultError::WrongCollection.into());
             }
         }
-        
-        require!(found_collection, VaultError::WrongCollection);
-        require!(is_verified, VaultError::CollectionNotVerified);
         
         // Update vault state BEFORE external calls for atomicity
         let vault_state = &mut ctx.accounts.vault_state;

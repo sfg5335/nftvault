@@ -3,10 +3,10 @@ import { Program, AnchorProvider } from '@coral-xyz/anchor'
 import { PublicKey, SystemProgram, Keypair, SYSVAR_RENT_PUBKEY, Connection } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount } from '@solana/spl-token'
 // VanityKeypair management is now handled server-side
-import { IDL } from './idl.ts'
+import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("3L2zzE1UV6oo2xkLpCMXPGB8zeZfYA3ygjYWXKhAJsRv");
+const PROGRAM_ID = new PublicKey("CR1id6wr6nm34sSgmPSLYS2CedHFrh61S2bNcpqhezUJ");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -454,7 +454,7 @@ export class AnchorClient {
         nftMint,
         this.provider.wallet.publicKey,
         false,
-        tokenProgramId
+        TOKEN_PROGRAM_ID
       );
 
       // Create user's NFT token account if it doesn't exist
@@ -466,7 +466,7 @@ export class AnchorClient {
           userSpecificNftAccountCorrect,
           this.provider.wallet.publicKey,
           nftMint,
-          tokenProgramId,
+          TOKEN_PROGRAM_ID,
           ASSOCIATED_TOKEN_PROGRAM_ID
         );
         transaction.add(createUserAtaIx);

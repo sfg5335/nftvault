@@ -9,7 +9,7 @@ import { NFTImage, ImageSkeleton } from './OptimizedImage'
 import { Shuffle, Target, Gift, AlertCircle, Loader2, Check } from 'lucide-react'
 import { fetchNFTMetadata } from '../lib/nftMetadata'
 import { PriceOracleManager } from './PriceOracleManager'
-import { getNFTsByCollection } from '../lib/nftCollectionValidation'
+import { getNFTsByCollection, searchWalletNFTsWithValidation } from '../lib/nftCollectionValidation'
 
 interface PoolTradingProps {
   poolId: string
@@ -58,7 +58,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     }
   }
 
-  // Fetch user's NFTs from this collection using Helius DAS API
+  // Fetch user's NFTs from this collection using the SAME method as create page
   const fetchUserNfts = async () => {
     if (!publicKey || !client) return
 
@@ -69,143 +69,82 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     try {
       const connection = client.getConnection()
       
-      // Using Helius DAS API to fetch NFTs from collection
-      
       let collectionNfts: NFT[] = []
       
+      // First try the validated method (same as create page)
       try {
-        console.log('🔍 Attempting Helius API call...')
-        // Use the improved getNFTsByCollection method
-        const { nfts: heliusNfts } = await getNFTsByCollection(
-          poolId,
-          publicKey.toString()
+        console.log('🔍 Attempting searchWalletNFTsWithValidation...')
+        const validatedCollections = await searchWalletNFTsWithValidation(
+          publicKey.toString(),
+          connection
         )
         
-        console.log('✅ Helius API returned:', heliusNfts.length, 'NFTs')
-
-        // Found NFTs from collection in user wallet
-
-        // Convert Helius assets to our NFT format
-        for (const asset of heliusNfts) {
-          try {
-            const metadata = asset.content?.metadata
-            const files = asset.content?.files
-            
-            if (metadata) {
-              collectionNfts.push({
-                mint: asset.id,
-                name: metadata.name || `NFT ${asset.id.slice(0, 8)}...`,
-                image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
-                symbol: metadata.symbol || 'NFT',
-                metadata: {
-                  mint: asset.id,
-                  name: metadata.name || '',
-                  symbol: metadata.symbol || '',
-                  description: metadata.description || '',
-                  image: files?.[0]?.cdn_uri || files?.[0]?.uri || '',
-                  attributes: metadata.attributes || [],
-                  collection: {
-                    key: poolId,
-                    verified: true // Assets returned by getAssetsByGroup are verified
-                  }
-                }
-              })
-              // Successfully added NFT to collection
-            }
-          } catch (err) {
-            // Error processing individual NFT - continue with others
-          }
+        // Check if this pool's collection exists in user's wallet
+        if (validatedCollections.has(poolId)) {
+          const collectionData = validatedCollections.get(poolId)
+          console.log('✅ Found collection in wallet:', collectionData.nfts.length, 'NFTs')
+          
+          collectionNfts = collectionData.nfts.map((nft: any) => ({
+            mint: nft.mint,
+            name: nft.name,
+            image: nft.image,
+            symbol: 'NFT',
+            metadata: null
+          }))
+        } else {
+          console.log('🔍 Collection not found in validated results, trying RPC fallback...')
         }
       } catch (heliusError) {
-        console.log('❌ Helius API failed:', heliusError)
-        console.log('🔄 Falling back to RPC method...')
+        console.log('🔍 Helius API failed, falling back to RPC method:', heliusError)
+      }
+      
+      // If no NFTs found yet, use RPC fallback (same as create page)
+      if (collectionNfts.length === 0) {
+        console.log('🔍 Using RPC fallback method...')
         
-        // Fallback to RPC method
-        // Get all token accounts owned by the user
+        // Get all NFTs owned by the user
         const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
           programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
         })
-        
-        console.log('🔍 RPC found', tokenAccounts.value.length, 'token accounts')
 
         // Filter for NFTs (amount = 1, decimals = 0)
         const nftAccounts = tokenAccounts.value.filter(account => {
           const amount = account.account.data.parsed.info.tokenAmount
           return amount.uiAmount === 1 && amount.decimals === 0
         })
-
+        
         console.log('🔍 Found', nftAccounts.length, 'NFT accounts in wallet')
-
-        if (nftAccounts.length > 0) {
-          // Extract mint addresses
-          const mintAddresses = nftAccounts.map(account => 
-            account.account.data.parsed.info.mint
-          )
-
-          // Fetch metadata for NFTs
+        
+        // Process each NFT to find ones matching this collection
+        for (const account of nftAccounts) {
+          const mint = new PublicKey(account.account.data.parsed.info.mint)
           
-          // Log the pool ID we're looking for
-          // Looking for NFTs with collection key matching poolId
-          
-          // Fetch metadata for each NFT directly
-          for (const mintAddress of mintAddresses) {
-            try {
-              const metadata = await fetchNFTMetadata(mintAddress, connection)
-              
-              if (metadata) {
-                // Check if this NFT belongs to the current collection
-                const nftCollectionKey = metadata.collection?.key
-                const isVerified = metadata.collection?.verified
-                
-                console.log('🔍 NFT', mintAddress.slice(0, 8) + '... has collection:', nftCollectionKey)
-                console.log('🔍 Looking for collection:', poolId)
-                console.log('🔍 Collection key type:', typeof nftCollectionKey)
-                console.log('🔍 Pool ID type:', typeof poolId)
-                console.log('🔍 Are they equal?', nftCollectionKey === poolId)
-                console.log('🔍 Full metadata:', JSON.stringify(metadata, null, 2))
-                
-                // Check if this NFT's collection key matches the pool's collection mint
-                if (nftCollectionKey === poolId) {
-                  console.log('✅ Found matching NFT for collection!')
-                  collectionNfts.push({
-                    mint: mintAddress,
-                    name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
-                    image: metadata.image || '',
-                    symbol: metadata.symbol || 'NFT',
-                    metadata
-                  })
-                  // Successfully added NFT to collection
-                } else if (!nftCollectionKey) {
-                  console.log('🔍 NFT has no collection key - checking if NFT mint itself matches poolId')
-                  if (mintAddress === poolId) {
-                    console.log('✅ Found standalone NFT that matches poolId!')
-                    collectionNfts.push({
-                      mint: mintAddress,
-                      name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
-                      image: metadata.image || '',
-                      symbol: metadata.symbol || 'NFT',
-                      metadata
-                    })
-                  }
-                } else {
-                  console.log('❌ NFT belongs to different collection:', nftCollectionKey)
-                }
-              } else {
-                // No metadata found for this NFT
-              }
-            } catch (err) {
-              console.error(`Error fetching metadata for ${mintAddress}:`, err)
+          try {
+            // Fetch NFT metadata
+            const metadata = await fetchNFTMetadata(mint.toString(), connection)
+            
+            if (metadata && metadata.collection?.key === poolId) {
+              console.log('✅ Found NFT from target collection:', mint.toString())
+              collectionNfts.push({
+                mint: mint.toString(),
+                name: metadata.name || `NFT ${mint.toString().slice(0, 8)}...`,
+                image: metadata.image || '',
+                symbol: metadata.symbol || 'NFT',
+                metadata
+              })
             }
+          } catch (err) {
+            console.error(`Error fetching metadata for ${mint.toString()}:`, err)
           }
         }
       }
 
-      // Finished processing NFTs from collection
-      console.log('🎯 Final result: Found', collectionNfts.length, 'NFTs for collection', poolId)
-      setUserNfts(collectionNfts)
+             // Finished processing NFTs from collection
+       console.log('🎯 Final result: Found', collectionNfts.length, 'NFTs for collection', poolId)
+       setUserNfts(collectionNfts)
     } catch (error) {
-      // Both Helius and RPC methods failed
-      console.error('Failed to fetch user NFTs after trying both Helius and RPC methods:', error)
+      // Both methods failed
+      console.error('Failed to fetch user NFTs:', error)
       setUserNfts([])
     } finally {
       setLoadingNfts(false)

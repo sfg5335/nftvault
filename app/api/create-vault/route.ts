@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     anchor.setProvider(provider);
 
     // Load the program
-    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || 'GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY');
+    const programId = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || '94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c');
     
     // Import the IDL with correct metadata
     const idlPath = path.join(process.cwd(), 'app', 'idl', 'fractional_vault.json');

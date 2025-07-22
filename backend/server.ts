@@ -8,6 +8,7 @@ import { Pool } from 'pg';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { LPPoolService, LPPool, VaultLPMapping } from './lp-pool-service';
 
 dotenv.config();
 
@@ -31,6 +32,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
 });
+
+// Initialize LP Pool Service
+const lpPoolService = new LPPoolService(pool);
 
 // Check whitelist from database
 async function isWhitelisted(address: string): Promise<boolean> {
@@ -189,7 +193,240 @@ app.delete('/api/admin/whitelist/:address', async (req, res) => {
   }
 });
 
+// LP Pool Management Endpoints
+
+// Get LP pool information for a specific vault (for deposit transactions)
+app.get('/api/vault/:vaultAddress/lp-pools', async (req, res) => {
+  try {
+    const { vaultAddress } = req.params;
+    
+    const lpPools = await lpPoolService.getLPPoolsForVault(vaultAddress);
+    
+    if (lpPools.length === 0) {
+      return res.status(404).json({ error: 'No LP pools configured for this vault' });
+    }
+    
+    // Return the best pool (primary with highest reliability)
+    const bestPool = lpPools[0];
+    
+    res.json({
+      success: true,
+      vault_address: vaultAddress,
+      primary_pool: {
+        pool_address: bestPool.pool.pool_address,
+        dex_type: bestPool.pool.dex_type,
+        token_a_vault: bestPool.pool.token_a_vault, // sToken vault
+        token_b_vault: bestPool.pool.token_b_vault, // SOL vault
+        verified: bestPool.pool.verified,
+        success_rate: bestPool.success_rate,
+        reliability_score: bestPool.reliability_score
+      },
+      fallback_pools: lpPools.slice(1).map(pool => ({
+        pool_address: pool.pool.pool_address,
+        dex_type: pool.pool.dex_type,
+        token_a_vault: pool.pool.token_a_vault,
+        token_b_vault: pool.pool.token_b_vault,
+        success_rate: pool.success_rate
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching LP pools for vault:', error);
+    res.status(500).json({ error: 'Failed to fetch LP pool information' });
+  }
+});
+
+// Get LP pool by fractional mint (for quick lookups)
+app.get('/api/lp-pool/by-mint/:fractionalMint', async (req, res) => {
+  try {
+    const { fractionalMint } = req.params;
+    
+    const lpPoolInfo = await lpPoolService.getLPPoolByFractionalMint(fractionalMint);
+    
+    if (!lpPoolInfo) {
+      return res.status(404).json({ error: 'No LP pool found for this fractional mint' });
+    }
+    
+    res.json({
+      success: true,
+      pool: {
+        pool_address: lpPoolInfo.pool.pool_address,
+        dex_type: lpPoolInfo.pool.dex_type,
+        token_a_vault: lpPoolInfo.pool.token_a_vault,
+        token_b_vault: lpPoolInfo.pool.token_b_vault,
+        verified: lpPoolInfo.pool.verified
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching LP pool by mint:', error);
+    res.status(500).json({ error: 'Failed to fetch LP pool information' });
+  }
+});
+
+// Admin: Create or update LP pool
+app.post('/api/admin/lp-pool', async (req, res) => {
+  try {
+    const {
+      pool_address,
+      dex_type,
+      token_a_mint,
+      token_b_mint,
+      token_a_vault,
+      token_b_vault,
+      token_a_decimals = 6,
+      token_b_decimals = 9,
+      pool_authority,
+      lp_mint,
+      verified = false
+    } = req.body;
+    
+    if (!pool_address || !dex_type || !token_a_mint || !token_b_mint || !token_a_vault || !token_b_vault) {
+      return res.status(400).json({ error: 'Missing required pool information' });
+    }
+    
+    const poolData: Omit<LPPool, 'id' | 'created_at' | 'updated_at'> = {
+      pool_address,
+      dex_type,
+      token_a_mint,
+      token_b_mint,
+      token_a_vault,
+      token_b_vault,
+      token_a_decimals,
+      token_b_decimals,
+      pool_authority,
+      lp_mint,
+      status: 'active',
+      verified,
+      last_verified_at: verified ? new Date() : undefined
+    };
+    
+    const createdPool = await lpPoolService.createOrUpdateLPPool(poolData);
+    
+    res.json({
+      success: true,
+      message: 'LP pool created/updated successfully',
+      pool: createdPool
+    });
+  } catch (error) {
+    console.error('Error creating/updating LP pool:', error);
+    res.status(500).json({ error: 'Failed to create/update LP pool' });
+  }
+});
+
+// Admin: Map vault to LP pool
+app.post('/api/admin/vault-lp-mapping', async (req, res) => {
+  try {
+    const {
+      vault_address,
+      collection_mint,
+      fractional_mint,
+      primary_lp_pool_id,
+      fallback_lp_pool_id,
+      min_liquidity_threshold = 1000
+    } = req.body;
+    
+    if (!vault_address || !collection_mint || !fractional_mint || !primary_lp_pool_id) {
+      return res.status(400).json({ error: 'Missing required mapping information' });
+    }
+    
+    const mappingData: Omit<VaultLPMapping, 'id' | 'created_at' | 'updated_at'> = {
+      vault_address,
+      collection_mint,
+      fractional_mint,
+      primary_lp_pool_id,
+      fallback_lp_pool_id,
+      min_liquidity_threshold,
+      status: 'active'
+    };
+    
+    const createdMapping = await lpPoolService.createVaultLPMapping(mappingData);
+    
+    res.json({
+      success: true,
+      message: 'Vault LP mapping created successfully',
+      mapping: createdMapping
+    });
+  } catch (error) {
+    console.error('Error creating vault LP mapping:', error);
+    res.status(500).json({ error: 'Failed to create vault LP mapping' });
+  }
+});
+
+// Admin: Get all LP pools with statistics
+app.get('/api/admin/lp-pools', async (req, res) => {
+  try {
+    const pools = await lpPoolService.getAllPoolsWithStats();
+    
+    res.json({
+      success: true,
+      pools: pools.map(poolInfo => ({
+        id: poolInfo.pool.id,
+        pool_address: poolInfo.pool.pool_address,
+        dex_type: poolInfo.pool.dex_type,
+        token_a_mint: poolInfo.pool.token_a_mint,
+        token_b_mint: poolInfo.pool.token_b_mint,
+        status: poolInfo.pool.status,
+        verified: poolInfo.pool.verified,
+        success_rate: poolInfo.success_rate,
+        reliability_score: poolInfo.reliability_score,
+        last_verified_at: poolInfo.pool.last_verified_at,
+        created_at: poolInfo.pool.created_at
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching LP pools:', error);
+    res.status(500).json({ error: 'Failed to fetch LP pools' });
+  }
+});
+
+// Admin: Verify/unverify LP pool
+app.patch('/api/admin/lp-pool/:poolId/verify', async (req, res) => {
+  try {
+    const { poolId } = req.params;
+    const { verified } = req.body;
+    
+    if (typeof verified !== 'boolean') {
+      return res.status(400).json({ error: 'Verified field must be boolean' });
+    }
+    
+    await lpPoolService.verifyLPPool(parseInt(poolId), verified);
+    
+    res.json({
+      success: true,
+      message: `LP pool ${verified ? 'verified' : 'unverified'} successfully`
+    });
+  } catch (error) {
+    console.error('Error updating LP pool verification:', error);
+    res.status(500).json({ error: 'Failed to update LP pool verification' });
+  }
+});
+
+// Record LP pool usage metrics (called by frontend after price fetches)
+app.post('/api/lp-pool/:poolId/metrics', async (req, res) => {
+  try {
+    const { poolId } = req.params;
+    const { vault_address, success, response_time_ms, liquidity_check_failed = false } = req.body;
+    
+    if (!vault_address || typeof success !== 'boolean') {
+      return res.status(400).json({ error: 'Missing required metrics data' });
+    }
+    
+    await lpPoolService.recordLPPoolMetrics(
+      parseInt(poolId),
+      vault_address,
+      success,
+      response_time_ms,
+      liquidity_check_failed
+    );
+    
+    res.json({ success: true, message: 'Metrics recorded successfully' });
+  } catch (error) {
+    console.error('Error recording LP pool metrics:', error);
+    res.status(500).json({ error: 'Failed to record metrics' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Vault backend server running on port ${PORT}`);
   console.log(`Server wallet: ${SERVER_WALLET.publicKey.toString()}`);
+  console.log(`LP Pool Service initialized`);
 }); 

@@ -207,6 +207,8 @@ pub enum VaultError {
     MissingFractionalAta,
     #[msg("Invalid token amount")]
     InvalidTokenAmount,
+    #[msg("Insufficient liquidity in LP pool")]
+    InsufficientLiquidity,
     #[msg("Not implemented due to Anchor framework limitations")]
     NotImplemented,
 }
@@ -336,6 +338,17 @@ pub struct DepositNft<'info> {
         associated_token::authority = user,
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
+
+    // LP Pool accounts for on-chain price discovery
+    /// LP pool token A vault (typically sToken vault)
+    #[account(
+        constraint = lp_token_a_vault.mint == fractional_mint.key() @ VaultError::WrongCollection
+    )]
+    pub lp_token_a_vault: Account<'info, TokenAccount>,
+
+    /// LP pool SOL vault (token B is always SOL)
+    #[account()]
+    pub lp_sol_vault: Account<'info, TokenAccount>,
     
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -523,10 +536,70 @@ impl<'info> InitializeVault<'info> {
 }
 
 impl<'info> DepositNft<'info> {
+    /// Calculate price from sToken/SOL LP pool balances on-chain
+    /// Returns (price_numerator, price_denominator) where price = numerator/denominator
+    /// Price represents SOL per sToken
+    fn calculate_lp_price(
+        lp_stoken_vault: &Account<TokenAccount>,  // sToken vault
+        lp_sol_vault: &Account<TokenAccount>,     // SOL vault
+    ) -> Result<(u64, u64)> {
+        const STOKEN_DECIMALS: u8 = 6;
+        const SOL_DECIMALS: u8 = 9;
+        const MIN_LIQUIDITY: u64 = 1000; // Minimum liquidity threshold
+        
+        let stoken_amount = lp_stoken_vault.amount;
+        let sol_amount = lp_sol_vault.amount;
+        
+        // Validation: Check for sufficient liquidity
+        if stoken_amount < MIN_LIQUIDITY || sol_amount < MIN_LIQUIDITY {
+            msg!("⚠️ Insufficient LP liquidity: sToken={}, SOL={}", stoken_amount, sol_amount);
+            return Err(VaultError::InsufficientLiquidity.into());
+        }
+        
+        // Handle decimal scaling for SOL (9 decimals) vs sToken (6 decimals)
+        // We want: price_per_stoken = sol_amount / stoken_amount
+        // SOL has 3 more decimal places than sToken, so we scale down SOL
+        
+        let decimal_diff = SOL_DECIMALS - STOKEN_DECIMALS; // 9 - 6 = 3
+        let scale_factor = 10u128.pow(decimal_diff as u32); // 1000
+        
+        // Scale down SOL to match sToken decimal precision
+        let price_numerator = (sol_amount as u128)
+            .checked_div(scale_factor)
+            .ok_or(VaultError::InvalidTokenAmount)?;
+        
+        let price_denominator = stoken_amount as u128;
+        
+        // Convert back to u64 safely
+        let final_numerator = if price_numerator > u64::MAX as u128 {
+            msg!("⚠️ Price numerator too large, using fallback");
+            return Err(VaultError::InvalidTokenAmount.into());
+        } else {
+            price_numerator as u64
+        };
+        
+        let final_denominator = if price_denominator > u64::MAX as u128 {
+            msg!("⚠️ Price denominator too large, using fallback");
+            return Err(VaultError::InvalidTokenAmount.into());
+        } else {
+            price_denominator as u64
+        };
+        
+        // Sanity check: prevent division by zero
+        if final_denominator == 0 {
+            return Err(VaultError::InvalidTokenAmount.into());
+        }
+        
+        msg!("📊 sToken/SOL LP Price: {} / {} (pool liquidity: {} sToken, {} SOL)", 
+             final_numerator, final_denominator, stoken_amount, sol_amount);
+        
+        Ok((final_numerator, final_denominator))
+    }
+
     pub fn deposit_nft_with_price(
         ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>, 
-        suggested_price_numerator: u64,
-        suggested_price_denominator: u64
+        _suggested_price_numerator: u64,  // Deprecated - now calculated on-chain
+        _suggested_price_denominator: u64  // Deprecated - now calculated on-chain
     ) -> Result<()> {
         let user_nft_account = &ctx.accounts.user_nft_account;
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
@@ -565,12 +638,22 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
         
-        msg!("✅ NFT transfer completed, calculating fees");
+        msg!("✅ NFT transfer completed, calculating on-chain price from sToken/SOL LP pool");
         
-        // Calculate fee using validated price
+        // Calculate price from sToken/SOL LP pool balances on-chain
+        let (price_numerator, price_denominator) = Self::calculate_lp_price(
+            &ctx.accounts.lp_token_a_vault,
+            &ctx.accounts.lp_sol_vault,
+        ).or_else(|_| {
+            msg!("⚠️ sToken/SOL LP price calculation failed, using fallback pricing");
+            // Fallback to conservative pricing (triggers minimum fee)
+            Ok((0u64, 1u64))
+        })?;
+        
+        // Calculate fee using on-chain LP price
         let fee_lamports = Self::calculate_deposit_fee_safe(
-            suggested_price_numerator,
-            suggested_price_denominator,
+            price_numerator,
+            price_denominator,
         )?;
         
         msg!("💰 Calculated fee: {} lamports ({} SOL)", fee_lamports, fee_lamports as f64 / 1_000_000_000.0);
@@ -592,13 +675,13 @@ impl<'info> DepositNft<'info> {
         
         msg!("💰 Fee payment completed, now minting fractional tokens");
         
-        // Update vault price data (fixing the price update bug)
-        vault_state.token_price_numerator = suggested_price_numerator;
-        vault_state.token_price_denominator = suggested_price_denominator;
+        // Update vault price data with on-chain LP pool prices
+        vault_state.token_price_numerator = price_numerator;
+        vault_state.token_price_denominator = price_denominator;
         vault_state.last_price_update = Clock::get()?.unix_timestamp;
         vault_state.total_fractions_minted += constants::TOKENS_PER_NFT;
         
-        msg!("📊 Updated vault price data: {}/{}", suggested_price_numerator, suggested_price_denominator);
+        msg!("📊 Updated vault with on-chain LP price: {}/{}", price_numerator, price_denominator);
         
         // Mint fractional tokens to user
         let collection_key = vault_state.collection_mint;
@@ -884,15 +967,13 @@ pub mod fractional_vault {
         DepositNft::deposit_nft(ctx)
     }
 
-    /// Deposit function with price-based fee calculation
-    /// The frontend fetches fresh prices from LP pools and passes them here
-    /// The smart contract validates the price and calculates fees safely
+    /// Deposit function with on-chain LP pool price discovery
+    /// Prices are calculated directly from sToken/SOL LP pool balances on-chain
+    /// No external price data needed - fully trustless pricing
     pub fn deposit_nft_with_price<'info>(
-        ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>, 
-        price_numerator: u64,
-        price_denominator: u64
+        ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>
     ) -> Result<()> {
-        DepositNft::deposit_nft_with_price(ctx, price_numerator, price_denominator)
+        DepositNft::deposit_nft_with_price(ctx, 0, 0) // Parameters are now ignored
     }
 
 

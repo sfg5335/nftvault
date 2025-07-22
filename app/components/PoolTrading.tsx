@@ -63,6 +63,9 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
     if (!publicKey || !client) return
 
     setLoadingNfts(true)
+    console.log('🔍 Starting fetchUserNfts for pool:', poolId)
+    console.log('🔍 User wallet:', publicKey.toString())
+    
     try {
       const connection = client.getConnection()
       
@@ -71,11 +74,14 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       let collectionNfts: NFT[] = []
       
       try {
+        console.log('🔍 Attempting Helius API call...')
         // Use the improved getNFTsByCollection method
         const { nfts: heliusNfts } = await getNFTsByCollection(
           poolId,
           publicKey.toString()
         )
+        
+        console.log('✅ Helius API returned:', heliusNfts.length, 'NFTs')
 
         // Found NFTs from collection in user wallet
 
@@ -111,13 +117,16 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           }
         }
       } catch (heliusError) {
-        // Helius DAS API failed, falling back to RPC method
+        console.log('❌ Helius API failed:', heliusError)
+        console.log('🔄 Falling back to RPC method...')
         
         // Fallback to RPC method
         // Get all token accounts owned by the user
         const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
           programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
         })
+        
+        console.log('🔍 RPC found', tokenAccounts.value.length, 'token accounts')
 
         // Filter for NFTs (amount = 1, decimals = 0)
         const nftAccounts = tokenAccounts.value.filter(account => {
@@ -125,7 +134,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
           return amount.uiAmount === 1 && amount.decimals === 0
         })
 
-        // Process NFT accounts found in user wallet
+        console.log('🔍 Found', nftAccounts.length, 'NFT accounts in wallet')
 
         if (nftAccounts.length > 0) {
           // Extract mint addresses
@@ -148,10 +157,16 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                 const nftCollectionKey = metadata.collection?.key
                 const isVerified = metadata.collection?.verified
                 
-                // Check if NFT collection matches pool ID
+                console.log('🔍 NFT', mintAddress.slice(0, 8) + '... has collection:', nftCollectionKey)
+                console.log('🔍 Looking for collection:', poolId)
+                console.log('🔍 Collection key type:', typeof nftCollectionKey)
+                console.log('🔍 Pool ID type:', typeof poolId)
+                console.log('🔍 Are they equal?', nftCollectionKey === poolId)
+                console.log('🔍 Full metadata:', JSON.stringify(metadata, null, 2))
                 
                 // Check if this NFT's collection key matches the pool's collection mint
                 if (nftCollectionKey === poolId) {
+                  console.log('✅ Found matching NFT for collection!')
                   collectionNfts.push({
                     mint: mintAddress,
                     name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
@@ -161,9 +176,19 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
                   })
                   // Successfully added NFT to collection
                 } else if (!nftCollectionKey) {
-                  // NFT has no collection key
+                  console.log('🔍 NFT has no collection key - checking if NFT mint itself matches poolId')
+                  if (mintAddress === poolId) {
+                    console.log('✅ Found standalone NFT that matches poolId!')
+                    collectionNfts.push({
+                      mint: mintAddress,
+                      name: metadata.name || `NFT ${mintAddress.slice(0, 8)}...`,
+                      image: metadata.image || '',
+                      symbol: metadata.symbol || 'NFT',
+                      metadata
+                    })
+                  }
                 } else {
-                  // NFT belongs to different collection
+                  console.log('❌ NFT belongs to different collection:', nftCollectionKey)
                 }
               } else {
                 // No metadata found for this NFT
@@ -175,7 +200,8 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         }
       }
 
-              // Finished processing NFTs from collection
+      // Finished processing NFTs from collection
+      console.log('🎯 Final result: Found', collectionNfts.length, 'NFTs for collection', poolId)
       setUserNfts(collectionNfts)
     } catch (error) {
       // Both Helius and RPC methods failed

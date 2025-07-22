@@ -8,6 +8,10 @@ import { getDatabaseKeypairManager } from '../../lib/databaseKeypairManager';
 import path from 'path';
 import fs from 'fs';
 
+// Load environment variables explicitly for API routes
+import { config } from 'dotenv';
+config();
+
 // Load server wallet - support both file and env var for serverless
 let SERVER_WALLET: Keypair;
 
@@ -85,6 +89,7 @@ export async function POST(request: NextRequest) {
     // Import the IDL with correct metadata
     const idlPath = path.join(process.cwd(), 'app', 'idl', 'fractional_vault.json');
     const IDL = JSON.parse(fs.readFileSync(idlPath, 'utf-8'));
+    
     const program = new Program(IDL, programId, provider) as Program<FractionalVault>;
 
     // Calculate vault state PDA - must match Rust program seeds: [b"vault", collection_mint]

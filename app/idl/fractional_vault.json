@@ -521,8 +521,5 @@
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }
-  ],
-  "metadata": {
-    "address": "CR1id6wr6nm34sSgmPSLYS2CedHFrh61S2bNcpqhezUJ"
+      ]
   }
-}

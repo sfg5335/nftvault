@@ -1,7 +1,6 @@
 'use client'
 
 import { useWallet } from '@solana/wallet-adapter-react'
-import { SimpleWalletButton } from './components/SimpleWalletButton'
 import { ClientOnly } from './components/ClientOnly'
 import PoolGrid from './components/PoolGrid'
 import { CreatePoolCard } from './components/CreatePoolCard'
@@ -15,31 +14,6 @@ export default function Home() {
 
 function HomeContent() {
   const { connected, publicKey, connecting, disconnecting } = useWallet()
-
-
-
-  if (!connected) {
-    return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center relative overflow-hidden">
-        {/* Connection Card - Truly centered */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center max-w-md">
-          <h1 className="text-4xl font-bold text-white mb-4">smol.markets</h1>
-          <p className="text-white/80 mb-8 text-lg">
-            Turn your NFT collections into fun, tradeable tokens!
-          </p>
-          <div className="space-y-4">
-
-            
-            <SimpleWalletButton />
-            
-            <div className="text-white/60 text-sm">
-              <p>Connect your wallet to start exploring NFT pools</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative">

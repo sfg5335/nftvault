@@ -16,38 +16,53 @@ export function useAnchor() {
   const [loading, setLoading] = useState(true) // Start as loading until we know wallet state
   const [error, setError] = useState<string | null>(null)
 
-  // Initialize client when wallet connects
+  // Initialize client - read-only mode if no wallet, full mode if wallet connected
   useEffect(() => {
     console.log('useAnchor - Wallet state:', { connected, publicKey: publicKey?.toString(), wallet: !!wallet, connection: !!connection })
     
-    if (connected && publicKey && connection && wallet) {
-      // Add a small delay to ensure wallet is fully ready
+    if (connection) {
       const timer = setTimeout(() => {
         try {
-          const provider = new anchor.AnchorProvider(
-            connection,
-            wallet.adapter as any,
-            { commitment: 'confirmed' }
-          )
+          let provider: anchor.AnchorProvider
+          
+          if (connected && publicKey && wallet) {
+            // Full wallet-connected provider for transactions
+            provider = new anchor.AnchorProvider(
+              connection,
+              wallet.adapter as any,
+              { commitment: 'confirmed' }
+            )
+            console.log('useAnchor - Created wallet-connected AnchorClient')
+          } else {
+            // Read-only provider for viewing data without wallet
+            const dummyWallet = {
+              publicKey: new PublicKey('11111111111111111111111111111111'),
+              signTransaction: () => Promise.reject(new Error('Read-only mode')),
+              signAllTransactions: () => Promise.reject(new Error('Read-only mode')),
+            }
+            provider = new anchor.AnchorProvider(
+              connection,
+              dummyWallet as any,
+              { commitment: 'confirmed' }
+            )
+            console.log('useAnchor - Created read-only AnchorClient')
+          }
+          
           const anchorClient = new AnchorClient(provider)
-          console.log('useAnchor - Created AnchorClient')
           setClient(anchorClient)
           setLoading(false)
         } catch (error) {
           console.error('Error initializing Anchor client:', error)
-          setError('Failed to initialize wallet connection')
+          setError('Failed to initialize connection')
           setLoading(false)
         }
-      }, 500) // 500ms delay to ensure wallet is ready
+      }, 100) // Reduced delay since we don't need to wait for wallet
       
       return () => clearTimeout(timer)
     } else {
       setClient(null)
       setVaultState(null)
-      // Only set loading to false if we're not connected and not trying to connect
-      if (!connected && !wallet) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
   }, [connected, publicKey, connection, wallet])
 

@@ -275,7 +275,8 @@ export class AnchorClient {
       const userFractionalAccountInfo = await this.provider.connection.getAccountInfo(userFractionalAccount);
       const userHasFractionalAccount = userFractionalAccountInfo !== null;
 
-      // Derive metadata PDA for the NFT
+      // Derive metadata PDA for the NFT using the OFFICIAL Metaplex program ID
+      // This MUST match the program ID used in our smart contract's borsh implementation
       const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
       const [nftMetadata] = PublicKey.findProgramAddressSync(
         [

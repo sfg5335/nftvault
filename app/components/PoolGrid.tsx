@@ -131,7 +131,7 @@ function PoolGrid() {
     console.log('fetchPools called - client:', client)
     if (!client) {
       console.log('fetchPools - No client available, returning')
-      setError('Wallet connection not ready. Please ensure your wallet is connected.')
+      setError('Connection not ready. Please refresh the page.')
       setIsLoading(false)
       return
     }

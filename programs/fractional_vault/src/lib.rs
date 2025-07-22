@@ -80,68 +80,60 @@ pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
     pda
 }
 
-/// Comprehensive NFT verification function using borsh deserialization
+/// Comprehensive NFT verification function with enhanced security checks
 /// This function performs all necessary security checks for NFT collection verification
 pub fn verify_nft_collection_secure(
     metadata_account: &AccountInfo,
     expected_collection: &Pubkey,
     nft_mint: &Pubkey,
 ) -> Result<()> {
-    // 1. Verify metadata account is owned by the official Metaplex program
+    // 1. PDA check - Verify the metadata PDA derivation matches expected
+    let metadata_pda = derive_metadata_pda(nft_mint);
     require_keys_eq!(
-        *metadata_account.owner, 
-        METADATA_PROGRAM_ID, 
+        metadata_pda, 
+        metadata_account.key(),
+        VaultError::InvalidMetadata
+    );
+
+    // 2. Ownership check - Verify metadata account is owned by the official Metaplex program
+    require_eq!(
+        metadata_account.owner, 
+        &METADATA_PROGRAM_ID, 
+        VaultError::InvalidMetadataOwner
+    );
+    
+    // 3. Safe parsing - Borrow data and validate minimum length
+    let data = metadata_account.try_borrow_data()?;
+    require!(
+        data.len() >= METADATA_MIN_LENGTH, 
         VaultError::InvalidMetadata
     );
     
-    // 2. Verify the metadata PDA derivation matches expected
-    let expected_metadata_pda = derive_metadata_pda(nft_mint);
-    require_keys_eq!(
-        metadata_account.key(), 
-        expected_metadata_pda, 
-        VaultError::InvalidMetadata
-    );
-    
-    // 3. Parse metadata using borsh deserialization
-    let metadata_data = metadata_account.try_borrow_data()?;
-    
-    // Basic sanity check on data length (minimum metadata account size)
-    require!(metadata_data.len() >= 679, VaultError::InvalidMetadata);
-    
-    let metadata = MetadataAccount::try_from_slice(&metadata_data)
+    // Parse metadata using borsh deserialization
+    let metadata_account: MetadataAccount = MetadataAccount::try_from_slice(&data)
         .map_err(|_| VaultError::InvalidMetadata)?;
     
     // 4. Verify this is a valid MetadataV1 account (discriminator should be 4)
-    require!(metadata.key == 4, VaultError::InvalidMetadata);
+    require!(metadata_account.key == 4, VaultError::InvalidMetadata);
     
     // 5. Verify the mint in metadata matches the NFT mint passed in
-    require_keys_eq!(metadata.mint, *nft_mint, VaultError::InvalidMetadata);
+    require_keys_eq!(metadata_account.mint, *nft_mint, VaultError::InvalidMetadata);
     
-    // 6. Verify collection exists and is verified
-    match metadata.collection {
-        Some(collection) => {
-            // Check that the collection key matches the vault's expected collection
-            require_keys_eq!(
-                collection.key,
-                *expected_collection,
-                VaultError::WrongCollection
-            );
-            
-            // CRITICAL SECURITY CHECK: Verify that the collection is verified
-            require!(
-                collection.verified,
-                VaultError::CollectionNotVerified
-            );
-        },
-        None => {
-            // No collection set on this NFT
-            return Err(VaultError::WrongCollection.into());
-        }
-    }
+    // 6. Collection check - Verify collection exists, is verified, and matches expected
+    let collection = metadata_account
+        .collection
+        .ok_or(VaultError::UnverifiedCollection)?;
     
-    // 7. Additional NFT validity checks
-    // Ensure this is actually an NFT (supply should be 1, decimals should be 0)
-    // Note: These are checked at the mint account level, not in metadata
+    require!(
+        collection.verified, 
+        VaultError::UnverifiedCollection
+    );
+    
+    require_keys_eq!(
+        collection.key, 
+        *expected_collection,
+        VaultError::WrongCollection
+    );
     
     Ok(())
 }
@@ -155,6 +147,9 @@ pub mod constants {
     /// Protocol treasury address - SOL fees are sent here
     pub const PROTOCOL_TREASURY: &str = "2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt";
 }
+
+/// Minimum metadata account length for safety checks
+pub const METADATA_MIN_LENGTH: usize = 679;
 
 /// Errors that can be returned by the vault program
 #[error_code]
@@ -171,8 +166,12 @@ pub enum VaultError {
     InvalidFeeRate,
     #[msg("Invalid metadata account")]
     InvalidMetadata,
+    #[msg("Invalid metadata account owner")]
+    InvalidMetadataOwner,
     #[msg("Collection not verified")]
     CollectionNotVerified,
+    #[msg("Collection is unverified or not set")]
+    UnverifiedCollection,
     #[msg("Collection metadata missing")]
     CollectionMetadataMissing,
     #[msg("Missing vault NFT token account")]

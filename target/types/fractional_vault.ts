@@ -323,6 +323,67 @@ export type FractionalVault = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "mintFractionalMultiple",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "fractionalMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "numNfts",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "updateFeeParameters",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "depositFeeBps",
+          "type": "u16"
+        },
+        {
+          "name": "redeemFeeBps",
+          "type": "u16"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -434,31 +495,41 @@ export type FractionalVault = {
     },
     {
       "code": 6006,
+      "name": "InvalidMetadataOwner",
+      "msg": "Invalid metadata account owner"
+    },
+    {
+      "code": 6007,
       "name": "CollectionNotVerified",
       "msg": "Collection not verified"
     },
     {
-      "code": 6007,
+      "code": 6008,
+      "name": "UnverifiedCollection",
+      "msg": "Collection is unverified or not set"
+    },
+    {
+      "code": 6009,
       "name": "CollectionMetadataMissing",
       "msg": "Collection metadata missing"
     },
     {
-      "code": 6008,
+      "code": 6010,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6009,
+      "code": 6011,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6010,
+      "code": 6012,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6011,
+      "code": 6013,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }
@@ -790,6 +861,67 @@ export const IDL: FractionalVault = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "mintFractionalMultiple",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "fractionalMint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "numNfts",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "updateFeeParameters",
+      "accounts": [
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "depositFeeBps",
+          "type": "u16"
+        },
+        {
+          "name": "redeemFeeBps",
+          "type": "u16"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -901,31 +1033,41 @@ export const IDL: FractionalVault = {
     },
     {
       "code": 6006,
+      "name": "InvalidMetadataOwner",
+      "msg": "Invalid metadata account owner"
+    },
+    {
+      "code": 6007,
       "name": "CollectionNotVerified",
       "msg": "Collection not verified"
     },
     {
-      "code": 6007,
+      "code": 6008,
+      "name": "UnverifiedCollection",
+      "msg": "Collection is unverified or not set"
+    },
+    {
+      "code": 6009,
       "name": "CollectionMetadataMissing",
       "msg": "Collection metadata missing"
     },
     {
-      "code": 6008,
+      "code": 6010,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6009,
+      "code": 6011,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6010,
+      "code": 6012,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6011,
+      "code": 6013,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }

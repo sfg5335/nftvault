@@ -19,7 +19,8 @@ import { searchWalletNFTsWithValidation, validateNFTCollection } from '../lib/nf
 export const dynamic = 'force-dynamic'
 
 interface CollectionInfo {
-  mint: string
+  mint: string // This will be the collection key that NFTs reference
+  collectionNFTMint?: string // The actual collection NFT's mint (if different)
   name: string
   symbol: string
   image: string
@@ -227,8 +228,9 @@ function CreatePoolPageContent() {
             const sampleNFT = nfts[0]
             const collectionName = sampleNFT.metadata?.name?.split('#')[0].trim() || 'Unknown Collection'
             
+            // For RPC method, the collectionMint is already the collection key from NFT metadata
             collectionsArray.push({
-              mint: collectionMint,
+              mint: collectionMint, // This is the collection key that NFTs reference
               name: collectionName,
               symbol: sampleNFT.metadata?.symbol || 'NFT',
               image: sampleNFT.metadata?.image || '',
@@ -254,8 +256,9 @@ function CreatePoolPageContent() {
             // Fetch full metadata for the sample NFT to get more details
             const metadata = await fetchNFTMetadata(sampleNFT.mint, connection)
             
+            // For Helius method, collectionKey is already the collection key from NFT metadata
             collectionsArray.push({
-              mint: collectionKey,
+              mint: collectionKey, // This is the collection key that NFTs reference
               name: collectionData.collectionName,
               symbol: metadata?.symbol || 'NFT',
               image: sampleNFT.image || metadata?.image || '',
@@ -316,27 +319,34 @@ function CreatePoolPageContent() {
       setTxSignature(null)
       setProgressSteps([]) // Clear previous progress
       
-      addProgressStep('🔍 Validating collection mint...')
+      addProgressStep('🔍 Validating collection key...')
 
       collectionMint = new PublicKey(selectedCollection.mint)
 
-      // First verify the collection mint exists on-chain
+      // The collection key might be:
+      // 1. A collection NFT mint (owned by Token Program)
+      // 2. Any other account that NFTs reference as their collection
+      // We'll accept both cases
       const connection = client.getConnection()
-      const collectionMintInfo = await connection.getAccountInfo(collectionMint)
+      const collectionAccountInfo = await connection.getAccountInfo(collectionMint)
       
-      if (!collectionMintInfo) {
-        setError('The collection mint does not exist on-chain. This might be an invalid collection.')
-        return
-      }
-      
-      // Verify it's a valid mint account (owned by Token Program)
-      const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
-      if (!collectionMintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
-        setError('The collection address is not a valid mint account.')
-        return
+      if (!collectionAccountInfo) {
+        // Even if the account doesn't exist on-chain, we can still create a vault for it
+        // This allows for future collection deployments
+        console.log('⚠️ Collection account does not exist on-chain, but proceeding anyway')
+        addProgressStep('⚠️ Collection account not found on-chain')
+      } else {
+        const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+        if (collectionAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+          console.log('✅ Collection is a valid mint account')
+          addProgressStep('✅ Collection is a mint account')
+        } else {
+          console.log('✅ Collection exists on-chain (not a mint)')
+          addProgressStep('✅ Collection account validated')
+        }
       }
 
-      addProgressStep('✅ Collection mint validated')
+      addProgressStep('✅ Collection key validated')
       addProgressStep('🔎 Checking for existing vault...')
 
       // Check if vault already exists

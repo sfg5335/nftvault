@@ -1,12 +1,12 @@
 import * as anchor from '@coral-xyz/anchor'
 import { Program, AnchorProvider } from '@coral-xyz/anchor'
 import { PublicKey, SystemProgram, Keypair, SYSVAR_RENT_PUBKEY, Connection } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount } from '@solana/spl-token'
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAccount } from '@solana/spl-token'
 // VanityKeypair management is now handled server-side
-import { IDL } from './idl'
+import { IDL } from './idl.ts'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("CRHDSudZbtxts9am7ZDRwKSjFGsME6nXoNUCPBaRYRNB");
+const PROGRAM_ID = new PublicKey("3L2zzE1UV6oo2xkLpCMXPGB8zeZfYA3ygjYWXKhAJsRv");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -151,31 +151,24 @@ export class AnchorClient {
       console.log('Vault ID:', vaultId);
       console.log('NFT Mint:', nftMint.toString());
 
-      // Check if the NFT is Token-2022 FIRST before doing anything else
+      // Check if the NFT exists and uses standard token program
       const mintInfo = await this.provider.connection.getAccountInfo(nftMint);
       if (!mintInfo) {
         throw new Error('NFT mint not found');
       }
       
-      // Define known token program IDs
+      // Define known token program ID
       const STANDARD_TOKEN_PROGRAM = TOKEN_PROGRAM_ID.toString();
-      const TOKEN_2022_PROGRAM = TOKEN_2022_PROGRAM_ID.toString();
       
       const mintOwner = mintInfo.owner.toString();
       console.log('NFT mint owner:', mintOwner);
       console.log('Standard TOKEN_PROGRAM_ID:', STANDARD_TOKEN_PROGRAM);
-      console.log('TOKEN_2022_PROGRAM_ID:', TOKEN_2022_PROGRAM);
       
       // Check if this NFT uses the standard token program
       const usesStandardTokenProgram = mintOwner === STANDARD_TOKEN_PROGRAM;
-      const usesToken2022 = mintOwner === TOKEN_2022_PROGRAM;
       
       if (!usesStandardTokenProgram) {
-        if (usesToken2022) {
-          throw new Error('This vault does not support Token-2022 NFTs. Please use NFTs created with the standard Token program.');
-        } else {
-          throw new Error(`This vault only supports NFTs created with the standard SPL Token program. Your NFT uses a different token program: ${mintOwner}`);
-        }
+        throw new Error(`This vault only supports NFTs created with the standard SPL Token program. Your NFT uses a different token program: ${mintOwner}`);
       }
 
       console.log('NFT verification passed - uses standard token program');
@@ -282,6 +275,19 @@ export class AnchorClient {
       const userFractionalAccountInfo = await this.provider.connection.getAccountInfo(userFractionalAccount);
       const userHasFractionalAccount = userFractionalAccountInfo !== null;
 
+      // Derive metadata PDA for the NFT
+      const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+      const [nftMetadata] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from('metadata'),
+          METADATA_PROGRAM_ID.toBuffer(),
+          nftMint.toBuffer(),
+        ],
+        METADATA_PROGRAM_ID
+      );
+
+      console.log('NFT Metadata PDA:', nftMetadata.toString());
+
       // Add deposit NFT instruction
       const depositIx = await this.program.methods
         .depositNft()
@@ -292,7 +298,7 @@ export class AnchorClient {
           vaultNftAccount: vaultNftAccount,
           protocolTreasury: protocolTreasuryAddress,
           nftMint: nftMint,
-          collectionMint: new PublicKey(vaultId), // vaultId is the collection mint
+          nftMetadata: nftMetadata,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
@@ -425,23 +431,23 @@ export class AnchorClient {
         userNft: userSpecificNftAccount.toString(),
       });
 
-      // Get mint info to determine which token program to use for the NFT
+      // Get mint info to verify it's a standard token
       const mintInfo = await this.provider.connection.getAccountInfo(nftMint);
       if (!mintInfo) {
         throw new Error('NFT mint not found');
       }
 
-      // Check if this is a Token-2022 mint
-      const isToken2022 = mintInfo.owner.equals(TOKEN_2022_PROGRAM_ID);
-      const tokenProgramId = isToken2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
-      console.log('NFT uses token program:', tokenProgramId.toString());
+      // Only support standard SPL tokens
+      if (!mintInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+        throw new Error('This vault only supports NFTs created with the standard SPL Token program');
+      }
 
-      // Update token accounts with correct program
+      // Update token accounts with standard token program
       const vaultSpecificNftAccountCorrect = await getAssociatedTokenAddress(
         nftMint,
         vaultStatePDA,
         true, // allowOwnerOffCurve for PDA
-        tokenProgramId
+        TOKEN_PROGRAM_ID
       );
 
       const userSpecificNftAccountCorrect = await getAssociatedTokenAddress(

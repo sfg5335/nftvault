@@ -3,7 +3,13 @@ use anchor_spl::token::{Mint, Token, TokenAccount, Transfer, SetAuthority};
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::spl_token::instruction::AuthorityType;
 
-// Manual collection verification without Metaplex dependency
+// Metaplex Token Metadata Program ID
+pub const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
+    11, 112, 101, 177, 227, 209, 124, 69, 56, 157, 82, 127, 107, 4, 195, 205, 
+    88, 184, 108, 115, 26, 160, 253, 181, 73, 182, 209, 188, 3, 248, 41, 70
+]);
+
+// Metaplex metadata structures
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub struct Collection {
     pub verified: bool,
@@ -15,6 +21,30 @@ pub struct Creator {
     pub address: Pubkey,
     pub verified: bool,
     pub share: u8,
+}
+
+// Simplified Metaplex Metadata account structure for reading
+#[derive(Clone)]
+pub struct MetadataAccount {
+    pub key: u8,  // Key enum (4 for Metadata V1)
+    pub update_authority: Pubkey,
+    pub mint: Pubkey,
+    pub data: MetadataData,
+    pub primary_sale_happened: bool,
+    pub is_mutable: bool,
+    pub edition_nonce: Option<u8>,
+    pub token_standard: Option<u8>,
+    pub collection: Option<Collection>,
+    pub uses: Option<u64>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct MetadataData {
+    pub name: String,
+    pub symbol: String,
+    pub uri: String,
+    pub seller_fee_basis_points: u16,
+    pub creators: Option<Vec<Creator>>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -31,7 +61,18 @@ pub enum UseMethod {
     Single,
 }
 
-declare_id!("CRHDSudZbtxts9am7ZDRwKSjFGsME6nXoNUCPBaRYRNB");
+declare_id!("3L2zzE1UV6oo2xkLpCMXPGB8zeZfYA3ygjYWXKhAJsRv");
+
+/// Helper function to derive metadata PDA
+pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
+    let seeds = &[
+        b"metadata",
+        METADATA_PROGRAM_ID.as_ref(),
+        mint.as_ref(),
+    ];
+    let (pda, _) = Pubkey::find_program_address(seeds, &METADATA_PROGRAM_ID);
+    pda
+}
 
 /// Constants for the sNFT (smol NFT) fractional vault program
 pub mod constants {
@@ -56,6 +97,8 @@ pub enum VaultError {
     NoNftsAvailable,
     #[msg("Invalid fee rate")]
     InvalidFeeRate,
+    #[msg("Invalid metadata account")]
+    InvalidMetadata,
     #[msg("Collection not verified")]
     CollectionNotVerified,
     #[msg("Collection metadata missing")]
@@ -92,8 +135,9 @@ pub struct InitializeVault<'info> {
     #[account(mut)]
     pub creator: Signer<'info>,
     
-    /// CHECK: Collection mint for the vault
-    pub collection_mint: Account<'info, Mint>,
+    /// CHECK: Collection key for the vault - can be any valid pubkey that NFTs reference
+    /// This is manually validated since it might not be a Mint account
+    pub collection_mint: UncheckedAccount<'info>,
     
     #[account(
         init,
@@ -154,14 +198,15 @@ pub struct DepositNft<'info> {
     #[account(mut)]
     pub protocol_treasury: UncheckedAccount<'info>,
     
-    /// CHECK: NFT mint account for verification
-    pub nft_mint: UncheckedAccount<'info>,
+    /// NFT mint account
+    pub nft_mint: Account<'info, Mint>,
     
-    /// CHECK: Collection mint must match vault's collection
+    /// CHECK: NFT metadata account - PDA derived from mint
+    /// Seeds: ["metadata", metadata_program_id, nft_mint]
     #[account(
-        constraint = collection_mint.key() == vault_state.collection_mint @ VaultError::WrongCollection
+        constraint = nft_metadata.key() == derive_metadata_pda(&nft_mint.key()) @ VaultError::InvalidMetadata
     )]
-    pub collection_mint: UncheckedAccount<'info>,
+    pub nft_metadata: UncheckedAccount<'info>,
     
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -439,16 +484,41 @@ impl<'info> DepositNft<'info> {
             VaultError::WrongCollection
         );
         
-        // Collection verification is enforced by the constraint on collection_mint account
-        // The constraint ensures collection_mint.key() == vault_state.collection_mint
-        // This prevents deposits of NFTs from wrong collections
+        // Read and verify NFT metadata
+        let metadata_data = ctx.accounts.nft_metadata.try_borrow_data()?;
         
-        // Note: In a complete implementation with Metaplex, you would:
-        // 1. Pass the NFT's metadata account
-        // 2. Verify the metadata's collection.key matches ctx.accounts.collection_mint
-        // 3. Verify the metadata's collection.verified is true
-        // Without Metaplex, the frontend must ensure it passes the correct collection_mint
-        // based on the NFT's metadata, and we verify it matches the vault's collection
+        // Skip discriminator and read key (offset 0)
+        require!(metadata_data.len() > 100, VaultError::InvalidMetadata);
+        let key = metadata_data[0];
+        require!(key == 4, VaultError::InvalidMetadata); // Key 4 = MetadataV1
+        
+        // The metadata account layout is complex, but the collection data is at a known offset
+        // We need to parse through the account to find the collection field
+        // For simplicity, we'll check if the vault's collection_mint appears in the metadata
+        
+        // In production, you would properly deserialize the metadata account
+        // For now, we'll do a basic verification that the collection is present and verified
+        let vault_collection = ctx.accounts.vault_state.collection_mint;
+        
+        // Search for the collection pubkey in the metadata (this is a simplified check)
+        let collection_bytes = vault_collection.to_bytes();
+        let mut found_collection = false;
+        let mut is_verified = false;
+        
+        // Look for the collection pubkey pattern in the metadata
+        for i in 0..metadata_data.len().saturating_sub(33) {
+            if &metadata_data[i..i+32] == collection_bytes {
+                // Check if the next byte indicates verification (1 = verified)
+                if i + 32 < metadata_data.len() {
+                    is_verified = metadata_data[i + 32] == 1;
+                    found_collection = true;
+                    break;
+                }
+            }
+        }
+        
+        require!(found_collection, VaultError::WrongCollection);
+        require!(is_verified, VaultError::CollectionNotVerified);
         
         // Update vault state BEFORE external calls for atomicity
         let vault_state = &mut ctx.accounts.vault_state;

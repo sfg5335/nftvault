@@ -13,7 +13,10 @@ export type FractionalVault = {
         {
           "name": "collectionMint",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "This is manually validated since it might not be a Mint account"
+          ]
         },
         {
           "name": "vaultState",
@@ -86,12 +89,18 @@ export type FractionalVault = {
         {
           "name": "nftMint",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
         },
         {
-          "name": "collectionMint",
+          "name": "nftMetadata",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, nft_mint]"
+          ]
         },
         {
           "name": "tokenProgram",
@@ -426,6 +435,40 @@ export type FractionalVault = {
       }
     },
     {
+      "name": "MetadataData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "name": "sellerFeeBasisPoints",
+            "type": "u16"
+          },
+          {
+            "name": "creators",
+            "type": {
+              "option": {
+                "vec": {
+                  "defined": "Creator"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "Uses",
       "type": {
         "kind": "struct",
@@ -493,31 +536,36 @@ export type FractionalVault = {
     },
     {
       "code": 6005,
+      "name": "InvalidMetadata",
+      "msg": "Invalid metadata account"
+    },
+    {
+      "code": 6006,
       "name": "CollectionNotVerified",
       "msg": "Collection not verified"
     },
     {
-      "code": 6006,
+      "code": 6007,
       "name": "CollectionMetadataMissing",
       "msg": "Collection metadata missing"
     },
     {
-      "code": 6007,
+      "code": 6008,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6008,
+      "code": 6009,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6009,
+      "code": 6010,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6010,
+      "code": 6011,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }
@@ -539,7 +587,10 @@ export const IDL: FractionalVault = {
         {
           "name": "collectionMint",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "This is manually validated since it might not be a Mint account"
+          ]
         },
         {
           "name": "vaultState",
@@ -612,12 +663,18 @@ export const IDL: FractionalVault = {
         {
           "name": "nftMint",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
         },
         {
-          "name": "collectionMint",
+          "name": "nftMetadata",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, nft_mint]"
+          ]
         },
         {
           "name": "tokenProgram",
@@ -952,6 +1009,40 @@ export const IDL: FractionalVault = {
       }
     },
     {
+      "name": "MetadataData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "name": "sellerFeeBasisPoints",
+            "type": "u16"
+          },
+          {
+            "name": "creators",
+            "type": {
+              "option": {
+                "vec": {
+                  "defined": "Creator"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "Uses",
       "type": {
         "kind": "struct",
@@ -1019,31 +1110,36 @@ export const IDL: FractionalVault = {
     },
     {
       "code": 6005,
+      "name": "InvalidMetadata",
+      "msg": "Invalid metadata account"
+    },
+    {
+      "code": 6006,
       "name": "CollectionNotVerified",
       "msg": "Collection not verified"
     },
     {
-      "code": 6006,
+      "code": 6007,
       "name": "CollectionMetadataMissing",
       "msg": "Collection metadata missing"
     },
     {
-      "code": 6007,
+      "code": 6008,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6008,
+      "code": 6009,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6009,
+      "code": 6010,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6010,
+      "code": 6011,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }

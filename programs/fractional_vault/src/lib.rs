@@ -544,10 +544,17 @@ impl<'info> InitializeVault<'info> {
 }
 
 impl<'info> DepositNft<'info> {
-    pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
+    pub fn deposit_nft_with_price(
+        ctx: Context<DepositNft>, 
+        suggested_price_numerator: u64,
+        suggested_price_denominator: u64
+    ) -> Result<()> {
         let user_nft_account = &ctx.accounts.user_nft_account;
-        // amount check after Anchor's automatic validation
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
+        
+        msg!("🔍 Starting NFT deposit with automatic price discovery");
+        msg!("🔍 NFT mint: {}", ctx.accounts.nft_mint.key());
+        msg!("🔍 Suggested price: {} / {}", suggested_price_numerator, suggested_price_denominator);
         
         // Verify the NFT mint matches what's in the token account
         let nft_mint_key = ctx.accounts.nft_mint.key();
@@ -557,9 +564,7 @@ impl<'info> DepositNft<'info> {
         );
         
         // SECURE COLLECTION VERIFICATION using our borsh-based implementation
-        // This replaces the Metaplex dependency with secure manual parsing
         let vault_collection = ctx.accounts.vault_state.collection_mint;
-        
         verify_nft_collection_secure(
             &ctx.accounts.nft_metadata,
             &vault_collection,
@@ -581,41 +586,23 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
         
-        // Calculate 1.5% fee based on token value in SOL
-        let tokens_per_nft = constants::TOKENS_PER_NFT;
-        let vault_state = &ctx.accounts.vault_state;
+        msg!("✅ NFT transfer completed, calculating fees with automatic price discovery");
         
-        let fee_lamports = if vault_state.token_price_numerator > 0 && vault_state.token_price_denominator > 0 {
-            // Calculate token value in SOL (price is SOL/sToken ratio)
-            let token_value_lamports = (tokens_per_nft as u128)
-                .checked_mul(vault_state.token_price_numerator as u128)
-                .ok_or(VaultError::InvalidTokenAmount)?
-                .checked_div(vault_state.token_price_denominator as u128)
-                .ok_or(VaultError::InvalidTokenAmount)?;
-            
-            // Apply 1.5% fee (150 basis points)
-            let fee_lamports = token_value_lamports
-                .checked_mul(150) // 1.5% = 150 basis points
-                .ok_or(VaultError::InvalidTokenAmount)?
-                .checked_div(10000)
-                .ok_or(VaultError::InvalidTokenAmount)?;
-            
-            // Convert to u64 safely
-            let fee_lamports = u64::try_from(fee_lamports)
-                .map_err(|_| VaultError::InvalidTokenAmount)?;
-            
-            // Minimum fee of 0.015 SOL
-            fee_lamports.max(15_000_000)
-        } else {
-            // Fallback to flat fee if no price data
-            15_000_000u64 // 0.015 SOL
-        };
+        // Calculate fee using validated price
+        let fee_lamports = Self::calculate_deposit_fee_safe(
+            suggested_price_numerator,
+            suggested_price_denominator,
+        )?;
         
+        msg!("💰 Calculated fee: {} lamports ({} SOL)", fee_lamports, fee_lamports as f64 / 1_000_000_000.0);
+        
+        // Charge fee
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.protocol_treasury.key(),
             fee_lamports,
         );
+        
         anchor_lang::solana_program::program::invoke(
             &ix,
             &[
@@ -623,7 +610,86 @@ impl<'info> DepositNft<'info> {
                 ctx.accounts.protocol_treasury.to_account_info(),
             ],
         )?;
+        
+        msg!("✅ Deposit completed successfully with automatic price discovery");
         Ok(())
+    }
+    
+    /// Calculate deposit fee with robust validation and fallbacks
+    fn calculate_deposit_fee_safe(
+        price_numerator: u64,
+        price_denominator: u64,
+    ) -> Result<u64> {
+        const TOKENS_PER_NFT: u64 = constants::TOKENS_PER_NFT;
+        const MIN_FEE_LAMPORTS: u64 = 15_000_000; // 0.015 SOL
+        const MAX_REASONABLE_FEE: u64 = 1_000_000_000; // 1 SOL max
+        
+        // Validation 1: Check for invalid denominators
+        if price_denominator == 0 {
+            msg!("⚠️ Price denominator is zero, using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Validation 2: Check for suspicious price ratios
+        if price_numerator == 0 {
+            msg!("⚠️ Price numerator is zero, using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Validation 3: Prevent potential overflow in multiplication
+        // Check if TOKENS_PER_NFT * price_numerator would overflow u128
+        if price_numerator > u128::MAX as u64 / TOKENS_PER_NFT {
+            msg!("⚠️ Price numerator too large (overflow risk), using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Validation 4: Check for unreasonably high prices
+        // If price > 1000 SOL per token, something is wrong
+        if price_numerator > price_denominator * 1000 {
+            msg!("⚠️ Price appears unreasonably high, using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Safe calculation with u128 to prevent overflow
+        let token_value_lamports = (TOKENS_PER_NFT as u128)
+            .checked_mul(price_numerator as u128)
+            .and_then(|val| val.checked_div(price_denominator as u128))
+            .ok_or_else(|| {
+                msg!("⚠️ Mathematical error in price calculation, using fallback flat fee");
+                VaultError::InvalidTokenAmount
+            })?;
+        
+        // Apply 1.5% fee (150 basis points)
+        let fee_lamports = token_value_lamports
+            .checked_mul(150)
+            .and_then(|val| val.checked_div(10000))
+            .ok_or_else(|| {
+                msg!("⚠️ Mathematical error in fee calculation, using fallback flat fee");
+                VaultError::InvalidTokenAmount
+            })?;
+        
+        // Convert back to u64 safely
+        let fee_lamports = if fee_lamports > u64::MAX as u128 {
+            msg!("⚠️ Calculated fee too large, using maximum reasonable fee");
+            MAX_REASONABLE_FEE
+        } else {
+            fee_lamports as u64
+        };
+        
+        // Apply minimum fee
+        let final_fee = fee_lamports.max(MIN_FEE_LAMPORTS);
+        
+        // Apply maximum reasonable fee as safety cap
+        let final_fee = final_fee.min(MAX_REASONABLE_FEE);
+        
+        msg!("💰 Fee calculation successful: {} lamports", final_fee);
+        Ok(final_fee)
+    }
+    
+    // Keep backward compatibility with old deposit function
+    pub fn deposit_nft(ctx: Context<DepositNft>) -> Result<()> {
+        // Use flat fee for backward compatibility
+        Self::deposit_nft_with_price(ctx, 0, 1)
     }
 }
 
@@ -857,6 +923,17 @@ pub mod fractional_vault {
         DepositNft::deposit_nft(ctx)
     }
 
+    /// New deposit function with automatic price discovery
+    /// The frontend fetches fresh prices from LP pools and passes them here
+    /// The smart contract validates the price and calculates fees safely
+    pub fn deposit_nft_with_price(
+        ctx: Context<DepositNft>, 
+        price_numerator: u64,
+        price_denominator: u64
+    ) -> Result<()> {
+        DepositNft::deposit_nft_with_price(ctx, price_numerator, price_denominator)
+    }
+
     pub fn mint_fractional(ctx: Context<MintFractional>) -> Result<()> {
         MintFractional::mint_fractional(ctx)
     }
@@ -869,40 +946,22 @@ pub mod fractional_vault {
         RedeemSpecificNft::redeem_specific_nft(ctx)
     }
 
-    // Temporarily disabled due to lifetime issues with remaining_accounts
-    // pub fn deposit_multiple_nfts(
-    //     ctx: Context<DepositMultipleNfts>, 
-    //     num_nfts: u8,
-    //     user_nft_accounts: Vec<Pubkey>,
-    //     vault_nft_accounts: Vec<Pubkey>
-    // ) -> Result<()> {
-    //     DepositMultipleNfts::deposit_multiple_nfts(ctx, num_nfts, user_nft_accounts, vault_nft_accounts)
-    // }
-
     pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
         MintFractionalMultiple::mint_fractional_multiple(ctx, num_nfts)
     }
 
+    // DEPRECATED: Remove manual price oracle functions
+    // These are replaced by automatic price discovery in deposit_nft_with_price
+    /*
     pub fn update_price_oracle(
         ctx: Context<UpdatePriceOracle>, 
         price_numerator: u64, 
         price_denominator: u64
     ) -> Result<()> {
-        let vault_state = &mut ctx.accounts.vault_state;
-        
-        // Validate price data
-        require!(price_denominator > 0, VaultError::InvalidTokenAmount);
-        require!(price_numerator > 0, VaultError::InvalidTokenAmount);
-        
-        // Update price data
-        vault_state.token_price_numerator = price_numerator;
-        vault_state.token_price_denominator = price_denominator;
-        vault_state.last_price_update = Clock::get()?.unix_timestamp;
-        
-                msg!("Price updated: {} SOL per {} sToken", price_numerator, price_denominator);
-        
-        Ok(())
+        // DEPRECATED - use deposit_nft_with_price instead
+        return Err(VaultError::NotImplemented.into());
     }
+    */
 
     pub fn update_fee_parameters(
         ctx: Context<UpdatePriceOracle>, 

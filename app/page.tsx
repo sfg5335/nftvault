@@ -1,11 +1,13 @@
 'use client'
 
 import { useWallet } from '@solana/wallet-adapter-react'
+import { WalletMultiButton } from './components/WalletProvider'
 import { ClientOnly } from './components/ClientOnly'
 import PoolGrid from './components/PoolGrid'
 import { CreatePoolCard } from './components/CreatePoolCard'
 import { Header } from './components/Header'
 import { StatsBar } from './components/StatsBar'
+import { Wallet } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function Home() {
@@ -13,7 +15,30 @@ export default function Home() {
 }
 
 function HomeContent() {
+  return (
+    <ClientOnly>
+      <HomeContentInner />
+    </ClientOnly>
+  )
+}
+
+function HomeContentInner() {
   const { connected, publicKey, connecting, disconnecting } = useWallet()
+
+  if (!connected) {
+    return (
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center max-w-md">
+          <Wallet className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+          <h1 className="text-4xl font-bold text-white mb-4">Welcome to smol.markets</h1>
+          <p className="text-white/80 mb-8 text-lg">
+            Connect your wallet to discover and trade fractionalized NFTs
+          </p>
+          <WalletMultiButton className="!bg-blue-600 hover:!bg-blue-700 !text-white !rounded-lg !px-6 !py-3 !text-lg !transition-colors" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative">

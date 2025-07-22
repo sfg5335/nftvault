@@ -8,6 +8,7 @@ import { ClientOnly } from '../../components/ClientOnly'
 import { Header } from '../../components/Header'
 import { PoolDetail } from '../../components/PoolDetail'
 import { PoolTrading } from '../../components/PoolTrading'
+import { Wallet } from 'lucide-react'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'

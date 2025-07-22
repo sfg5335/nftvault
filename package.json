@@ -28,6 +28,8 @@
     "axios": "^1.6.8",
     "bn.js": "^5.2.2",
     "bs58": "^5.0.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
     "dotenv": "^16.6.1",
     "eslint": "8.56.0",
     "eslint-config-next": "14.0.4",
@@ -36,8 +38,10 @@
     "pg": "^8.16.3",
     "pino-pretty": "^13.0.0",
     "postcss": "8.4.32",
+    "process": "^0.11.10",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "stream-browserify": "^3.0.0",
     "tailwindcss": "3.4.0"
   },
   "devDependencies": {
@@ -48,7 +52,8 @@
     "eslint": "^8",
     "eslint-config-next": "14.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "webpack": "^5.100.2"
   },
   "keywords": [
     "solana",

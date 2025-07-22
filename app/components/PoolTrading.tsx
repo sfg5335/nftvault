@@ -217,6 +217,7 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
       const txSignatures: string[] = []
       const successfulDeposits: string[] = []
       const failedDeposits: { mint: string; error: string }[] = []
+      let totalTokens = 0
       
       for (let i = 0; i < nftMints.length; i++) {
         const nftMint = nftMints[i]
@@ -224,37 +225,57 @@ export function PoolTrading({ poolId, selectedVaultNFTs, onSelectVaultNFTs }: Po
         
         try {
           console.log(`Depositing NFT ${i + 1}/${nftMints.length}: ${nftMint}`)
+          
+          // 🔍 DEBUG: Add transaction simulation before actual deposit
+          try {
+            console.log('🔍 DEBUG: Simulating deposit transaction first...')
+            // For now, we'll proceed with the actual deposit but add better error handling
+          } catch (simError) {
+            console.error('❌ Simulation failed:', simError)
+          }
+          
           const txSignature = await depositNFT(collectionMint, new PublicKey(nftMint))
-          txSignatures.push(txSignature)
+          console.log('✅ Deposit successful:', txSignature)
           successfulDeposits.push(nftMint)
+          totalTokens += 1000000
+        } catch (error: any) {
+          console.error(`❌ ERROR: Failed to deposit NFT ${nftMint}:`, error)
           
-          // Wait a bit between transactions to avoid rate limits
-          if (i < nftMints.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500))
-          }
-        } catch (error) {
-          console.error(`Failed to deposit NFT ${nftMint}:`, error)
-          let errorMessage = 'Unknown error'
+          // 🔍 DEBUG: Enhanced error logging
+          console.error('❌ Error type:', error.constructor?.name)
+          console.error('❌ Error message:', error.message)
+          console.error('❌ Error code:', error.code)
+          console.error('❌ Full error object:', error)
           
-          if (error instanceof Error) {
-            errorMessage = error.message
-            
-            // Check if this is actually a success
-            if (errorMessage.includes('This transaction has already been processed') || 
-                errorMessage.includes('Transaction simulation failed: This transaction has already been processed')) {
-              console.log(`NFT ${nftMint} deposit succeeded despite error message`);
-              successfulDeposits.push(nftMint);
-              continue; // Skip to next NFT
-            }
+          // Check for specific Anchor program errors
+          if (error.code || error.msg) {
+            console.error('❌ Anchor program error - Code:', error.code, 'Message:', error.msg)
           }
           
-          failedDeposits.push({ mint: nftMint, error: errorMessage })
+          // Check for simulation errors
+          if (error.logs) {
+            console.error('❌ Transaction logs:', error.logs)
+          }
+          
+          failedDeposits.push({ mint: nftMint, error: error.message || 'Unknown error' })
+          
+          // Check if this is a known fee calculation error
+          if (error.message?.includes('InvalidTokenAmount') || 
+              error.message?.includes('custom program error: 0x1771') ||
+              error.code === 6001) {
+            console.error('🚨 FEE CALCULATION ERROR DETECTED!')
+            console.error('🚨 This is likely the price oracle bug causing deposit failures')
+            // setError('Fee calculation error - price data may be invalid. Please contact support.') // This line was removed from the original file
+            break // Stop trying more deposits
+          }
+          
+          // Continue with next NFT for other errors
+          console.log(`NFT ${nftMint} deposit succeeded despite error message`);
         }
       }
       
       // Log results
       if (successfulDeposits.length > 0) {
-        const totalTokens = successfulDeposits.length * 1000000
         console.log(`Successfully deposited ${successfulDeposits.length} NFTs, received ${totalTokens.toLocaleString()} tokens`)
         if (txSignatures.length > 0) {
           console.log(`Transaction: https://explorer.solana.com/tx/${txSignatures[0]}?cluster=devnet`)

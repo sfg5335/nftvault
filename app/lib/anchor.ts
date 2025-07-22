@@ -147,7 +147,7 @@ export class AnchorClient {
 
   async depositNFT(vaultId: string, nftMint: PublicKey): Promise<string> {
     try {
-      console.log('Starting deposit NFT process...');
+      console.log('🔍 Starting deposit with automatic price discovery...');
       console.log('Vault ID:', vaultId);
       console.log('NFT Mint:', nftMint.toString());
 
@@ -171,7 +171,7 @@ export class AnchorClient {
         throw new Error(`This vault only supports NFTs created with the standard SPL Token program. Your NFT uses a different token program: ${mintOwner}`);
       }
 
-      console.log('NFT verification passed - uses standard token program');
+      console.log('✅ NFT verification passed - uses standard token program');
 
       const [vaultStatePDA] = PublicKey.findProgramAddressSync(
         [Buffer.from("vault"), new PublicKey(vaultId).toBuffer()],
@@ -182,8 +182,39 @@ export class AnchorClient {
       const vaultState = await this.program.account.vaultState.fetch(vaultStatePDA);
       console.log('Vault state:', vaultState);
 
-      // Get fractional mint from vault state (no longer derived from PDA)
+      // Get fractional mint from vault state
       const fractionalMint = vaultState.fractionalMint;
+
+      // 🚀 NEW: Automatic Price Discovery
+      console.log('🔍 Fetching fresh price from LP pools...');
+      let priceNumerator = 0;
+      let priceDenominator = 1;
+      
+      try {
+        // Import price oracle dynamically to avoid circular dependencies
+        const { PriceOracle } = await import('./priceOracle');
+        const priceOracle = new PriceOracle(this.provider.connection);
+        
+        // Try to get fresh price from SOL pools first
+        let priceData = await priceOracle.getSTokenPriceInSOL(fractionalMint);
+        
+        if (!priceData) {
+          // Fallback to USDC pools
+          console.log('🔍 SOL pool not found, trying USDC pools...');
+          priceData = await priceOracle.getSTokenPriceInUSDC(fractionalMint);
+        }
+        
+        if (priceData) {
+          priceNumerator = priceData.priceNumerator.toNumber();
+          priceDenominator = priceData.priceDenominator.toNumber();
+          console.log('✅ Fresh price discovered:', priceData.price, 'SOL/token');
+          console.log('✅ Price ratio:', priceNumerator, '/', priceDenominator);
+        } else {
+          console.log('⚠️ No LP pools found, will use flat fee fallback');
+        }
+      } catch (priceError) {
+        console.warn('⚠️ Price discovery failed, will use flat fee fallback:', priceError.message);
+      }
 
       // Get associated token accounts (all use standard TOKEN_PROGRAM_ID)
       const userNftAccount = await getAssociatedTokenAddress(
@@ -208,17 +239,10 @@ export class AnchorClient {
       );
 
       const protocolTreasuryAddress = new PublicKey("2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt");
-      const protocolTreasuryAccount = await getAssociatedTokenAddress(
-        fractionalMint,
-        protocolTreasuryAddress,
-        false,
-        TOKEN_PROGRAM_ID
-      );
 
       console.log('User NFT Account:', userNftAccount.toString());
       console.log('Vault NFT Account:', vaultNftAccount.toString());
       console.log('User Fractional Account:', userFractionalAccount.toString());
-      console.log('Protocol Treasury Account:', protocolTreasuryAccount.toString());
 
       // Check if user actually owns the NFT in the correct account
       const userNftAccountInfo = await this.provider.connection.getAccountInfo(userNftAccount);
@@ -232,7 +256,7 @@ export class AnchorClient {
         if (userNftAccountData.amount === BigInt(0)) {
           throw new Error(`You don't own this NFT in your wallet.`);
         }
-        console.log('User NFT balance:', userNftAccountData.amount.toString());
+        console.log('✅ User NFT balance confirmed:', userNftAccountData.amount.toString());
       } catch (e) {
         console.error('Error checking NFT balance:', e);
         throw new Error(`Unable to verify NFT ownership. Make sure this is a standard SPL token NFT, not a Token-2022 NFT.`);
@@ -248,50 +272,47 @@ export class AnchorClient {
         const createVaultAtaIx = createAssociatedTokenAccountInstruction(
           this.provider.wallet.publicKey, // payer
           vaultNftAccount, // ata
-          vaultStatePDA, // owner
+          vaultStatePDA, // owner (PDA)
           nftMint, // mint
-          TOKEN_PROGRAM_ID,
-          ASSOCIATED_TOKEN_PROGRAM_ID
+          TOKEN_PROGRAM_ID
         );
         transaction.add(createVaultAtaIx);
       }
 
-      // Check if protocol treasury fractional token account exists, create if needed
-      const treasuryAccountInfo = await this.provider.connection.getAccountInfo(protocolTreasuryAccount);
-      if (!treasuryAccountInfo) {
-        console.log('Creating protocol treasury token account...');
-        const createTreasuryAtaIx = createAssociatedTokenAccountInstruction(
+      // Check if user's fractional token account exists, create if needed
+      const userFractionalAccountInfo = await this.provider.connection.getAccountInfo(userFractionalAccount);
+      if (!userFractionalAccountInfo) {
+        console.log('Creating user fractional token account...');
+        const createUserAtaIx = createAssociatedTokenAccountInstruction(
           this.provider.wallet.publicKey, // payer
-          protocolTreasuryAccount, // ata
-          protocolTreasuryAddress, // owner
+          userFractionalAccount, // ata
+          this.provider.wallet.publicKey, // owner
           fractionalMint, // mint
-          TOKEN_PROGRAM_ID,
-          ASSOCIATED_TOKEN_PROGRAM_ID
+          TOKEN_PROGRAM_ID
         );
-        transaction.add(createTreasuryAtaIx);
+        transaction.add(createUserAtaIx);
       }
 
-      // Check if user's fractional token account exists
-      const userFractionalAccountInfo = await this.provider.connection.getAccountInfo(userFractionalAccount);
-      const userHasFractionalAccount = userFractionalAccountInfo !== null;
-
-      // Derive metadata PDA for the NFT using the OFFICIAL Metaplex program ID
-      // This MUST match the program ID used in our smart contract's borsh implementation
-      const METADATA_PROGRAM_ID = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
-      const [nftMetadata] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from('metadata'),
-          METADATA_PROGRAM_ID.toBuffer(),
-          nftMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
+      // Get metadata PDA for NFT
+      const metadataPDA = new PublicKey(
+        PublicKey.findProgramAddressSync(
+          [
+            Buffer.from('metadata'),
+            new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
+            nftMint.toBuffer(),
+          ],
+          new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+        )[0]
       );
 
-      console.log('NFT Metadata PDA:', nftMetadata.toString());
+      console.log('🚀 Using new deposit_nft_with_price instruction with automatic price discovery');
 
-      // Add deposit NFT instruction
-      const depositIx = await this.program.methods
-        .depositNft()
+      // Use new deposit instruction with automatic price discovery
+      const depositInstruction = await this.program.methods
+        .depositNftWithPrice(
+          new anchor.BN(priceNumerator),
+          new anchor.BN(priceDenominator)
+        )
         .accounts({
           user: this.provider.wallet.publicKey,
           vaultState: vaultStatePDA,
@@ -299,18 +320,32 @@ export class AnchorClient {
           vaultNftAccount: vaultNftAccount,
           protocolTreasury: protocolTreasuryAddress,
           nftMint: nftMint,
-          nftMetadata: nftMetadata,
+          nftMetadata: metadataPDA,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
         .instruction();
-      transaction.add(depositIx);
 
-      // Add mint fractional instruction
-      // If user already has account, we can't use the normal mint_fractional
-      if (!userHasFractionalAccount) {
-        // User doesn't have account yet, use normal mint_fractional
-        const mintIx = await this.program.methods
+      transaction.add(depositInstruction);
+
+      // Determine which mint instruction to use based on whether user has fractional account
+      let mintInstruction;
+      if (userFractionalAccountInfo) {
+        // Use existing account variant
+        mintInstruction = await this.program.methods
+          .mintFractionalExisting()
+          .accounts({
+            user: this.provider.wallet.publicKey,
+            vaultState: vaultStatePDA,
+            fractionalMint: fractionalMint,
+            userFractionalAccount: userFractionalAccount,
+            protocolTreasury: protocolTreasuryAddress,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .instruction();
+      } else {
+        // Use create new account variant
+        mintInstruction = await this.program.methods
           .mintFractional()
           .accounts({
             user: this.provider.wallet.publicKey,
@@ -319,51 +354,24 @@ export class AnchorClient {
             userFractionalAccount: userFractionalAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            systemProgram: anchor.web3.SystemProgram.programId,
+            systemProgram: SystemProgram.programId,
           })
           .instruction();
-        transaction.add(mintIx);
-      } else {
-        // User already has account - use mint_fractional_existing
-        console.log('User already has fractional token account, using mintFractionalExisting');
-        const mintExistingIx = await this.program.methods
-          .mintFractionalExisting()
-          .accounts({
-            user: this.provider.wallet.publicKey,
-            vaultState: vaultStatePDA,
-            fractionalMint: fractionalMint,
-            userFractionalAccount: userFractionalAccount,
-            protocolTreasury: protocolTreasuryAccount,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .instruction();
-        transaction.add(mintExistingIx);
       }
 
+      transaction.add(mintInstruction);
+
       // Send transaction
-      const txSignature = await this.provider.sendAndConfirm(transaction);
-      console.log('Deposit and mint transaction successful:', txSignature);
-      
+      const txSignature = await this.provider.sendAndConfirm(transaction, [], {
+        skipPreflight: false,
+        commitment: 'confirmed'
+      });
+
+      console.log('✅ Deposit and mint transaction successful with automatic price discovery:', txSignature);
       return txSignature;
+
     } catch (error) {
-      console.error("NFT deposit failed:", error);
-      
-      // Check if this is actually a success that's being reported as an error
-      if (error instanceof Error) {
-        // If the transaction was already processed, it actually succeeded
-        if (error.message.includes('This transaction has already been processed') || 
-            error.message.includes('Transaction simulation failed: This transaction has already been processed')) {
-          console.log('Transaction was already processed - treating as success');
-          // Try to extract the signature from the error message if possible
-          const match = error.message.match(/[1-9A-HJ-NP-Za-km-z]{87,88}/);
-          if (match) {
-            return match[0];
-          }
-          // Return a placeholder if we can't extract the signature
-          return 'transaction-already-processed';
-        }
-      }
-      
+      console.error('❌ Deposit failed:', error);
       throw error;
     }
   }
@@ -614,70 +622,13 @@ export class AnchorClient {
     }
   }
 
-  // Get connection for external use
-  public getConnection(): Connection {
-    return this.provider.connection;
-  }
-
   // Get program for external use
   public getProgram(): anchor.Program {
     return this.program;
   }
 
-  // Update price oracle for dynamic fee calculation
-  async updatePriceOracle(
-    collectionMint: PublicKey,
-    priceNumerator: number,
-    priceDenominator: number
-  ): Promise<string> {
-    try {
-      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
-      
-      const tx = await this.program.methods
-        .updatePriceOracle(
-          new anchor.BN(priceNumerator),
-          new anchor.BN(priceDenominator)
-        )
-        .accounts({
-          authority: this.provider.wallet.publicKey,
-          vaultState: vaultStatePDA,
-        })
-        .rpc();
-
-      console.log("Price oracle updated:", tx);
-      return tx;
-    } catch (error) {
-      console.error("Error updating price oracle:", error);
-      throw error;
-    }
+  // Get connection for external use
+  public getConnection(): Connection {
+    return this.provider.connection;
   }
-
-  // Update fee parameters
-  async updateFeeParameters(
-    collectionMint: PublicKey,
-    depositFeeBps: number,
-    redeemFeeBps: number
-  ): Promise<string> {
-    try {
-      const [vaultStatePDA] = this.getVaultStatePDA(collectionMint);
-      
-      const tx = await this.program.methods
-        .updateFeeParameters(
-          depositFeeBps,
-          redeemFeeBps
-        )
-        .accounts({
-          authority: this.provider.wallet.publicKey,
-          vaultState: vaultStatePDA,
-        })
-        .rpc();
-
-      console.log("Fee parameters updated:", tx);
-      return tx;
-    } catch (error) {
-      console.error("Error updating fee parameters:", error);
-      throw error;
-    }
-  }
-
 } 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { ClientOnly } from './ClientOnly'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchor } from '../hooks/useAnchor'
 import { PoolStorage } from '../lib/poolStorage'
@@ -122,6 +123,14 @@ function PoolCard({ pool }: { pool: Pool }) {
 }
 
 function PoolGrid() {
+  return (
+    <ClientOnly>
+      <PoolGridInner />
+    </ClientOnly>
+  )
+}
+
+function PoolGridInner() {
   const { client, loading } = useAnchor()
   const [pools, setPools] = useState<Pool[]>([])
   const [isLoading, setIsLoading] = useState(true)

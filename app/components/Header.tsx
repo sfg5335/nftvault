@@ -1,6 +1,7 @@
 'use client'
 
 import { WalletMultiButton } from './WalletProvider'
+import { ClientOnly } from './ClientOnly'
 import Link from 'next/link'
 
 export function Header() {
@@ -41,7 +42,9 @@ export function Header() {
 
             
             <div className="relative z-[999999]">
+              <ClientOnly>
               <WalletMultiButton className="!bg-blue-600 hover:!bg-blue-700 !text-white !rounded-lg !text-sm sm:!text-base !px-3 sm:!px-4 !py-2 !transition-all !duration-200" />
+            </ClientOnly>
             </div>
           </div>
         </div>

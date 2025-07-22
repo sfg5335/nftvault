@@ -1,19 +1,23 @@
 const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-eval' 'unsafe-inline';
+    script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.solana.com https://*.phantom.app https://*.solflare.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' blob: data:;
+    img-src 'self' blob: data: https://*.amazonaws.com https://*.ipfs.io https://*.arweave.net https://*.nftstorage.link;
     font-src 'self' https://fonts.gstatic.com;
+    connect-src 'self' https://*.solana.com https://*.helius-rpc.com https://*.phantom.app https://*.solflare.com wss://*.solana.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    block-all-mixed-content;
-    upgrade-insecure-requests;
+    frame-src https://*.phantom.app https://*.solflare.com;
 `
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Fix Server Actions issues
+    experimental: {
+        serverComponentsExternalPackages: ['pg'],
+    },
     async headers() {
         return [
             {
@@ -27,16 +31,44 @@ const nextConfig = {
             },
         ]
     },
-    webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-    };
-    config.externals.push('pino-pretty', 'lokijs', 'encoding')
-    return config
-  },
-  // Disable source maps in development to avoid URL parameter issues
-  productionBrowserSourceMaps: false,
+    webpack: (config, { isServer }) => {
+        // Better webpack configuration for Solana dependencies
+        if (!isServer) {
+            config.resolve.fallback = {
+                ...config.resolve.fallback,
+                fs: false,
+                net: false,
+                tls: false,
+                crypto: require.resolve('crypto-browserify'),
+                stream: require.resolve('stream-browserify'),
+                buffer: require.resolve('buffer'),
+            };
+            
+            // Add buffer polyfill for client-side only
+            try {
+                const webpack = require('webpack');
+                config.plugins.push(
+                    new webpack.ProvidePlugin({
+                        Buffer: ['buffer', 'Buffer'],
+                        process: 'process/browser',
+                    })
+                );
+            } catch (err) {
+                console.warn('Webpack ProvidePlugin could not be loaded:', err.message);
+            }
+        }
+        
+        // Only push externals for server builds
+        if (isServer) {
+            config.externals.push('pino-pretty', 'lokijs', 'encoding');
+        }
+        
+        return config;
+    },
+    // Disable source maps in development to avoid URL parameter issues
+    productionBrowserSourceMaps: false,
+    // Suppress hydration warnings for wallet components
+    reactStrictMode: false,
 }
 
 module.exports = nextConfig 

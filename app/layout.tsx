@@ -4,6 +4,7 @@ import './globals.css'
 import '@solana/wallet-adapter-react-ui/styles.css'
 import { WalletProvider } from './components/WalletProvider'
 import { CacheMonitorToggle } from './components/CacheMonitor'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,10 +21,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className} suppressHydrationWarning={true}>
-        <WalletProvider>
-          {children}
-          <CacheMonitorToggle />
-        </WalletProvider>
+        <ErrorBoundary>
+          <WalletProvider>
+            {children}
+            <CacheMonitorToggle />
+          </WalletProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

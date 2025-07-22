@@ -2,8 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { useAnchor } from '../hooks/useAnchor'
+import { ClientOnly } from './ClientOnly'
 
 export function StatsBar() {
+  return (
+    <ClientOnly>
+      <StatsBarInner />
+    </ClientOnly>
+  )
+}
+
+function StatsBarInner() {
   const { client } = useAnchor()
   const [stats, setStats] = useState({
     activePools: 0,

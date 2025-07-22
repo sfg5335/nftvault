@@ -125,14 +125,67 @@ export function useAnchor() {
     setError(null)
     
     try {
+      console.log('🔍 DEBUG: Starting deposit with enhanced error handling...')
+      console.log('🔍 DEBUG: Collection mint:', collectionMint.toString())
+      console.log('🔍 DEBUG: NFT mint:', nftMint.toString())
+      
+      // 🔍 DEBUG: Check vault state before deposit
+      try {
+        const vaultState = await client.getVaultState(collectionMint)
+        if (vaultState) {
+          console.log('🔍 DEBUG: Current vault state:')
+          console.log('🔍 DEBUG: - Price numerator:', vaultState.tokenPriceNumerator)
+          console.log('🔍 DEBUG: - Price denominator:', vaultState.tokenPriceDenominator)
+          console.log('🔍 DEBUG: - Last price update:', vaultState.lastPriceUpdate)
+          console.log('🔍 DEBUG: - Total deposits:', vaultState.totalDeposits)
+          
+          // Check for potentially problematic price data
+          if (vaultState.tokenPriceNumerator > 1000000000000 || vaultState.tokenPriceDenominator === 0) {
+            console.warn('⚠️ WARNING: Suspicious price data detected!')
+            console.warn('⚠️ Numerator:', vaultState.tokenPriceNumerator)
+            console.warn('⚠️ Denominator:', vaultState.tokenPriceDenominator)
+          }
+        }
+      } catch (stateError) {
+        console.error('❌ Failed to fetch vault state:', stateError)
+      }
+      
       // Use collectionMint as vaultId since they're the same in this implementation
       const tx = await client.depositNFT(collectionMint.toString(), nftMint)
-      console.log('NFT deposited:', tx)
+      console.log('✅ NFT deposited successfully:', tx)
       await fetchVaultState(collectionMint)
       return tx
-    } catch (err) {
-      console.error('Error depositing NFT:', err)
-      setError('Failed to deposit NFT')
+    } catch (err: any) {
+      console.error('❌ DEPOSIT ERROR DETAILS:')
+      console.error('❌ Error type:', err.constructor?.name)
+      console.error('❌ Error message:', err.message)
+      console.error('❌ Error code:', err.code)
+      console.error('❌ Error stack:', err.stack)
+      
+      // Check for Anchor program errors
+      if (err.programErrorStack) {
+        console.error('❌ Program error stack:', err.programErrorStack)
+      }
+      
+      if (err.logs && err.logs.length > 0) {
+        console.error('❌ Transaction logs:')
+        err.logs.forEach((log: string, index: number) => {
+          console.error(`❌ Log ${index}: ${log}`)
+        })
+      }
+      
+      // Enhanced error messages for specific issues
+      let userFriendlyError = err.message || 'Failed to deposit NFT'
+      
+      if (err.message?.includes('InvalidTokenAmount') || err.code === 6001) {
+        userFriendlyError = 'Fee calculation error - the vault price data may be corrupted. Please contact the vault creator to update the price oracle.'
+      } else if (err.message?.includes('insufficient funds')) {
+        userFriendlyError = 'Insufficient SOL balance to pay deposit fee'
+      } else if (err.message?.includes('WrongCollection')) {
+        userFriendlyError = 'This NFT does not belong to the correct collection for this vault'
+      }
+      
+      setError(userFriendlyError)
       throw err
     } finally {
       setLoading(false)

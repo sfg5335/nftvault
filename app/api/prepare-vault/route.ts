@@ -3,7 +3,7 @@ import { Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction, 
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import idl from '../../idl/fractional_vault.json';
-import { FractionalVault } from '../../../target/types/fractional_vault';
+// import { FractionalVault } from '../../../target/types/fractional_vault';
 import { getDatabaseKeypairManager } from '../../lib/databaseKeypairManager';
 import { isWhitelisted } from '../../lib/whitelist';
 import path from 'path';

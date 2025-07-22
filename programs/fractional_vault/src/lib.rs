@@ -67,7 +67,7 @@ pub struct MetadataAccount {
     pub uses: Option<Uses>,
 }
 
-declare_id!("94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c");
+declare_id!("GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY");
 
 /// Helper function to derive metadata PDA
 pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {

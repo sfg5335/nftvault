@@ -223,15 +223,9 @@ export class PriceOracle {
         }
       }
 
-      // If no Raydium pool found, you could also check Orca here
-      // For now, return a default price
-      console.warn('No liquidity pool found for sToken, using default price')
-      return {
-        price: 0.001, // Default to $0.001 per token
-        priceNumerator: new BN(1),
-        priceDenominator: new BN(1000),
-        lastUpdate: Date.now(),
-      }
+      // If no Raydium pool found, return null for flat fee fallback
+      console.log('No liquidity pool found for sToken, will use flat fee fallback')
+      return null
     } catch (error) {
       console.error('Error getting sToken price:', error)
       return null
@@ -313,14 +307,9 @@ export class PriceOracle {
         }
       }
 
-      // If no SOL pool found, return a default price
-      console.warn('No SOL liquidity pool found for sToken, using default price')
-      return {
-        price: 0.00001, // Default to 0.00001 SOL per token
-        priceNumerator: new BN(1),
-        priceDenominator: new BN(100000),
-        lastUpdate: Date.now(),
-      }
+      // If no SOL pool found, return null for flat fee fallback
+      console.log('No SOL liquidity pool found for sToken, will use flat fee fallback')
+      return null
     } catch (error) {
       console.error('Error getting sToken price in SOL:', error)
       return null

@@ -1,6 +1,6 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
-import { FractionalVault } from "../target/types/fractional_vault";
+// import { FractionalVault } from "../target/types/fractional_vault";
 import { PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL, Connection } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, Token, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { assert } from "chai";
@@ -21,7 +21,7 @@ describe("fractional_vault", () => {
   );
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.FractionalVault as Program<FractionalVault>;
+      const program = anchor.workspace.FractionalVault as Program<any>;
   
   // Test accounts
   let collectionMint: Token;

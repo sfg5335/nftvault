@@ -3,7 +3,7 @@ import { Connection, PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } fro
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import * as anchor from '@coral-xyz/anchor';
 import { Program } from '@coral-xyz/anchor';
-import { FractionalVault } from '../../../target/types/fractional_vault';
+// import { FractionalVault } from '../../../target/types/fractional_vault';
 import { getDatabaseKeypairManager } from '../../lib/databaseKeypairManager';
 import path from 'path';
 import fs from 'fs';
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     const idlPath = path.join(process.cwd(), 'app', 'idl', 'fractional_vault.json');
     const IDL = JSON.parse(fs.readFileSync(idlPath, 'utf-8'));
     
-    const program = new Program(IDL, programId, provider) as Program<FractionalVault>;
+    const program = new Program(IDL, programId, provider) as Program<any>;
 
     // Calculate vault state PDA - must match Rust program seeds: [b"vault", collection_mint]
     const [vaultStatePDA] = PublicKey.findProgramAddressSync(

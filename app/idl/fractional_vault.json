@@ -107,6 +107,66 @@
       "args": []
     },
     {
+      "name": "depositNftWithPrice",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "vaultState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "nftMetadata",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "suggestedPriceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "suggestedPriceDenominator",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "mintFractional",
       "accounts": [
         {

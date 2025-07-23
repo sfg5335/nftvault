@@ -251,6 +251,97 @@ export class LPPoolService {
     };
   }
 
+  // Get vault LP mapping by fractional mint
+  async getVaultLPMappingByFractionalMint(fractionalMint: string): Promise<VaultLPMapping | null> {
+    const query = `
+      SELECT * FROM vault_lp_mappings 
+      WHERE fractional_mint = $1 AND status = 'active'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    
+    const result = await this.pool.query(query, [fractionalMint]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      vault_address: row.vault_address,
+      collection_mint: row.collection_mint,
+      fractional_mint: row.fractional_mint,
+      primary_lp_pool_id: row.primary_lp_pool_id,
+      fallback_lp_pool_id: row.fallback_lp_pool_id,
+      min_liquidity_threshold: row.min_liquidity_threshold,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  }
+
+  // Get LP pool by ID
+  async getLPPoolById(poolId: number): Promise<LPPool | null> {
+    const query = `SELECT * FROM lp_pools WHERE id = $1`;
+    
+    const result = await this.pool.query(query, [poolId]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      pool_address: row.pool_address,
+      dex_type: row.dex_type,
+      token_a_mint: row.token_a_mint,
+      token_b_mint: row.token_b_mint,
+      token_a_vault: row.token_a_vault,
+      token_b_vault: row.token_b_vault,
+      token_a_decimals: row.token_a_decimals,
+      token_b_decimals: row.token_b_decimals,
+      pool_authority: row.pool_authority,
+      lp_mint: row.lp_mint,
+      status: row.status,
+      verified: row.verified,
+      last_verified_at: row.last_verified_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  }
+
+  // Get LP pool metrics for a specific pool and vault
+  async getLPPoolMetrics(poolId: number, vaultAddress: string): Promise<LPPoolMetrics | null> {
+    const query = `
+      SELECT * FROM lp_pool_metrics 
+      WHERE lp_pool_id = $1 AND vault_address = $2
+    `;
+    
+    const result = await this.pool.query(query, [poolId, vaultAddress]);
+    
+    if (result.rows.length === 0) {
+      return null;
+    }
+    
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      lp_pool_id: row.lp_pool_id,
+      vault_address: row.vault_address,
+      price_fetch_attempts: row.price_fetch_attempts,
+      price_fetch_successes: row.price_fetch_successes,
+      last_successful_fetch: row.last_successful_fetch,
+      last_failed_fetch: row.last_failed_fetch,
+      average_response_time_ms: row.average_response_time_ms,
+      liquidity_checks: row.liquidity_checks,
+      liquidity_failures: row.liquidity_failures,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  }
+
   // Record metrics for LP pool usage
   async recordLPPoolMetrics(
     poolId: number, 

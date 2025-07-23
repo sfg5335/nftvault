@@ -6,7 +6,7 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddres
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY");
+const PROGRAM_ID = new PublicKey("5e8d49musMcrxzp2LZbEiVQQh2DyT8ZAe2RtBSAr3Z7v");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -185,36 +185,78 @@ export class AnchorClient {
       // Get fractional mint from vault state
       const fractionalMint = vaultState.fractionalMint;
 
-      // 🚀 NEW: Automatic Price Discovery
-      console.log('🔍 Fetching fresh price from LP pools...');
-      let priceNumerator = 0;
-      let priceDenominator = 1;
+      // 🚀 NEW: Database-driven LP Pool Discovery
+      console.log('🔍 Step 4: Starting automatic price discovery...');
+      let lpTokenAVault: PublicKey | null = null;
+      let lpSolVault: PublicKey | null = null;
       
       try {
-        // Import price oracle dynamically to avoid circular dependencies
-        const { PriceOracle } = await import('./priceOracle');
-        const priceOracle = new PriceOracle(this.provider.connection);
+        // Get LP pool information from database
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/lp-pool/token/${fractionalMint.toString()}`);
         
-        // Try to get fresh price from SOL pools first
-        let priceData = await priceOracle.getSTokenPriceInSOL(fractionalMint);
-        
-        if (!priceData) {
-          // Fallback to USDC pools
-          console.log('🔍 SOL pool not found, trying USDC pools...');
-          priceData = await priceOracle.getSTokenPriceInUSDC(fractionalMint);
-        }
-        
-        if (priceData) {
-          priceNumerator = priceData.priceNumerator.toNumber();
-          priceDenominator = priceData.priceDenominator.toNumber();
-          console.log('✅ Fresh price discovered:', priceData.price, 'SOL/token');
-          console.log('✅ Price ratio:', priceNumerator, '/', priceDenominator);
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log('No SOL liquidity pool found for sToken, will use flat fee fallback');
+          } else {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+          }
         } else {
-          console.log('⚠️ No LP pools found, will use flat fee fallback');
+          const lpPoolData = await response.json();
+          
+          if (lpPoolData.success && lpPoolData.primary_pool) {
+            const pool = lpPoolData.primary_pool;
+            
+            // Determine which vault is which based on token mints
+            const solMint = new PublicKey('So11111111111111111111111111111111111111112'); // Native SOL mint
+            
+            if (pool.token_a_mint === fractionalMint.toString()) {
+              // Token A is sToken, Token B should be SOL
+              lpTokenAVault = new PublicKey(pool.token_a_vault);
+              lpSolVault = new PublicKey(pool.token_b_vault);
+            } else if (pool.token_b_mint === fractionalMint.toString()) {
+              // Token B is sToken, Token A should be SOL  
+              lpTokenAVault = new PublicKey(pool.token_b_vault);
+              lpSolVault = new PublicKey(pool.token_a_vault);
+            } else {
+              console.log('🔍 SOL pool not found, trying USDC pools...');
+              // Try fallback pool if available
+              if (lpPoolData.fallback_pool) {
+                const fallbackPool = lpPoolData.fallback_pool;
+                if (fallbackPool.token_a_mint === fractionalMint.toString()) {
+                  lpTokenAVault = new PublicKey(fallbackPool.token_a_vault);
+                  lpSolVault = new PublicKey(fallbackPool.token_b_vault);
+                } else if (fallbackPool.token_b_mint === fractionalMint.toString()) {
+                  lpTokenAVault = new PublicKey(fallbackPool.token_b_vault);
+                  lpSolVault = new PublicKey(fallbackPool.token_a_vault);
+                }
+              }
+            }
+            
+            if (lpTokenAVault && lpSolVault) {
+              console.log('✅ LP Pool found in database:');
+              console.log('   Pool Address:', pool.pool_address);
+              console.log('   DEX Type:', pool.dex_type);
+              console.log('   sToken Vault:', lpTokenAVault.toString());
+              console.log('   SOL Vault:', lpSolVault.toString());
+              console.log('   Verified:', pool.verified);
+            }
+          }
         }
-      } catch (priceError) {
-        console.warn('⚠️ Price discovery failed, will use flat fee fallback:', priceError.message);
+      } catch (error) {
+        console.warn('⚠️ Database LP pool lookup failed:', error.message);
       }
+
+      // Fallback to dummy accounts if no LP pool found
+      if (!lpTokenAVault || !lpSolVault) {
+        console.log('No liquidity pool found for sToken, will use flat fee fallback');
+        // Use dummy accounts - program will detect insufficient liquidity and use fallback pricing
+        lpTokenAVault = new PublicKey('11111111111111111111111111111111'); 
+        lpSolVault = new PublicKey('11111111111111111111111111111111');
+      }
+
+      console.log('✅ Step 4 complete: Price discovery finished');
+      console.log('🔍 Final price numerator: 0'); // Will be calculated on-chain
+      console.log('🔍 Final price denominator: 1'); // Will be calculated on-chain
 
       // Get associated token accounts (all use standard TOKEN_PROGRAM_ID)
       const userNftAccount = await getAssociatedTokenAddress(
@@ -305,14 +347,36 @@ export class AnchorClient {
         )[0]
       );
 
+      // Get collection metadata PDA
+      const collectionMetadataPDA = new PublicKey(
+        PublicKey.findProgramAddressSync(
+          [
+            Buffer.from('metadata'),
+            new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
+            vaultState.collectionMint.toBuffer(),
+          ],
+          new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+        )[0]
+      );
+
+      // Get collection master edition PDA
+      const collectionMasterEditionPDA = new PublicKey(
+        PublicKey.findProgramAddressSync(
+          [
+            Buffer.from('metadata'),
+            new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
+            vaultState.collectionMint.toBuffer(),
+            Buffer.from('edition'),
+          ],
+          new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+        )[0]
+      );
+
       console.log('🚀 Using new deposit_nft_with_price instruction with automatic price discovery');
 
       // Use new deposit instruction with automatic price discovery
       const depositInstruction = await this.program.methods
-        .depositNftWithPrice(
-          new anchor.BN(priceNumerator),
-          new anchor.BN(priceDenominator)
-        )
+        .depositNftWithPrice()
         .accounts({
           user: this.provider.wallet.publicKey,
           vaultState: vaultStatePDA,
@@ -321,7 +385,15 @@ export class AnchorClient {
           protocolTreasury: protocolTreasuryAddress,
           nftMint: nftMint,
           nftMetadata: metadataPDA,
+          collectionAuthority: this.provider.wallet.publicKey, // User acts as collection authority
+          collectionMetadata: collectionMetadataPDA,
+          collectionMasterEdition: collectionMasterEditionPDA,
+          fractionalMint: fractionalMint,
+          userFractionalAccount: userFractionalAccount,
+          lpTokenAVault: lpTokenAVault!, // Pass LP pool addresses
+          lpSolVault: lpSolVault!,
           tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
         .instruction();
@@ -331,9 +403,9 @@ export class AnchorClient {
       // Determine which mint instruction to use based on whether user has fractional account
       let mintInstruction;
       if (userFractionalAccountInfo) {
-        // Use existing account variant
+        // Use existing account variant - but we only have mintFractionalMultiple now
         mintInstruction = await this.program.methods
-          .mintFractionalExisting()
+          .mintFractionalMultiple(1) // Pass num_nfts parameter
           .accounts({
             user: this.provider.wallet.publicKey,
             vaultState: vaultStatePDA,
@@ -344,9 +416,9 @@ export class AnchorClient {
           })
           .instruction();
       } else {
-        // Use create new account variant
+        // Use create new account variant - but we only have mintFractionalMultiple now
         mintInstruction = await this.program.methods
-          .mintFractional()
+          .mintFractionalMultiple(1) // Pass num_nfts parameter
           .accounts({
             user: this.provider.wallet.publicKey,
             vaultState: vaultStatePDA,

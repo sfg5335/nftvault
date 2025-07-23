@@ -134,6 +134,22 @@
           "isSigner": false
         },
         {
+          "name": "lpTokenAVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool token A vault (typically sToken vault)"
+          ]
+        },
+        {
+          "name": "lpSolVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool SOL vault (token B is always SOL)"
+          ]
+        },
+        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -154,9 +170,9 @@
     {
       "name": "depositNftWithPrice",
       "docs": [
-        "Deposit function with price-based fee calculation",
-        "The frontend fetches fresh prices from LP pools and passes them here",
-        "The smart contract validates the price and calculates fees safely"
+        "Deposit function with on-chain LP pool price discovery",
+        "Prices are calculated directly from sToken/SOL LP pool balances on-chain",
+        "No external price data needed - fully trustless pricing"
       ],
       "accounts": [
         {
@@ -232,6 +248,22 @@
           "isSigner": false
         },
         {
+          "name": "lpTokenAVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool token A vault (typically sToken vault)"
+          ]
+        },
+        {
+          "name": "lpSolVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool SOL vault (token B is always SOL)"
+          ]
+        },
+        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -247,16 +279,7 @@
           "isSigner": false
         }
       ],
-      "args": [
-        {
-          "name": "priceNumerator",
-          "type": "u64"
-        },
-        {
-          "name": "priceDenominator",
-          "type": "u64"
-        }
-      ]
+      "args": []
     },
     {
       "name": "redeemSpecificNft",
@@ -461,6 +484,11 @@
     },
     {
       "code": 6009,
+      "name": "InsufficientLiquidity",
+      "msg": "Insufficient liquidity in LP pool"
+    },
+    {
+      "code": 6010,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }

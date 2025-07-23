@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::clock::Clock;
 use anchor_spl::token::{Mint, Token, TokenAccount, Transfer, SetAuthority};
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::spl_token::instruction::AuthorityType;
-use borsh::{BorshDeserialize, BorshSerialize};
 
 // Metaplex Token Metadata Program ID - this is the official program ID and never changes
 pub const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
@@ -11,9 +9,9 @@ pub const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
     90, 158, 223, 79, 251, 189, 69, 77, 167, 86, 131, 109, 132, 117, 156, 79
 ]);
 
-// Minimal metadata structure for safe data extraction (no security-critical fields)
+// Minimal metadata structure for manual data population (no borsh parsing)
 // Only includes basic fields that rarely change and are needed for UI/functionality
-#[derive(BorshDeserialize, BorshSerialize, Clone)]
+#[derive(Clone)]
 pub struct MinimalMetadata {
     pub key: u8,  // Discriminator: 4 for MetadataV1
     pub update_authority: Pubkey,
@@ -23,7 +21,7 @@ pub struct MinimalMetadata {
 }
 
 // Basic data structure with only essential fields
-#[derive(BorshDeserialize, BorshSerialize, Clone)]
+#[derive(Clone)]
 pub struct BasicMetadataData {
     pub name: String,
     pub symbol: String,
@@ -32,7 +30,7 @@ pub struct BasicMetadataData {
     // Skip creators field for simplicity
 }
 
-declare_id!("94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c");
+declare_id!("5e8d49musMcrxzp2LZbEiVQQh2DyT8ZAe2RtBSAr3Z7v");
 
 /// Helper function to derive metadata PDA
 pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
@@ -45,15 +43,15 @@ pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
     pda
 }
 
-/// Hybrid collection verification using CPI for security + minimal parsing for data
-/// This combines official Metaplex verification with safe data extraction
+/// Collection verification using CPI for security
+/// Metadata extraction will be handled elsewhere (frontend, backend, etc.)
 pub fn verify_collection_hybrid<'info>(
     ctx: &Context<'_, '_, '_, 'info, DepositNft<'info>>,
     nft_mint: &Pubkey,
     expected_collection: &Pubkey,
-) -> Result<(String, String, String)> {  // Returns (name, symbol, uri)
+) -> Result<()> {
     
-    // PART 1: SECURITY - Use official Metaplex CPI for collection verification
+    // SECURITY - Use official Metaplex CPI for collection verification
     verify_collection_via_cpi(
         &ctx.accounts.nft_metadata,
         &ctx.accounts.collection_authority,
@@ -64,18 +62,8 @@ pub fn verify_collection_hybrid<'info>(
         &ctx.accounts.collection_master_edition,
     )?;
     
-    // PART 2: DATA EXTRACTION - Manual parse only basic, safe fields
-    let basic_metadata = parse_basic_metadata_safely(&ctx.accounts.nft_metadata)?;
-    
-    // Additional safety checks
-    require_keys_eq!(basic_metadata.mint, *nft_mint, VaultError::InvalidMetadata);
-    require!(basic_metadata.key == 4, VaultError::InvalidMetadata); // MetadataV1
-    
-    Ok((
-        basic_metadata.data.name,
-        basic_metadata.data.symbol,
-        basic_metadata.data.uri,
-    ))
+    msg!("✅ Collection verification successful");
+    Ok(())
 }
 
 /// Manual CPI call to verify collection without Metaplex dependencies
@@ -164,17 +152,7 @@ pub fn verify_sized_collection_item(
     }
 }
 
-/// Safe parsing of basic metadata fields only (no security-critical collection data)
-pub fn parse_basic_metadata_safely<'info>(metadata_account: &AccountInfo<'info>) -> Result<MinimalMetadata> {
-    let account_data = metadata_account.try_borrow_data()?;
-    
-    // Only parse the first portion to avoid complex optional fields
-    let safe_length = std::cmp::min(account_data.len(), 400); // Conservative limit
-    let limited_data = &account_data[..safe_length];
-    
-    MinimalMetadata::try_from_slice(limited_data)
-        .map_err(|_| VaultError::InvalidMetadata.into())
-}
+// Removed borsh parsing function - metadata will be extracted elsewhere
 
 /// Constants for the sNFT (smol NFT) fractional vault program
 pub mod constants {
@@ -184,13 +162,15 @@ pub mod constants {
     
     /// Protocol treasury address - SOL fees are sent here
     pub const PROTOCOL_TREASURY: &str = "2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt";
+    
+    /// Immutable percentage-based fee structure for trustless operation
+    pub const DEPOSIT_FEE_BPS: u16 = 150;  // 1.5% deposit fee
+    pub const REDEEM_FEE_BPS: u16 = 250;   // 2.5% redeem fee
 }
 
 /// Errors that can be returned by the vault program
 #[error_code]
 pub enum VaultError {
-    #[msg("Vault is not active")]
-    VaultInactive,
     #[msg("NFT does not belong to the correct collection")]
     WrongCollection,
     #[msg("Insufficient tokens for redemption")]
@@ -214,19 +194,14 @@ pub enum VaultError {
 }
 
 /// State account for the vault - manages sNFT (smol NFT) fractionalization
+/// Immutable after creation for trustless operation
 #[account]
 pub struct VaultState {
     pub collection_mint: Pubkey,
-    pub creator: Pubkey,
+    pub creator: Pubkey,                 // Historical record only - no ongoing authority
     pub fractional_mint: Pubkey,         // sNFT mint (vanity address ending in "smol")
     pub total_deposits: u64,             // Total NFTs deposited
     pub total_fractions_minted: u64,     // Total sNFT tokens minted
-    pub is_active: bool,                 // Vault active status
-    pub deposit_fee_bps: u16,            // Deposit fee in basis points (100 bps = 1%)
-    pub redeem_fee_bps: u16,             // Redeem fee in basis points
-    pub last_price_update: i64,          // Last price update timestamp
-    pub token_price_numerator: u64,      // Token price numerator (e.g., SOL amount)
-    pub token_price_denominator: u64,    // Token price denominator (e.g., sToken amount)
 }
 
 /// Initialize a new vault
@@ -242,7 +217,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 32 + 8 + 8 + 1 + 2 + 2 + 8 + 8 + 8, // Added space for fee fields
+        space = 8 + 32 + 32 + 32 + 8 + 8, // Minimal trustless vault state
         seeds = [b"vault", collection_mint.key().as_ref()],
         bump
     )]
@@ -404,6 +379,17 @@ pub struct RedeemSpecificNft<'info> {
     )]
     pub fractional_mint: Account<'info, Mint>,
     
+    // LP Pool accounts for on-chain price discovery
+    /// LP pool token A vault (typically sToken vault)
+    #[account(
+        constraint = lp_token_a_vault.mint == fractional_mint.key() @ VaultError::WrongCollection
+    )]
+    pub lp_token_a_vault: Account<'info, TokenAccount>,
+
+    /// LP pool SOL vault (token B is always SOL)
+    #[account()]
+    pub lp_sol_vault: Account<'info, TokenAccount>,
+    
     /// CHECK: Protocol treasury account for SOL fee
     #[account(mut)]
     pub protocol_treasury: UncheckedAccount<'info>,
@@ -412,71 +398,18 @@ pub struct RedeemSpecificNft<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Deposit multiple NFTs into the vault at once
-#[derive(Accounts)]
-#[instruction(num_nfts: u8)]
-pub struct DepositMultipleNfts<'info> {
-    #[account(mut)]
-    pub user: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"vault", vault_state.collection_mint.as_ref()],
-        bump
-    )]
-    pub vault_state: Account<'info, VaultState>,
-
-    pub token_program: Program<'info, Token>,
-}
-
-/// Mint fractional tokens for multiple NFTs
-#[derive(Accounts)]
-#[instruction(num_nfts: u8)]
-pub struct MintFractionalMultiple<'info> {
-    #[account(mut)]
-    pub user: Signer<'info>,
-    
-    #[account(
-        mut,
-        seeds = [b"vault", vault_state.collection_mint.as_ref()],
-        bump
-    )]
-    pub vault_state: Account<'info, VaultState>,
-
-    // Fractional token mint (authority = vault_state PDA)
-    #[account(
-        mut,
-        constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
-    )]
-    pub fractional_mint: Account<'info, Mint>,
-
-    // User's fractional token account
-    #[account(
-        mut,
-        associated_token::mint = fractional_mint,
-        associated_token::authority = user,
-    )]
-    pub user_fractional_account: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
-}
+// Removed outdated multiple deposit structs - using single deposit/redeem pattern instead
 
 
 
 impl<'info> InitializeVault<'info> {
     pub fn initialize_vault(&mut self) -> Result<()> {
-        // Initialize vault state
+        // Initialize immutable vault state
         self.vault_state.collection_mint = self.collection_mint.key();
         self.vault_state.creator = self.creator.key();
         self.vault_state.fractional_mint = self.fractional_mint.key();
         self.vault_state.total_deposits = 0;
         self.vault_state.total_fractions_minted = 0;
-        self.vault_state.is_active = true;
-        self.vault_state.deposit_fee_bps = 150; // Default 1.5% deposit fee
-        self.vault_state.redeem_fee_bps = 250;  // Default 2.5% redeem fee
-        self.vault_state.last_price_update = 0;
-        self.vault_state.token_price_numerator = 0;
-        self.vault_state.token_price_denominator = 1; // Avoid division by zero
         
         // Create the mint account
         let rent = Rent::get()?;
@@ -613,15 +546,15 @@ impl<'info> DepositNft<'info> {
             VaultError::WrongCollection
         );
         
-        // HYBRID COLLECTION VERIFICATION using CPI for security + minimal parsing for data
+        // COLLECTION VERIFICATION using CPI for security
         let vault_collection = ctx.accounts.vault_state.collection_mint;
-        let (nft_name, nft_symbol, _nft_uri) = verify_collection_hybrid(
+        verify_collection_hybrid(
             &ctx,
             &nft_mint_key,
             &vault_collection,
         )?;
         
-        msg!("✅ Collection verified and metadata extracted: {} ({})", nft_name, nft_symbol);
+        msg!("✅ Collection verified (metadata will be extracted elsewhere)");
         
         // Update vault state BEFORE external calls for atomicity
         let vault_state = &mut ctx.accounts.vault_state;
@@ -644,13 +577,13 @@ impl<'info> DepositNft<'info> {
         let (price_numerator, price_denominator) = Self::calculate_lp_price(
             &ctx.accounts.lp_token_a_vault,
             &ctx.accounts.lp_sol_vault,
-        ).or_else(|_| {
+        ).or_else(|_| -> Result<(u64, u64)> {
             msg!("⚠️ sToken/SOL LP price calculation failed, using fallback pricing");
             // Fallback to conservative pricing (triggers minimum fee)
             Ok((0u64, 1u64))
         })?;
         
-        // Calculate fee using on-chain LP price
+        // Calculate percentage-based fee using dynamic LP pool pricing
         let fee_lamports = Self::calculate_deposit_fee_safe(
             price_numerator,
             price_denominator,
@@ -675,13 +608,10 @@ impl<'info> DepositNft<'info> {
         
         msg!("💰 Fee payment completed, now minting fractional tokens");
         
-        // Update vault price data with on-chain LP pool prices
-        vault_state.token_price_numerator = price_numerator;
-        vault_state.token_price_denominator = price_denominator;
-        vault_state.last_price_update = Clock::get()?.unix_timestamp;
+        // Price discovery happens dynamically each time - no storage needed in trustless vault
         vault_state.total_fractions_minted += constants::TOKENS_PER_NFT;
         
-        msg!("📊 Updated vault with on-chain LP price: {}/{}", price_numerator, price_denominator);
+        msg!("📊 Dynamic pricing calculated: {}/{} (not stored in vault)", price_numerator, price_denominator);
         
         // Mint fractional tokens to user
         let collection_key = vault_state.collection_mint;
@@ -708,14 +638,14 @@ impl<'info> DepositNft<'info> {
         msg!("✅ Atomic deposit completed! NFT deposited + {} fractional tokens minted", constants::TOKENS_PER_NFT);
         Ok(())
     }
-    
     /// Calculate deposit fee with robust validation and fallbacks
+    /// Uses immutable percentage rate but dynamic pricing from LP pools
     fn calculate_deposit_fee_safe(
         price_numerator: u64,
         price_denominator: u64,
     ) -> Result<u64> {
         const TOKENS_PER_NFT: u64 = constants::TOKENS_PER_NFT;
-        const MIN_FEE_LAMPORTS: u64 = 15_000_000; // 0.015 SOL
+        const MIN_FEE_LAMPORTS: u64 = 15_000_000; // 0.015 SOL minimum
         const MAX_REASONABLE_FEE: u64 = 1_000_000_000; // 1 SOL max
         
         // Validation 1: Check for invalid denominators
@@ -731,14 +661,12 @@ impl<'info> DepositNft<'info> {
         }
         
         // Validation 3: Prevent potential overflow in multiplication
-        // Check if TOKENS_PER_NFT * price_numerator would overflow u128
         if price_numerator > u128::MAX as u64 / TOKENS_PER_NFT {
             msg!("⚠️ Price numerator too large (overflow risk), using fallback flat fee");
             return Ok(MIN_FEE_LAMPORTS);
         }
         
         // Validation 4: Check for unreasonably high prices
-        // If price > 1000 SOL per token, something is wrong
         if price_numerator > price_denominator * 1000 {
             msg!("⚠️ Price appears unreasonably high, using fallback flat fee");
             return Ok(MIN_FEE_LAMPORTS);
@@ -753,9 +681,9 @@ impl<'info> DepositNft<'info> {
                 VaultError::InvalidTokenAmount
             })?;
         
-        // Apply 1.5% fee (150 basis points)
+        // Apply immutable percentage fee from constants
         let fee_lamports = token_value_lamports
-            .checked_mul(150)
+            .checked_mul(constants::DEPOSIT_FEE_BPS as u128)
             .and_then(|val| val.checked_div(10000))
             .ok_or_else(|| {
                 msg!("⚠️ Mathematical error in fee calculation, using fallback flat fee");
@@ -805,7 +733,7 @@ impl<'info> RedeemSpecificNft<'info> {
 
         // Update vault state BEFORE external calls for atomicity
         let vault_state = &mut ctx.accounts.vault_state;
-        require!(vault_state.is_active, VaultError::VaultInactive);
+        // Vault is always active - no admin controls in trustless design
         vault_state.total_deposits -= 1;
         vault_state.total_fractions_minted -= base_tokens_required;
 
@@ -838,35 +766,21 @@ impl<'info> RedeemSpecificNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
 
-        // Calculate dynamic fee based on token price
-        let vault_state = &ctx.accounts.vault_state;
+        // Calculate dynamic fee based on token price from LP pools
+        let (price_numerator, price_denominator) = DepositNft::calculate_lp_price(
+            &ctx.accounts.lp_token_a_vault,
+            &ctx.accounts.lp_sol_vault,
+        ).or_else(|_| -> Result<(u64, u64)> {
+            msg!("⚠️ sToken/SOL LP price calculation failed, using fallback pricing");
+            Ok((0u64, 1u64))
+        })?;
         
-        // Calculate 2.5% fee based on token value in SOL
-        let fee_lamports = if vault_state.token_price_numerator > 0 && vault_state.token_price_denominator > 0 {
-            // Calculate token value in SOL (price is SOL/sToken ratio)
-            let token_value_lamports = (base_tokens_required as u128)
-                .checked_mul(vault_state.token_price_numerator as u128)
-                .ok_or(VaultError::InvalidTokenAmount)?
-                .checked_div(vault_state.token_price_denominator as u128)
-                .ok_or(VaultError::InvalidTokenAmount)?;
-            
-            // Apply 2.5% fee (250 basis points)
-            let fee_lamports = token_value_lamports
-                .checked_mul(250) // 2.5% = 250 basis points
-                .ok_or(VaultError::InvalidTokenAmount)?
-                .checked_div(10000)
-                .ok_or(VaultError::InvalidTokenAmount)?;
-            
-            // Convert to u64 safely
-            let fee_lamports = u64::try_from(fee_lamports)
-                .map_err(|_| VaultError::InvalidTokenAmount)?;
-            
-            // Minimum fee of 0.025 SOL
-            fee_lamports.max(25_000_000)
-        } else {
-            // Fallback to flat fee if no price data
-            25_000_000u64 // 0.025 SOL
-        };
+        // Calculate percentage-based fee using dynamic LP pool pricing
+        let fee_lamports = Self::calculate_redeem_fee_safe(
+            price_numerator,
+            price_denominator,
+            base_tokens_required,
+        )?;
         
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
@@ -883,77 +797,81 @@ impl<'info> RedeemSpecificNft<'info> {
         
         Ok(())
     }
-}
-
-// Temporarily disabled due to lifetime issues with remaining_accounts
-impl<'info> DepositMultipleNfts<'info> {
-    pub fn deposit_multiple_nfts(
-        _ctx: Context<DepositMultipleNfts>, 
-        _num_nfts: u8,
-        _user_nft_accounts: Vec<Pubkey>,
-        _vault_nft_accounts: Vec<Pubkey>
-    ) -> Result<()> {
-        // This implementation is disabled due to a fundamental lifetime issue in Anchor
-        // when trying to use remaining_accounts alongside regular context accounts.
-        // 
-        // The issue: When accessing remaining_accounts and trying to convert them to
-        // Account types or use them with accounts from the context, Rust's borrow
-        // checker cannot prove that the lifetimes are compatible.
-        //
-        // Attempted solutions:
-        // 1. Direct Account::try_from() - Results in "temporary value dropped" error
-        // 2. Manual deserialization - Results in lifetime mismatch errors
-        // 3. Cloning AccountInfo - Still results in lifetime conflicts
-        //
-        // Root cause: The Context<'info> struct has complex lifetime parameters that
-        // don't align well with the lifetime of remaining_accounts when used together.
-        //
-        // Alternative approaches that would work:
-        // 1. Create separate instructions for each NFT deposit (not batch)
-        // 2. Use a different architecture with a temporary holding account
-        // 3. Wait for Anchor framework updates that might resolve this limitation
-        // 4. Use lower-level Solana programming without Anchor's type safety
+    
+    // Use shared calculate_lp_price function
+    
+    /// Calculate redeem fee with robust validation and fallbacks
+    /// Uses immutable percentage rate but dynamic pricing from LP pools
+    fn calculate_redeem_fee_safe(
+        price_numerator: u64,
+        price_denominator: u64,
+        tokens_to_redeem: u64,
+    ) -> Result<u64> {
+        const MIN_FEE_LAMPORTS: u64 = 25_000_000; // 0.025 SOL minimum
+        const MAX_REASONABLE_FEE: u64 = 1_000_000_000; // 1 SOL max
         
-        return Err(VaultError::NotImplemented.into());
+        // Validation 1: Check for invalid denominators
+        if price_denominator == 0 {
+            msg!("⚠️ Price denominator is zero, using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Validation 2: Check for suspicious price ratios
+        if price_numerator == 0 {
+            msg!("⚠️ Price numerator is zero, using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Validation 3: Prevent potential overflow in multiplication
+        if price_numerator > u128::MAX as u64 / tokens_to_redeem {
+            msg!("⚠️ Price numerator too large (overflow risk), using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Validation 4: Check for unreasonably high prices
+        if price_numerator > price_denominator * 1000 {
+            msg!("⚠️ Price appears unreasonably high, using fallback flat fee");
+            return Ok(MIN_FEE_LAMPORTS);
+        }
+        
+        // Safe calculation with u128 to prevent overflow
+        let token_value_lamports = (tokens_to_redeem as u128)
+            .checked_mul(price_numerator as u128)
+            .and_then(|val| val.checked_div(price_denominator as u128))
+            .ok_or_else(|| {
+                msg!("⚠️ Mathematical error in price calculation, using fallback flat fee");
+                VaultError::InvalidTokenAmount
+            })?;
+        
+        // Apply immutable percentage fee from constants
+        let fee_lamports = token_value_lamports
+            .checked_mul(constants::REDEEM_FEE_BPS as u128)
+            .and_then(|val| val.checked_div(10000))
+            .ok_or_else(|| {
+                msg!("⚠️ Mathematical error in fee calculation, using fallback flat fee");
+                VaultError::InvalidTokenAmount
+            })?;
+        
+        // Convert back to u64 safely
+        let fee_lamports = if fee_lamports > u64::MAX as u128 {
+            msg!("⚠️ Calculated fee too large, using maximum reasonable fee");
+            MAX_REASONABLE_FEE
+        } else {
+            fee_lamports as u64
+        };
+        
+        // Apply minimum fee
+        let final_fee = fee_lamports.max(MIN_FEE_LAMPORTS);
+        
+        // Apply maximum reasonable fee as safety cap
+        let final_fee = final_fee.min(MAX_REASONABLE_FEE);
+        
+        msg!("💰 Redeem fee calculation successful: {} lamports", final_fee);
+        Ok(final_fee)
     }
 }
 
-impl<'info> MintFractionalMultiple<'info> {
-    pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
-        let collection_key = ctx.accounts.vault_state.collection_mint;
-        let bump = ctx.bumps["vault_state"];
-
-        // Calculate tokens to mint (1 NFT = 1,000,000 tokens)
-        let tokens_per_nft = constants::TOKENS_PER_NFT;
-        let total_tokens_to_mint = tokens_per_nft * num_nfts as u64;
-
-        // Mint fractional tokens to user (no fees in tokens)
-        let seeds = &[
-            b"vault",
-            collection_key.as_ref(),
-            &[bump],
-        ];
-        let signer = &[&seeds[..]];
-        let mint_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::MintTo {
-                mint: ctx.accounts.fractional_mint.to_account_info(),
-                to: ctx.accounts.user_fractional_account.to_account_info(),
-                authority: ctx.accounts.vault_state.to_account_info(),
-            },
-            signer,
-        );
-        anchor_spl::token::mint_to(mint_ctx, total_tokens_to_mint)?;
-
-        // Update vault state
-        let vault_state = &mut ctx.accounts.vault_state;
-        vault_state.total_fractions_minted += total_tokens_to_mint;
-        
-        msg!("Minted {} fractional tokens for {} NFTs", total_tokens_to_mint, num_nfts);
-        
-        Ok(())
-    }
-}
+// Removed outdated multiple deposit implementations - using single deposit/redeem pattern instead
 
 #[program]
 pub mod fractional_vault {
@@ -982,9 +900,7 @@ pub mod fractional_vault {
         RedeemSpecificNft::redeem_specific_nft(ctx)
     }
 
-    pub fn mint_fractional_multiple(ctx: Context<MintFractionalMultiple>, num_nfts: u8) -> Result<()> {
-        MintFractionalMultiple::mint_fractional_multiple(ctx, num_nfts)
-    }
+    // Removed mint_fractional_multiple - using single deposit/redeem pattern instead
 
     // DEPRECATED: Remove manual price oracle functions
     // These are replaced by automatic price discovery in deposit_nft_with_price

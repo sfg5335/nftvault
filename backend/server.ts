@@ -400,6 +400,87 @@ app.patch('/api/admin/lp-pool/:poolId/verify', async (req, res) => {
   }
 });
 
+// Get LP pool information for a specific fractional token (used by frontend for deposits)
+app.get('/api/lp-pool/token/:fractionalMint', async (req, res) => {
+  try {
+    const { fractionalMint } = req.params;
+    
+    if (!fractionalMint) {
+      return res.status(400).json({ error: 'Fractional mint address is required' });
+    }
+    
+    // Get vault LP mapping for this fractional token
+    const mapping = await lpPoolService.getVaultLPMappingByFractionalMint(fractionalMint);
+    
+    if (!mapping) {
+      return res.status(404).json({ 
+        error: 'No LP pool mapping found for this fractional token',
+        fractionalMint 
+      });
+    }
+    
+    // Get the primary LP pool info
+    const primaryPool = await lpPoolService.getLPPoolById(mapping.primary_lp_pool_id);
+    
+    if (!primaryPool) {
+      return res.status(404).json({ 
+        error: 'Primary LP pool not found',
+        poolId: mapping.primary_lp_pool_id 
+      });
+    }
+    
+    // Get fallback pool if exists
+    let fallbackPool = null;
+    if (mapping.fallback_lp_pool_id) {
+      fallbackPool = await lpPoolService.getLPPoolById(mapping.fallback_lp_pool_id);
+    }
+    
+    // Get metrics for reliability
+    const primaryMetrics = await lpPoolService.getLPPoolMetrics(mapping.primary_lp_pool_id, mapping.vault_address);
+    const fallbackMetrics = fallbackPool ? 
+      await lpPoolService.getLPPoolMetrics(mapping.fallback_lp_pool_id!, mapping.vault_address) : null;
+    
+    res.json({
+      success: true,
+      fractional_mint: fractionalMint,
+      vault_address: mapping.vault_address,
+      collection_mint: mapping.collection_mint,
+      min_liquidity_threshold: mapping.min_liquidity_threshold,
+      primary_pool: {
+        id: primaryPool.id,
+        pool_address: primaryPool.pool_address,
+        dex_type: primaryPool.dex_type,
+        token_a_mint: primaryPool.token_a_mint,
+        token_b_mint: primaryPool.token_b_mint,
+        token_a_vault: primaryPool.token_a_vault,
+        token_b_vault: primaryPool.token_b_vault,
+        token_a_decimals: primaryPool.token_a_decimals,
+        token_b_decimals: primaryPool.token_b_decimals,
+        status: primaryPool.status,
+        verified: primaryPool.verified,
+        metrics: primaryMetrics
+      },
+      fallback_pool: fallbackPool ? {
+        id: fallbackPool.id,
+        pool_address: fallbackPool.pool_address,
+        dex_type: fallbackPool.dex_type,
+        token_a_mint: fallbackPool.token_a_mint,
+        token_b_mint: fallbackPool.token_b_mint,
+        token_a_vault: fallbackPool.token_a_vault,
+        token_b_vault: fallbackPool.token_b_vault,
+        token_a_decimals: fallbackPool.token_a_decimals,
+        token_b_decimals: fallbackPool.token_b_decimals,
+        status: fallbackPool.status,
+        verified: fallbackPool.verified,
+        metrics: fallbackMetrics
+      } : null
+    });
+  } catch (error) {
+    console.error('Error fetching LP pool info for token:', error);
+    res.status(500).json({ error: 'Failed to fetch LP pool information' });
+  }
+});
+
 // Record LP pool usage metrics (called by frontend after price fetches)
 app.post('/api/lp-pool/:poolId/metrics', async (req, res) => {
   try {

@@ -4,7 +4,7 @@ module.exports = {
       name: 'nftvault-frontend',
       script: 'npm',
       args: 'start',
-      cwd: './app',
+      cwd: './',
       env: {
         PORT: 3000,
         HOST: '0.0.0.0',

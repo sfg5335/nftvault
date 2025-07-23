@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     
     const program = new Program(
       idl as any,
-      new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || 'GZ3iUmQtFRzdEofFQ3nE5nfyWxs5DAfqF4VCfe2FneBY'),
+      new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || '5e8d49musMcrxzp2LZbEiVQQh2DyT8ZAe2RtBSAr3Z7v'),
       provider
     );
     

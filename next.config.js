@@ -4,7 +4,7 @@ const cspHeader = `
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' blob: data: https://*.amazonaws.com https://*.ipfs.io https://*.arweave.net https://*.nftstorage.link;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' https://*.solana.com https://*.helius-rpc.com https://*.phantom.app https://*.solflare.com wss://*.solana.com;
+    connect-src 'self' http://localhost:3001 https://*.solana.com https://*.helius-rpc.com https://*.phantom.app https://*.solflare.com wss://*.solana.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';

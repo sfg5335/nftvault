@@ -3,7 +3,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("94puBA8opNBHCP5k5QyUb51h59W5LPN9ra7p2f4Kg62c");
+declare_id!("5e8d49musMcrxzp2LZbEiVQQh2DyT8ZAe2RtBSAr3Z7v");
 
 // Metaplex Token Metadata Program ID (hardcoded)
 pub const METADATA_PROGRAM_ID: Pubkey = Pubkey::new_from_array([

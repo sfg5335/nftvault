@@ -103,30 +103,25 @@ export type FractionalVault = {
           ]
         },
         {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "mintFractional",
-      "accounts": [
-        {
-          "name": "user",
+          "name": "collectionAuthority",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
         },
         {
           "name": "fractionalMint",
@@ -137,6 +132,22 @@ export type FractionalVault = {
           "name": "userFractionalAccount",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "lpTokenAVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool token A vault (typically sToken vault)"
+          ]
+        },
+        {
+          "name": "lpSolVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool SOL vault (token B is always SOL)"
+          ]
         },
         {
           "name": "tokenProgram",
@@ -157,7 +168,12 @@ export type FractionalVault = {
       "args": []
     },
     {
-      "name": "mintFractionalExisting",
+      "name": "depositNftWithPrice",
+      "docs": [
+        "Deposit function with on-chain LP pool price discovery",
+        "Prices are calculated directly from sToken/SOL LP pool balances on-chain",
+        "No external price data needed - fully trustless pricing"
+      ],
       "accounts": [
         {
           "name": "user",
@@ -170,6 +186,58 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
+          "name": "userNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
+        },
+        {
+          "name": "nftMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, nft_mint]"
+          ]
+        },
+        {
+          "name": "collectionAuthority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
+        },
+        {
           "name": "fractionalMint",
           "isMut": true,
           "isSigner": false
@@ -180,12 +248,33 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
+          "name": "lpTokenAVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool token A vault (typically sToken vault)"
+          ]
+        },
+        {
+          "name": "lpSolVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool SOL vault (token B is always SOL)"
+          ]
         },
         {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -288,61 +377,11 @@ export type FractionalVault = {
           "type": "u8"
         }
       ]
-    },
-    {
-      "name": "updatePriceOracle",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "priceNumerator",
-          "type": "u64"
-        },
-        {
-          "name": "priceDenominator",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "updateFeeParameters",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "depositFeeBps",
-          "type": "u16"
-        },
-        {
-          "name": "redeemFeeBps",
-          "type": "u16"
-        }
-      ]
     }
   ],
   "accounts": [
     {
-      "name": "vaultState",
+      "name": "VaultState",
       "docs": [
         "State account for the vault - manages sNFT (smol NFT) fractionalization"
       ],
@@ -397,117 +436,6 @@ export type FractionalVault = {
       }
     }
   ],
-  "types": [
-    {
-      "name": "Collection",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "verified",
-            "type": "bool"
-          },
-          {
-            "name": "key",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "Creator",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "address",
-            "type": "publicKey"
-          },
-          {
-            "name": "verified",
-            "type": "bool"
-          },
-          {
-            "name": "share",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "MetadataData",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "name",
-            "type": "string"
-          },
-          {
-            "name": "symbol",
-            "type": "string"
-          },
-          {
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "name": "sellerFeeBasisPoints",
-            "type": "u16"
-          },
-          {
-            "name": "creators",
-            "type": {
-              "option": {
-                "vec": {
-                  "defined": "Creator"
-                }
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "Uses",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "useMethod",
-            "type": {
-              "defined": "UseMethod"
-            }
-          },
-          {
-            "name": "remaining",
-            "type": "u64"
-          },
-          {
-            "name": "total",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "UseMethod",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Burn"
-          },
-          {
-            "name": "Multiple"
-          },
-          {
-            "name": "Single"
-          }
-        ]
-      }
-    }
-  ],
   "errors": [
     {
       "code": 6000,
@@ -531,41 +459,36 @@ export type FractionalVault = {
     },
     {
       "code": 6004,
-      "name": "InvalidFeeRate",
-      "msg": "Invalid fee rate"
-    },
-    {
-      "code": 6005,
       "name": "InvalidMetadata",
       "msg": "Invalid metadata account"
     },
     {
+      "code": 6005,
+      "name": "InvalidMetadataOwner",
+      "msg": "Invalid metadata account owner"
+    },
+    {
       "code": 6006,
-      "name": "CollectionNotVerified",
-      "msg": "Collection not verified"
-    },
-    {
-      "code": 6007,
-      "name": "CollectionMetadataMissing",
-      "msg": "Collection metadata missing"
-    },
-    {
-      "code": 6008,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6009,
+      "code": 6007,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6010,
+      "code": 6008,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6011,
+      "code": 6009,
+      "name": "InsufficientLiquidity",
+      "msg": "Insufficient liquidity in LP pool"
+    },
+    {
+      "code": 6010,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }
@@ -677,30 +600,25 @@ export const IDL: FractionalVault = {
           ]
         },
         {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "mintFractional",
-      "accounts": [
-        {
-          "name": "user",
+          "name": "collectionAuthority",
           "isMut": true,
           "isSigner": true
         },
         {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
         },
         {
           "name": "fractionalMint",
@@ -711,6 +629,22 @@ export const IDL: FractionalVault = {
           "name": "userFractionalAccount",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "lpTokenAVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool token A vault (typically sToken vault)"
+          ]
+        },
+        {
+          "name": "lpSolVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool SOL vault (token B is always SOL)"
+          ]
         },
         {
           "name": "tokenProgram",
@@ -731,7 +665,12 @@ export const IDL: FractionalVault = {
       "args": []
     },
     {
-      "name": "mintFractionalExisting",
+      "name": "depositNftWithPrice",
+      "docs": [
+        "Deposit function with on-chain LP pool price discovery",
+        "Prices are calculated directly from sToken/SOL LP pool balances on-chain",
+        "No external price data needed - fully trustless pricing"
+      ],
       "accounts": [
         {
           "name": "user",
@@ -744,6 +683,58 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
+          "name": "userNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "vaultNftAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "protocolTreasury",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
+        },
+        {
+          "name": "nftMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, nft_mint]"
+          ]
+        },
+        {
+          "name": "collectionAuthority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "collectionMetadata",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint]"
+          ]
+        },
+        {
+          "name": "collectionMasterEdition",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Seeds: [\"metadata\", metadata_program_id, collection_mint, \"edition\"]"
+          ]
+        },
+        {
           "name": "fractionalMint",
           "isMut": true,
           "isSigner": false
@@ -754,12 +745,33 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
+          "name": "lpTokenAVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool token A vault (typically sToken vault)"
+          ]
+        },
+        {
+          "name": "lpSolVault",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "LP pool SOL vault (token B is always SOL)"
+          ]
         },
         {
           "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         }
@@ -862,61 +874,11 @@ export const IDL: FractionalVault = {
           "type": "u8"
         }
       ]
-    },
-    {
-      "name": "updatePriceOracle",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "priceNumerator",
-          "type": "u64"
-        },
-        {
-          "name": "priceDenominator",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "updateFeeParameters",
-      "accounts": [
-        {
-          "name": "authority",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "vaultState",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "depositFeeBps",
-          "type": "u16"
-        },
-        {
-          "name": "redeemFeeBps",
-          "type": "u16"
-        }
-      ]
     }
   ],
   "accounts": [
     {
-      "name": "vaultState",
+      "name": "VaultState",
       "docs": [
         "State account for the vault - manages sNFT (smol NFT) fractionalization"
       ],
@@ -971,117 +933,6 @@ export const IDL: FractionalVault = {
       }
     }
   ],
-  "types": [
-    {
-      "name": "Collection",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "verified",
-            "type": "bool"
-          },
-          {
-            "name": "key",
-            "type": "publicKey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "Creator",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "address",
-            "type": "publicKey"
-          },
-          {
-            "name": "verified",
-            "type": "bool"
-          },
-          {
-            "name": "share",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "MetadataData",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "name",
-            "type": "string"
-          },
-          {
-            "name": "symbol",
-            "type": "string"
-          },
-          {
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "name": "sellerFeeBasisPoints",
-            "type": "u16"
-          },
-          {
-            "name": "creators",
-            "type": {
-              "option": {
-                "vec": {
-                  "defined": "Creator"
-                }
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "Uses",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "useMethod",
-            "type": {
-              "defined": "UseMethod"
-            }
-          },
-          {
-            "name": "remaining",
-            "type": "u64"
-          },
-          {
-            "name": "total",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "UseMethod",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Burn"
-          },
-          {
-            "name": "Multiple"
-          },
-          {
-            "name": "Single"
-          }
-        ]
-      }
-    }
-  ],
   "errors": [
     {
       "code": 6000,
@@ -1105,41 +956,36 @@ export const IDL: FractionalVault = {
     },
     {
       "code": 6004,
-      "name": "InvalidFeeRate",
-      "msg": "Invalid fee rate"
-    },
-    {
-      "code": 6005,
       "name": "InvalidMetadata",
       "msg": "Invalid metadata account"
     },
     {
+      "code": 6005,
+      "name": "InvalidMetadataOwner",
+      "msg": "Invalid metadata account owner"
+    },
+    {
       "code": 6006,
-      "name": "CollectionNotVerified",
-      "msg": "Collection not verified"
-    },
-    {
-      "code": 6007,
-      "name": "CollectionMetadataMissing",
-      "msg": "Collection metadata missing"
-    },
-    {
-      "code": 6008,
       "name": "MissingVaultAta",
       "msg": "Missing vault NFT token account"
     },
     {
-      "code": 6009,
+      "code": 6007,
       "name": "MissingFractionalAta",
       "msg": "Missing user fractional token account"
     },
     {
-      "code": 6010,
+      "code": 6008,
       "name": "InvalidTokenAmount",
       "msg": "Invalid token amount"
     },
     {
-      "code": 6011,
+      "code": 6009,
+      "name": "InsufficientLiquidity",
+      "msg": "Insufficient liquidity in LP pool"
+    },
+    {
+      "code": 6010,
       "name": "NotImplemented",
       "msg": "Not implemented due to Anchor framework limitations"
     }

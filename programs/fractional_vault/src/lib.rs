@@ -30,9 +30,9 @@ pub struct BasicMetadataData {
     // Skip creators field for simplicity
 }
 
-declare_id!("5e8d49musMcrxzp2LZbEiVQQh2DyT8ZAe2RtBSAr3Z7v");
+declare_id!("H2UJeLx134e4aiSQ3HXr15ycbHYjyvbmibDhNyWSdzhV");
 
-/// Helper function to derive metadata PDA
+/// Helper function to derive metadata PDA for any mint
 pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
     let seeds = &[
         b"metadata",
@@ -314,16 +314,8 @@ pub struct DepositNft<'info> {
     )]
     pub user_fractional_account: Account<'info, TokenAccount>,
 
-    // LP Pool accounts for on-chain price discovery
-    /// LP pool token A vault (typically sToken vault)
-    #[account(
-        constraint = lp_token_a_vault.mint == fractional_mint.key() @ VaultError::WrongCollection
-    )]
-    pub lp_token_a_vault: Account<'info, TokenAccount>,
-
-    /// LP pool SOL vault (token B is always SOL)
-    #[account()]
-    pub lp_sol_vault: Account<'info, TokenAccount>,
+    // NOTE: LP pool accounts removed to fix stack overflow
+    // Fee calculation will be done off-chain in frontend
     
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -344,55 +336,49 @@ pub struct RedeemSpecificNft<'info> {
         bump
     )]
     pub vault_state: Account<'info, VaultState>,
-    
+
+    // User's NFT token account (where NFT will be sent)
+    #[account(
+        init_if_needed,
+        payer = user,
+        associated_token::mint = nft_mint,
+        associated_token::authority = user,
+    )]
+    pub user_nft_account: Account<'info, TokenAccount>,
+
+    // Vault's NFT token account (must hold the NFT)
     #[account(
         mut,
-        associated_token::mint = vault_state.fractional_mint,
-        associated_token::authority = user
+        constraint = vault_nft_account.owner == vault_state.key() @ VaultError::WrongCollection,
+        constraint = vault_nft_account.mint == nft_mint.key() @ VaultError::WrongCollection,
     )]
-    pub user_fractional_account: Account<'info, TokenAccount>,
+    pub vault_nft_account: Account<'info, TokenAccount>,
+
+    /// NFT mint account
+    pub nft_mint: Account<'info, Mint>,
     
-    #[account(
-        mut,
-        associated_token::mint = vault_state.fractional_mint,
-        associated_token::authority = vault_state
-    )]
-    pub vault_fractional_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        mut,
-        constraint = vault_specific_nft_account.owner == vault_state.key() @ VaultError::WrongCollection,
-        constraint = vault_specific_nft_account.amount > 0 @ VaultError::NoNftsAvailable
-    )]
-    pub vault_specific_nft_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        mut,
-        constraint = user_specific_nft_account.owner == user.key() @ VaultError::WrongCollection,
-        constraint = user_specific_nft_account.mint == vault_specific_nft_account.mint @ VaultError::WrongCollection
-    )]
-    pub user_specific_nft_account: Account<'info, TokenAccount>,
-    
+    // Fractional token mint (for burning tokens)
     #[account(
         mut,
         constraint = fractional_mint.key() == vault_state.fractional_mint @ VaultError::WrongCollection
     )]
     pub fractional_mint: Account<'info, Mint>,
-    
-    // LP Pool accounts for on-chain price discovery
-    /// LP pool token A vault (typically sToken vault)
-    #[account(
-        constraint = lp_token_a_vault.mint == fractional_mint.key() @ VaultError::WrongCollection
-    )]
-    pub lp_token_a_vault: Account<'info, TokenAccount>,
 
-    /// LP pool SOL vault (token B is always SOL)
-    #[account()]
-    pub lp_sol_vault: Account<'info, TokenAccount>,
-    
+    // User's fractional token account (tokens will be burned from here)
+    #[account(
+        mut,
+        constraint = user_fractional_account.owner == user.key(),
+        constraint = user_fractional_account.mint == fractional_mint.key(),
+    )]
+    pub user_fractional_account: Account<'info, TokenAccount>,
+
+    // NOTE: LP pool accounts removed to fix stack overflow
+    // Fee calculation will be done off-chain in frontend
+
     /// CHECK: Protocol treasury account for SOL fee
     #[account(mut)]
     pub protocol_treasury: UncheckedAccount<'info>,
+    
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -531,16 +517,17 @@ impl<'info> DepositNft<'info> {
 
     pub fn deposit_nft_with_price(
         ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>, 
-        _suggested_price_numerator: u64,  // Deprecated - now calculated on-chain
-        _suggested_price_denominator: u64  // Deprecated - now calculated on-chain
+        lp_price_numerator: u64,   // LP pool price data from frontend
+        lp_price_denominator: u64  // LP pool price data from frontend
     ) -> Result<()> {
         let user_nft_account = &ctx.accounts.user_nft_account;
         require!(user_nft_account.amount > 0, VaultError::NoNftsAvailable);
         
 
-        
-        // Verify the NFT mint matches what's in the token account
         let nft_mint_key = ctx.accounts.nft_mint.key();
+        msg!("🎯 Depositing NFT: {}", nft_mint_key);
+        
+        // Verify user owns the NFT
         require!(
             user_nft_account.mint == nft_mint_key,
             VaultError::WrongCollection
@@ -555,6 +542,11 @@ impl<'info> DepositNft<'info> {
         )?;
         
         msg!("✅ Collection verified (metadata will be extracted elsewhere)");
+        
+        // Read collection mint and bump before mutable borrow
+        let collection_mint = ctx.accounts.vault_state.collection_mint;
+        let vault_bump = *ctx.bumps.get("vault_state").unwrap();
+        let vault_account_info = ctx.accounts.vault_state.to_account_info();
         
         // Update vault state BEFORE external calls for atomicity
         let vault_state = &mut ctx.accounts.vault_state;
@@ -571,71 +563,57 @@ impl<'info> DepositNft<'info> {
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
         
-        msg!("✅ NFT transfer completed, calculating on-chain price from sToken/SOL LP pool");
+        msg!("✅ NFT transfer completed, calculating percentage-based fee");
         
-        // Calculate price from sToken/SOL LP pool balances on-chain
-        let (price_numerator, price_denominator) = Self::calculate_lp_price(
-            &ctx.accounts.lp_token_a_vault,
-            &ctx.accounts.lp_sol_vault,
-        ).or_else(|_| -> Result<(u64, u64)> {
-            msg!("⚠️ sToken/SOL LP price calculation failed, using fallback pricing");
-            // Fallback to conservative pricing (triggers minimum fee)
-            Ok((0u64, 1u64))
-        })?;
-        
-        // Calculate percentage-based fee using dynamic LP pool pricing
+        // Calculate percentage-based fee using LP pool price data from frontend
         let fee_lamports = Self::calculate_deposit_fee_safe(
-            price_numerator,
-            price_denominator,
+            lp_price_numerator,
+            lp_price_denominator,
         )?;
         
-        msg!("💰 Calculated fee: {} lamports ({} SOL)", fee_lamports, fee_lamports as f64 / 1_000_000_000.0);
+        msg!("💰 Calculated deposit fee: {} lamports ({} SOL) based on LP pool price {}/{}", 
+             fee_lamports, fee_lamports as f64 / 1_000_000_000.0, lp_price_numerator, lp_price_denominator);
         
         // Charge fee
-        let ix = anchor_lang::solana_program::system_instruction::transfer(
+        let fee_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.protocol_treasury.key(),
             fee_lamports,
         );
         
         anchor_lang::solana_program::program::invoke(
-            &ix,
+            &fee_ix,
             &[
                 ctx.accounts.user.to_account_info(),
                 ctx.accounts.protocol_treasury.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
             ],
         )?;
         
-        msg!("💰 Fee payment completed, now minting fractional tokens");
-        
-        // Price discovery happens dynamically each time - no storage needed in trustless vault
-        vault_state.total_fractions_minted += constants::TOKENS_PER_NFT;
-        
-        msg!("📊 Dynamic pricing calculated: {}/{} (not stored in vault)", price_numerator, price_denominator);
-        
-        // Mint fractional tokens to user
-        let collection_key = vault_state.collection_mint;
-        let bump = ctx.bumps["vault_state"];
-        let signer_seeds: &[&[u8]] = &[
+        // Mint fractional tokens to user (1M tokens per NFT)
+        let vault_seeds = &[
             b"vault",
-            collection_key.as_ref(),
-            &[bump],
+            collection_mint.as_ref(),
+            &[vault_bump],
         ];
-        let signer_binding = [signer_seeds];
+        let signer_seeds = &[&vault_seeds[..]];
         
         let mint_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             anchor_spl::token::MintTo {
                 mint: ctx.accounts.fractional_mint.to_account_info(),
                 to: ctx.accounts.user_fractional_account.to_account_info(),
-                authority: vault_state.to_account_info(),
+                authority: vault_account_info,
             },
-            &signer_binding,
+            signer_seeds,
         );
         
-        anchor_spl::token::mint_to(mint_ctx, constants::TOKENS_PER_NFT)?;
+        let tokens_to_mint = constants::TOKENS_PER_NFT;
+        anchor_spl::token::mint_to(mint_ctx, tokens_to_mint)?;
+        vault_state.total_fractions_minted += tokens_to_mint;
         
-        msg!("✅ Atomic deposit completed! NFT deposited + {} fractional tokens minted", constants::TOKENS_PER_NFT);
+        msg!("✅ Deposited NFT {} and minted {} fractional tokens with {}% fee", 
+             nft_mint_key, tokens_to_mint, 150); // 1.5% deposit fee
         Ok(())
     }
     /// Calculate deposit fee with robust validation and fallbacks
@@ -720,7 +698,11 @@ impl<'info> DepositNft<'info> {
 
 
 impl<'info> RedeemSpecificNft<'info> {
-    pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
+    pub fn redeem_specific_nft(
+        ctx: Context<RedeemSpecificNft>,
+        lp_price_numerator: u64,   // LP pool price data from frontend
+        lp_price_denominator: u64  // LP pool price data from frontend
+    ) -> Result<()> {
         let collection_key = ctx.accounts.vault_state.collection_mint;
         let vault_bump = *ctx.bumps.get("vault_state")
             .ok_or(VaultError::InvalidTokenAmount)?;
@@ -758,42 +740,40 @@ impl<'info> RedeemSpecificNft<'info> {
         let transfer_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             Transfer {
-                from: ctx.accounts.vault_specific_nft_account.to_account_info(),
-                to: ctx.accounts.user_specific_nft_account.to_account_info(),
+                from: ctx.accounts.vault_nft_account.to_account_info(),
+                to: ctx.accounts.user_nft_account.to_account_info(),
                 authority: ctx.accounts.vault_state.to_account_info(),
             },
             signer,
         );
         anchor_spl::token::transfer(transfer_ctx, 1)?;
 
-        // Calculate dynamic fee based on token price from LP pools
-        let (price_numerator, price_denominator) = DepositNft::calculate_lp_price(
-            &ctx.accounts.lp_token_a_vault,
-            &ctx.accounts.lp_sol_vault,
-        ).or_else(|_| -> Result<(u64, u64)> {
-            msg!("⚠️ sToken/SOL LP price calculation failed, using fallback pricing");
-            Ok((0u64, 1u64))
-        })?;
-        
-        // Calculate percentage-based fee using dynamic LP pool pricing
+        // Calculate percentage-based redeem fee using LP pool price data from frontend
         let fee_lamports = Self::calculate_redeem_fee_safe(
-            price_numerator,
-            price_denominator,
+            lp_price_numerator,
+            lp_price_denominator,
             base_tokens_required,
         )?;
         
-        let ix = anchor_lang::solana_program::system_instruction::transfer(
+        msg!("💰 Calculated redeem fee: {} lamports ({} SOL) based on LP pool price {}/{}", 
+             fee_lamports, fee_lamports as f64 / 1_000_000_000.0, lp_price_numerator, lp_price_denominator);
+        
+        let fee_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
             &ctx.accounts.protocol_treasury.key(),
             fee_lamports,
         );
         anchor_lang::solana_program::program::invoke(
-            &ix,
+            &fee_ix,
             &[
                 ctx.accounts.user.to_account_info(),
                 ctx.accounts.protocol_treasury.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
             ],
         )?;
+        
+        msg!("✅ Redeemed NFT {} for {} fractional tokens with {}% fee", 
+             ctx.accounts.nft_mint.key(), base_tokens_required, 250); // 2.5% redeem fee
         
         Ok(())
     }
@@ -885,19 +865,24 @@ pub mod fractional_vault {
         DepositNft::deposit_nft(ctx)
     }
 
-    /// Deposit function with on-chain LP pool price discovery
-    /// Prices are calculated directly from sToken/SOL LP pool balances on-chain
-    /// No external price data needed - fully trustless pricing
+    /// Deposit function with percentage-based fee calculation using LP pool price data from frontend
+    /// Frontend fetches LP pool balances and passes price ratio for on-chain fee calculation
     pub fn deposit_nft_with_price<'info>(
-        ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>
+        ctx: Context<'_, '_, '_, 'info, DepositNft<'info>>,
+        lp_price_numerator: u64,   // LP pool price data from frontend  
+        lp_price_denominator: u64  // LP pool price data from frontend
     ) -> Result<()> {
-        DepositNft::deposit_nft_with_price(ctx, 0, 0) // Parameters are now ignored
+        DepositNft::deposit_nft_with_price(ctx, lp_price_numerator, lp_price_denominator)
     }
 
 
 
-    pub fn redeem_specific_nft(ctx: Context<RedeemSpecificNft>) -> Result<()> {
-        RedeemSpecificNft::redeem_specific_nft(ctx)
+    pub fn redeem_specific_nft(
+        ctx: Context<RedeemSpecificNft>,
+        lp_price_numerator: u64,   // LP pool price data from frontend
+        lp_price_denominator: u64  // LP pool price data from frontend  
+    ) -> Result<()> {
+        RedeemSpecificNft::redeem_specific_nft(ctx, lp_price_numerator, lp_price_denominator)
     }
 
     // Removed mint_fractional_multiple - using single deposit/redeem pattern instead

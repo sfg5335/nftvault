@@ -134,22 +134,6 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "lpTokenAVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool token A vault (typically sToken vault)"
-          ]
-        },
-        {
-          "name": "lpSolVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool SOL vault (token B is always SOL)"
-          ]
-        },
-        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -170,9 +154,8 @@ export type FractionalVault = {
     {
       "name": "depositNftWithPrice",
       "docs": [
-        "Deposit function with on-chain LP pool price discovery",
-        "Prices are calculated directly from sToken/SOL LP pool balances on-chain",
-        "No external price data needed - fully trustless pricing"
+        "Deposit function with percentage-based fee calculation using LP pool price data from frontend",
+        "Frontend fetches LP pool balances and passes price ratio for on-chain fee calculation"
       ],
       "accounts": [
         {
@@ -248,22 +231,6 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "lpTokenAVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool token A vault (typically sToken vault)"
-          ]
-        },
-        {
-          "name": "lpSolVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool SOL vault (token B is always SOL)"
-          ]
-        },
-        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -279,7 +246,16 @@ export type FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "lpPriceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "lpPriceDenominator",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "redeemSpecificNft",
@@ -295,24 +271,22 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "userFractionalAccount",
+          "name": "userNftAccount",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "vaultFractionalAccount",
+          "name": "vaultNftAccount",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "vaultSpecificNftAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userSpecificNftAccount",
-          "isMut": true,
-          "isSigner": false
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
         },
         {
           "name": "fractionalMint",
@@ -320,20 +294,9 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "lpTokenAVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool token A vault (typically sToken vault)"
-          ]
-        },
-        {
-          "name": "lpSolVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool SOL vault (token B is always SOL)"
-          ]
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "protocolTreasury",
@@ -356,7 +319,16 @@ export type FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "lpPriceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "lpPriceDenominator",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -583,22 +555,6 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "lpTokenAVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool token A vault (typically sToken vault)"
-          ]
-        },
-        {
-          "name": "lpSolVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool SOL vault (token B is always SOL)"
-          ]
-        },
-        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -619,9 +575,8 @@ export const IDL: FractionalVault = {
     {
       "name": "depositNftWithPrice",
       "docs": [
-        "Deposit function with on-chain LP pool price discovery",
-        "Prices are calculated directly from sToken/SOL LP pool balances on-chain",
-        "No external price data needed - fully trustless pricing"
+        "Deposit function with percentage-based fee calculation using LP pool price data from frontend",
+        "Frontend fetches LP pool balances and passes price ratio for on-chain fee calculation"
       ],
       "accounts": [
         {
@@ -697,22 +652,6 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "lpTokenAVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool token A vault (typically sToken vault)"
-          ]
-        },
-        {
-          "name": "lpSolVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool SOL vault (token B is always SOL)"
-          ]
-        },
-        {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false
@@ -728,7 +667,16 @@ export const IDL: FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "lpPriceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "lpPriceDenominator",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "redeemSpecificNft",
@@ -744,24 +692,22 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "userFractionalAccount",
+          "name": "userNftAccount",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "vaultFractionalAccount",
+          "name": "vaultNftAccount",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "vaultSpecificNftAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userSpecificNftAccount",
-          "isMut": true,
-          "isSigner": false
+          "name": "nftMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "NFT mint account"
+          ]
         },
         {
           "name": "fractionalMint",
@@ -769,20 +715,9 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "lpTokenAVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool token A vault (typically sToken vault)"
-          ]
-        },
-        {
-          "name": "lpSolVault",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "LP pool SOL vault (token B is always SOL)"
-          ]
+          "name": "userFractionalAccount",
+          "isMut": true,
+          "isSigner": false
         },
         {
           "name": "protocolTreasury",
@@ -805,7 +740,16 @@ export const IDL: FractionalVault = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "lpPriceNumerator",
+          "type": "u64"
+        },
+        {
+          "name": "lpPriceDenominator",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [

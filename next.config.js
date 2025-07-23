@@ -16,7 +16,7 @@ const cspHeader = `
 const nextConfig = {
     // Fix Server Actions issues
     experimental: {
-        serverComponentsExternalPackages: ['pg'],
+        optimizePackageImports: ['@solana/web3.js', '@project-serum/anchor']
     },
     async headers() {
         return [
@@ -29,6 +29,15 @@ const nextConfig = {
                     },
                 ],
             },
+            {
+                source: '/_next/static/:path*',
+                headers: [
+                    {
+                        key: 'Cache-Control',
+                        value: 'no-cache, no-store, must-revalidate',
+                    },
+                ],
+            },
         ]
     },
     webpack: (config, { isServer }) => {
@@ -36,12 +45,17 @@ const nextConfig = {
         if (!isServer) {
             config.resolve.fallback = {
                 ...config.resolve.fallback,
-                fs: false,
-                net: false,
-                tls: false,
                 crypto: require.resolve('crypto-browserify'),
                 stream: require.resolve('stream-browserify'),
+                assert: require.resolve('assert'),
+                http: require.resolve('stream-http'),
+                https: require.resolve('https-browserify'),
+                os: require.resolve('os-browserify'),
+                url: require.resolve('url'),
+                zlib: require.resolve('browserify-zlib'),
                 buffer: require.resolve('buffer'),
+                process: require.resolve('process/browser'),
+                path: require.resolve('path-browserify'),
             };
             
             // Add buffer polyfill for client-side only
@@ -63,7 +77,24 @@ const nextConfig = {
             config.externals.push('pino-pretty', 'lokijs', 'encoding');
         }
         
+        // Force cache busting for browser
+        config.output.filename = isServer 
+            ? '[name].js'
+            : `[name].[contenthash]-v${Date.now()}.js`;
+        config.output.chunkFilename = isServer 
+            ? '[name].js' 
+            : `[name].[contenthash]-v${Date.now()}.js`;
+
+        config.module.rules.push({
+            test: /\.node$/,
+            use: 'raw-loader',
+        });
+
         return config;
+    },
+    generateBuildId: async () => {
+        // Force new build ID to invalidate browser cache
+        return `build-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     },
     // Disable source maps in development to avoid URL parameter issues
     productionBrowserSourceMaps: false,

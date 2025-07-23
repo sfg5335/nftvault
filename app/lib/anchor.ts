@@ -6,7 +6,7 @@ import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddres
 import { IDL } from './idl'
 
 // Program ID from your deployed program
-const PROGRAM_ID = new PublicKey("5e8d49musMcrxzp2LZbEiVQQh2DyT8ZAe2RtBSAr3Z7v");
+const PROGRAM_ID = new PublicKey("H2UJeLx134e4aiSQ3HXr15ycbHYjyvbmibDhNyWSdzhV");
 
 // Network configuration
 export const NETWORK = "devnet";
@@ -185,10 +185,10 @@ export class AnchorClient {
       // Get fractional mint from vault state
       const fractionalMint = vaultState.fractionalMint;
 
-      // 🚀 NEW: Database-driven LP Pool Discovery
+      // 🚀 NEW: Database-driven LP Pool Discovery and Price Calculation
       console.log('🔍 Step 4: Starting automatic price discovery...');
-      let lpTokenAVault: PublicKey | null = null;
-      let lpSolVault: PublicKey | null = null;
+      let lpPriceNumerator = 0;
+      let lpPriceDenominator = 1;
       
       try {
         // Get LP pool information from database
@@ -196,7 +196,7 @@ export class AnchorClient {
         
         if (!response.ok) {
           if (response.status === 404) {
-            console.log('No SOL liquidity pool found for sToken, will use flat fee fallback');
+            console.log('No SOL liquidity pool found for sToken, will use minimum fees');
           } else {
             throw new Error(`HTTP ${response.status}: ${await response.text()}`);
           }
@@ -209,36 +209,58 @@ export class AnchorClient {
             // Determine which vault is which based on token mints
             const solMint = new PublicKey('So11111111111111111111111111111111111111112'); // Native SOL mint
             
+            let sTokenVaultAddress: string | null = null;
+            let solVaultAddress: string | null = null;
+            
             if (pool.token_a_mint === fractionalMint.toString()) {
               // Token A is sToken, Token B should be SOL
-              lpTokenAVault = new PublicKey(pool.token_a_vault);
-              lpSolVault = new PublicKey(pool.token_b_vault);
+              sTokenVaultAddress = pool.token_a_vault;
+              solVaultAddress = pool.token_b_vault;
             } else if (pool.token_b_mint === fractionalMint.toString()) {
               // Token B is sToken, Token A should be SOL  
-              lpTokenAVault = new PublicKey(pool.token_b_vault);
-              lpSolVault = new PublicKey(pool.token_a_vault);
-            } else {
-              console.log('🔍 SOL pool not found, trying USDC pools...');
-              // Try fallback pool if available
-              if (lpPoolData.fallback_pool) {
-                const fallbackPool = lpPoolData.fallback_pool;
-                if (fallbackPool.token_a_mint === fractionalMint.toString()) {
-                  lpTokenAVault = new PublicKey(fallbackPool.token_a_vault);
-                  lpSolVault = new PublicKey(fallbackPool.token_b_vault);
-                } else if (fallbackPool.token_b_mint === fractionalMint.toString()) {
-                  lpTokenAVault = new PublicKey(fallbackPool.token_b_vault);
-                  lpSolVault = new PublicKey(fallbackPool.token_a_vault);
-                }
-              }
+              sTokenVaultAddress = pool.token_b_vault;
+              solVaultAddress = pool.token_a_vault;
             }
             
-            if (lpTokenAVault && lpSolVault) {
+            if (sTokenVaultAddress && solVaultAddress) {
               console.log('✅ LP Pool found in database:');
               console.log('   Pool Address:', pool.pool_address);
               console.log('   DEX Type:', pool.dex_type);
-              console.log('   sToken Vault:', lpTokenAVault.toString());
-              console.log('   SOL Vault:', lpSolVault.toString());
-              console.log('   Verified:', pool.verified);
+              console.log('   sToken Vault:', sTokenVaultAddress);
+              console.log('   SOL Vault:', solVaultAddress);
+              
+              // Fetch actual on-chain balances for price calculation
+              try {
+                const [sTokenAccount, solAccount] = await Promise.all([
+                  this.provider.connection.getTokenAccountBalance(new PublicKey(sTokenVaultAddress)),
+                  this.provider.connection.getTokenAccountBalance(new PublicKey(solVaultAddress))
+                ]);
+                
+                const sTokenBalance = sTokenAccount.value.uiAmount || 0;
+                const solBalance = solAccount.value.uiAmount || 0;
+                
+                if (sTokenBalance > 0 && solBalance > 0) {
+                  // Calculate price: 1 sToken = (solBalance/sTokenBalance) SOL
+                  // We need to pass this as integer ratio for on-chain calculation
+                  const rawSTokenBalance = BigInt(sTokenAccount.value.amount);
+                  const rawSolBalance = BigInt(solAccount.value.amount);
+                  
+                  // Convert to manageable numbers while preserving precision
+                  const scale = 1000000; // Scale factor for precision
+                  lpPriceNumerator = Number(rawSolBalance * BigInt(scale) / rawSTokenBalance);
+                  lpPriceDenominator = scale;
+                  
+                  console.log('✅ Live LP Pool Pricing:');
+                  console.log(`   sToken Balance: ${sTokenBalance}`);
+                  console.log(`   SOL Balance: ${solBalance}`);
+                  console.log(`   Price: 1 sToken = ${solBalance/sTokenBalance} SOL`);
+                  console.log(`   Price Ratio: ${lpPriceNumerator}/${lpPriceDenominator}`);
+                } else {
+                  console.warn('⚠️ LP pool has zero balances, using minimum fees');
+                }
+              } catch (balanceError) {
+                console.warn('⚠️ Failed to fetch LP pool balances:', balanceError.message);
+              }
             }
           }
         }
@@ -246,17 +268,8 @@ export class AnchorClient {
         console.warn('⚠️ Database LP pool lookup failed:', error.message);
       }
 
-      // Fallback to dummy accounts if no LP pool found
-      if (!lpTokenAVault || !lpSolVault) {
-        console.log('No liquidity pool found for sToken, will use flat fee fallback');
-        // Use dummy accounts - program will detect insufficient liquidity and use fallback pricing
-        lpTokenAVault = new PublicKey('11111111111111111111111111111111'); 
-        lpSolVault = new PublicKey('11111111111111111111111111111111');
-      }
-
       console.log('✅ Step 4 complete: Price discovery finished');
-      console.log('🔍 Final price numerator: 0'); // Will be calculated on-chain
-      console.log('🔍 Final price denominator: 1'); // Will be calculated on-chain
+      console.log(`🔍 Final price ratio: ${lpPriceNumerator}/${lpPriceDenominator}`);
 
       // Get associated token accounts (all use standard TOKEN_PROGRAM_ID)
       const userNftAccount = await getAssociatedTokenAddress(
@@ -372,11 +385,11 @@ export class AnchorClient {
         )[0]
       );
 
-      console.log('🚀 Using new deposit_nft_with_price instruction with automatic price discovery');
+      console.log('🚀 Using simplified deposit_nft_with_price instruction with percentage-based fees');
 
-      // Use new deposit instruction with automatic price discovery
+      // Use deposit instruction with LP pool price data for percentage-based fee calculation
       const depositInstruction = await this.program.methods
-        .depositNftWithPrice()
+        .depositNftWithPrice(lpPriceNumerator, lpPriceDenominator)
         .accounts({
           user: this.provider.wallet.publicKey,
           vaultState: vaultStatePDA,
@@ -390,8 +403,8 @@ export class AnchorClient {
           collectionMasterEdition: collectionMasterEditionPDA,
           fractionalMint: fractionalMint,
           userFractionalAccount: userFractionalAccount,
-          lpTokenAVault: lpTokenAVault!, // Pass LP pool addresses
-          lpSolVault: lpSolVault!,
+          // NOTE: LP pool accounts removed to fix stack overflow
+          // LP pool price data now passed as parameters for percentage-based fees
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
@@ -400,38 +413,18 @@ export class AnchorClient {
 
       transaction.add(depositInstruction);
 
-      // Determine which mint instruction to use based on whether user has fractional account
-      let mintInstruction;
-      if (userFractionalAccountInfo) {
-        // Use existing account variant - but we only have mintFractionalMultiple now
-        mintInstruction = await this.program.methods
-          .mintFractionalMultiple(1) // Pass num_nfts parameter
-          .accounts({
-            user: this.provider.wallet.publicKey,
-            vaultState: vaultStatePDA,
-            fractionalMint: fractionalMint,
-            userFractionalAccount: userFractionalAccount,
-            protocolTreasury: protocolTreasuryAddress,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
-          .instruction();
-      } else {
-        // Use create new account variant - but we only have mintFractionalMultiple now
-        mintInstruction = await this.program.methods
-          .mintFractionalMultiple(1) // Pass num_nfts parameter
-          .accounts({
-            user: this.provider.wallet.publicKey,
-            vaultState: vaultStatePDA,
-            fractionalMint: fractionalMint,
-            userFractionalAccount: userFractionalAccount,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            systemProgram: SystemProgram.programId,
-          })
-          .instruction();
+      // The deposit_nft_with_price function now handles both deposit and minting in one instruction
+      // No separate minting instruction needed anymore
+      console.log('✅ Deposit instruction added - includes automatic fractional token minting');
+
+      // Check if user needs SOL for transaction
+      const balance = await this.provider.connection.getBalance(this.provider.wallet.publicKey);
+      if (balance < 50000000) { // 0.05 SOL minimum
+        console.warn('⚠️ Low SOL balance. You might need more SOL for transaction fees.');
       }
 
-      transaction.add(mintInstruction);
+      console.log('🚀 Transaction ready to send...');
+      console.log('📊 Expected fractional tokens to receive:', '1000000'); // 1M tokens per NFT
 
       // Send transaction
       const txSignature = await this.provider.sendAndConfirm(transaction, [], {

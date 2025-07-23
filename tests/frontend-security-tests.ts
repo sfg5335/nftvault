@@ -7,7 +7,7 @@ describe("🔴 FRONTEND SECURITY EXPLOIT TESTS", () => {
   console.log("⚠️  TESTING FOR WEB APPLICATION VULNERABILITIES");
 
   const connection = new Connection("https://api.devnet.solana.com", "confirmed");
-  const PROGRAM_ID = new PublicKey("5e8d49musMcrxzp2LZbEiVQQh2DyT8ZAe2RtBSAr3Z7v");
+  const PROGRAM_ID = new PublicKey("H2UJeLx134e4aiSQ3HXr15ycbHYjyvbmibDhNyWSdzhV");
   
   let attacker: Keypair;
   let victim: Keypair;

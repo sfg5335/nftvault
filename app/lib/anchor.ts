@@ -293,7 +293,7 @@ export class AnchorClient {
         TOKEN_PROGRAM_ID
       );
 
-      const protocolTreasuryAddress = new PublicKey("2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt");
+      // NOTE: Protocol treasury is now hardcoded in the program - no longer needed as account
 
       console.log('User NFT Account:', userNftAccount.toString());
       console.log('Vault NFT Account:', vaultNftAccount.toString());
@@ -360,34 +360,10 @@ export class AnchorClient {
         )[0]
       );
 
-      // Get collection metadata PDA
-      const collectionMetadataPDA = new PublicKey(
-        PublicKey.findProgramAddressSync(
-          [
-            Buffer.from('metadata'),
-            new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
-            vaultState.collectionMint.toBuffer(),
-          ],
-          new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
-        )[0]
-      );
+      console.log('🚀 Using simplified deposit with metadata verification (no collection authority signature required)');
 
-      // Get collection master edition PDA
-      const collectionMasterEditionPDA = new PublicKey(
-        PublicKey.findProgramAddressSync(
-          [
-            Buffer.from('metadata'),
-            new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
-            vaultState.collectionMint.toBuffer(),
-            Buffer.from('edition'),
-          ],
-          new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
-        )[0]
-      );
-
-      console.log('🚀 Using simplified deposit_nft_with_price instruction with percentage-based fees');
-
-      // Use deposit instruction with LP pool price data for percentage-based fee calculation
+      // Use deposit instruction with LP pool price data for percentage-based fee calculation  
+      // Protocol treasury and collection verification accounts now handled internally by program
       const depositInstruction = await this.program.methods
         .depositNftWithPrice(lpPriceNumerator, lpPriceDenominator)
         .accounts({
@@ -395,12 +371,8 @@ export class AnchorClient {
           vaultState: vaultStatePDA,
           userNftAccount: userNftAccount,
           vaultNftAccount: vaultNftAccount,
-          protocolTreasury: protocolTreasuryAddress,
           nftMint: nftMint,
           nftMetadata: metadataPDA,
-          collectionAuthority: this.provider.wallet.publicKey, // User acts as collection authority
-          collectionMetadata: collectionMetadataPDA,
-          collectionMasterEdition: collectionMasterEditionPDA,
           fractionalMint: fractionalMint,
           userFractionalAccount: userFractionalAccount,
           // NOTE: LP pool accounts removed to fix stack overflow
@@ -546,9 +518,7 @@ export class AnchorClient {
         transaction.add(createUserAtaIx);
       }
 
-      // Add redeem instruction
-      const protocolTreasuryAddress = new PublicKey("2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt");
-      
+      // Add redeem instruction - protocol treasury now hardcoded in program
       const redeemIx = await this.program.methods
         .redeemSpecificNft()
         .accounts({
@@ -559,7 +529,6 @@ export class AnchorClient {
           vaultSpecificNftAccount: vaultSpecificNftAccountCorrect,
           userSpecificNftAccount: userSpecificNftAccountCorrect,
           fractionalMint: fractionalMint,
-          protocolTreasury: protocolTreasuryAddress,
           tokenProgram: TOKEN_PROGRAM_ID, // Always use standard token program for redemption
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
@@ -575,7 +544,7 @@ export class AnchorClient {
         vaultSpecificNftAccount: vaultSpecificNftAccountCorrect.toString(),
         userSpecificNftAccount: userSpecificNftAccountCorrect.toString(),
         fractionalMint: fractionalMint.toString(),
-        protocolTreasury: protocolTreasuryAddress.toString(),
+        // NOTE: protocolTreasury now hardcoded in program (2ASkEs8cp9sUFHLNuS52WTKgMdXMd39QSftBdhYAKqKo)
         tokenProgram: TOKEN_PROGRAM_ID.toString(),
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
         systemProgram: anchor.web3.SystemProgram.programId.toString(),

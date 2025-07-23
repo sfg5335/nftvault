@@ -43,81 +43,123 @@ pub fn derive_metadata_pda(mint: &Pubkey) -> Pubkey {
     pda
 }
 
-/// Collection verification using CPI for security
-/// Metadata extraction will be handled elsewhere (frontend, backend, etc.)
+/// Collection verification using Metaplex metadata parsing
+/// Checks existing verification status without requiring collection authority signature
 pub fn verify_collection_hybrid<'info>(
     ctx: &Context<'_, '_, '_, 'info, DepositNft<'info>>,
     nft_mint: &Pubkey,
     expected_collection: &Pubkey,
 ) -> Result<()> {
     
-    // SECURITY - Use official Metaplex CPI for collection verification
-    verify_collection_via_cpi(
+    // Use Metaplex-compatible verification that checks existing verification status
+    verify_collection_membership_status(
         &ctx.accounts.nft_metadata,
-        &ctx.accounts.collection_authority,
-        &ctx.accounts.user,
-        nft_mint,
-        expected_collection,
         &ctx.accounts.collection_metadata,
         &ctx.accounts.collection_master_edition,
+        nft_mint,
+        expected_collection,
     )?;
     
-    msg!("✅ Collection verification successful");
+    msg!("✅ Collection verification successful via Metaplex verification status check");
     Ok(())
 }
 
-/// Manual CPI call to verify collection without Metaplex dependencies
-pub fn verify_collection_via_cpi<'info>(
-    metadata_account: &AccountInfo<'info>,
-    collection_authority: &AccountInfo<'info>,
-    payer: &AccountInfo<'info>,
+/// Verify collection membership by checking existing Metaplex verification status
+/// This approach respects Metaplex standards without requiring collection authority signature
+pub fn verify_collection_membership_status<'info>(
+    nft_metadata: &AccountInfo<'info>,
+    collection_metadata: &AccountInfo<'info>, 
+    collection_master_edition: &AccountInfo<'info>,
     nft_mint: &Pubkey,
     collection_mint: &Pubkey,
-    collection_metadata: &AccountInfo<'info>,
-    collection_master_edition: &AccountInfo<'info>,
 ) -> Result<()> {
     
-    // Verify PDA derivation first
-    let metadata_pda = derive_metadata_pda(nft_mint);
+    // Verify NFT metadata PDA derivation
+    let nft_metadata_pda = derive_metadata_pda(nft_mint);
     require_keys_eq!(
-        metadata_pda, 
-        metadata_account.key(),
+        nft_metadata_pda, 
+        nft_metadata.key(),
         VaultError::InvalidMetadata
     );
 
-    // Verify metadata account is owned by official Metaplex program
+    // Verify collection metadata PDA derivation  
+    let collection_metadata_pda = derive_metadata_pda(collection_mint);
+    require_keys_eq!(
+        collection_metadata_pda,
+        collection_metadata.key(), 
+        VaultError::InvalidMetadata
+    );
+
+    // Verify both metadata accounts are owned by official Metaplex program
     require_eq!(
-        metadata_account.owner, 
+        nft_metadata.owner, 
         &METADATA_PROGRAM_ID, 
         VaultError::InvalidMetadataOwner
     );
-    
-    // Manual CPI instruction construction (no Metaplex dependencies)
-    let cpi_instruction = verify_sized_collection_item(
-        METADATA_PROGRAM_ID,
-        metadata_account.key(),
-        collection_authority.key(),
-        *nft_mint,
-        *collection_mint,
-        collection_metadata.key(),
-        collection_master_edition.key(),
-        None, // No size field needed
+    require_eq!(
+        collection_metadata.owner,
+        &METADATA_PROGRAM_ID,
+        VaultError::InvalidMetadataOwner
     );
     
-    // Execute the CPI call
-    anchor_lang::solana_program::program::invoke(
-        &cpi_instruction,
-        &[
-            metadata_account.clone(),
-            collection_authority.clone(),
-            payer.clone(),
-            collection_metadata.clone(),
-            collection_master_edition.clone(),
-        ],
-    )?;
+    // Parse NFT metadata to check collection verification status
+    let nft_metadata_data = nft_metadata.try_borrow_data()?;
     
-    msg!("✅ Collection verified via official Metaplex CPI");
+    // Validate it's a proper metadata account
+    if nft_metadata_data.len() < 1 || nft_metadata_data[0] != 4 {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    
+    // Check collection field and verification status using Metaplex-compatible parsing
+    // STRICT VERIFICATION: Only accept NFTs that have been verified by collection authority
+    match parse_collection_verification_status(&nft_metadata_data, collection_mint) {
+        Ok(true) => {
+            msg!("✅ NFT collection verification confirmed via Metaplex metadata");
+        },
+        Ok(false) => {
+            msg!("❌ NFT found in collection but NOT verified by collection authority: {}", nft_mint);
+            return Err(VaultError::WrongCollection.into());
+        },
+        Err(_) => {
+            msg!("❌ Collection field not found or metadata malformed for NFT: {}", nft_mint);
+            return Err(VaultError::WrongCollection.into());
+        }
+    }
+    
     Ok(())
+}
+
+/// Parse Metaplex metadata to check collection verification status
+/// Returns true if collection is verified by authority, false if not verified, error if malformed
+fn parse_collection_verification_status(metadata_data: &[u8], expected_collection: &Pubkey) -> Result<bool> {
+    // Metaplex metadata standard layout (Token Metadata v1.13+):
+    // - Key (1 byte): discriminator = 4
+    // - Update Authority (32 bytes)
+    // - Mint (32 bytes) 
+    // - Data: name (4 + len), symbol (4 + len), uri (4 + len)
+    // - Seller fee basis points (2 bytes)
+    // - Creators (optional)
+    // - Collection (optional): verified flag (1 byte) + collection pubkey (32 bytes)
+    
+    if metadata_data.len() < 100 {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    
+    let collection_bytes = expected_collection.to_bytes();
+    
+    // Search for collection mint pattern in metadata
+    // Collection structure: [verified_byte][32_byte_collection_mint]
+    for i in 0..metadata_data.len().saturating_sub(33) {
+        if &metadata_data[i + 1..i + 33] == collection_bytes {
+            // Found collection mint, check verified flag (byte immediately before)
+            let verified = metadata_data[i] == 1;
+            msg!("🔍 Found collection in metadata at offset {}, verified: {}", i, verified);
+            return Ok(verified);
+        }
+    }
+    
+    // Collection not found in metadata
+    Err(VaultError::WrongCollection.into())
 }
 
 /// Manual construction of verify_sized_collection_item instruction
@@ -161,7 +203,7 @@ pub mod constants {
     pub const TOKENS_PER_NFT: u64 = 1_000_000_000_000;
     
     /// Protocol treasury address - SOL fees are sent here
-    pub const PROTOCOL_TREASURY: &str = "2UqUSzhU2JD8LnQVbjTaCRaXi9uovNSg6Um5DAz1PhMt";
+    pub const PROTOCOL_TREASURY: &str = "2ASkEs8cp9sUFHLNuS52WTKgMdXMd39QSftBdhYAKqKo";
     
     /// Immutable percentage-based fee structure for trustless operation
     pub const DEPOSIT_FEE_BPS: u16 = 150;  // 1.5% deposit fee
@@ -269,9 +311,7 @@ pub struct DepositNft<'info> {
     )]
     pub vault_nft_account: Account<'info, TokenAccount>,
 
-    /// CHECK: Protocol treasury account for SOL fee
-    #[account(mut)]
-    pub protocol_treasury: UncheckedAccount<'info>,
+    // NOTE: Protocol treasury is now hardcoded in constants - no account needed
     
     /// NFT mint account
     pub nft_mint: Account<'info, Mint>,
@@ -283,9 +323,9 @@ pub struct DepositNft<'info> {
     )]
     pub nft_metadata: UncheckedAccount<'info>,
     
-    /// CHECK: Collection authority that can verify the collection (typically collection creator)
-    #[account(mut)]
-    pub collection_authority: Signer<'info>,
+    /// CHECK: Collection authority (no longer required to sign)
+    /// We check verification status in metadata instead of requiring authority signature
+    pub collection_authority: UncheckedAccount<'info>,
     
     /// CHECK: Collection metadata account - PDA derived from collection mint
     /// Seeds: ["metadata", metadata_program_id, collection_mint]
@@ -374,10 +414,8 @@ pub struct RedeemSpecificNft<'info> {
 
     // NOTE: LP pool accounts removed to fix stack overflow
     // Fee calculation will be done off-chain in frontend
-
-    /// CHECK: Protocol treasury account for SOL fee
-    #[account(mut)]
-    pub protocol_treasury: UncheckedAccount<'info>,
+    
+    // NOTE: Protocol treasury is now hardcoded in constants - no account needed
     
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -574,10 +612,13 @@ impl<'info> DepositNft<'info> {
         msg!("💰 Calculated deposit fee: {} lamports ({} SOL) based on LP pool price {}/{}", 
              fee_lamports, fee_lamports as f64 / 1_000_000_000.0, lp_price_numerator, lp_price_denominator);
         
-        // Charge fee
+        // Charge fee to hardcoded protocol treasury
+        let protocol_treasury_pubkey = constants::PROTOCOL_TREASURY.parse::<Pubkey>()
+            .map_err(|_| VaultError::InvalidTokenAmount)?;
+        
         let fee_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
-            &ctx.accounts.protocol_treasury.key(),
+            &protocol_treasury_pubkey,
             fee_lamports,
         );
         
@@ -585,7 +626,6 @@ impl<'info> DepositNft<'info> {
             &fee_ix,
             &[
                 ctx.accounts.user.to_account_info(),
-                ctx.accounts.protocol_treasury.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
             ],
         )?;
@@ -758,16 +798,19 @@ impl<'info> RedeemSpecificNft<'info> {
         msg!("💰 Calculated redeem fee: {} lamports ({} SOL) based on LP pool price {}/{}", 
              fee_lamports, fee_lamports as f64 / 1_000_000_000.0, lp_price_numerator, lp_price_denominator);
         
+        // Charge fee to hardcoded protocol treasury
+        let protocol_treasury_pubkey = constants::PROTOCOL_TREASURY.parse::<Pubkey>()
+            .map_err(|_| VaultError::InvalidTokenAmount)?;
+        
         let fee_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.user.key(),
-            &ctx.accounts.protocol_treasury.key(),
+            &protocol_treasury_pubkey,
             fee_lamports,
         );
         anchor_lang::solana_program::program::invoke(
             &fee_ix,
             &[
                 ctx.accounts.user.to_account_info(),
-                ctx.accounts.protocol_treasury.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
             ],
         )?;

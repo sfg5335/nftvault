@@ -82,11 +82,6 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "nftMint",
           "isMut": false,
           "isSigner": false,
@@ -104,8 +99,11 @@ export type FractionalVault = {
         },
         {
           "name": "collectionAuthority",
-          "isMut": true,
-          "isSigner": true
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "We check verification status in metadata instead of requiring authority signature"
+          ]
         },
         {
           "name": "collectionMetadata",
@@ -179,11 +177,6 @@ export type FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "nftMint",
           "isMut": false,
           "isSigner": false,
@@ -201,8 +194,11 @@ export type FractionalVault = {
         },
         {
           "name": "collectionAuthority",
-          "isMut": true,
-          "isSigner": true
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "We check verification status in metadata instead of requiring authority signature"
+          ]
         },
         {
           "name": "collectionMetadata",
@@ -295,11 +291,6 @@ export type FractionalVault = {
         },
         {
           "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
           "isMut": true,
           "isSigner": false
         },
@@ -503,11 +494,6 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "nftMint",
           "isMut": false,
           "isSigner": false,
@@ -525,8 +511,11 @@ export const IDL: FractionalVault = {
         },
         {
           "name": "collectionAuthority",
-          "isMut": true,
-          "isSigner": true
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "We check verification status in metadata instead of requiring authority signature"
+          ]
         },
         {
           "name": "collectionMetadata",
@@ -600,11 +589,6 @@ export const IDL: FractionalVault = {
           "isSigner": false
         },
         {
-          "name": "protocolTreasury",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "nftMint",
           "isMut": false,
           "isSigner": false,
@@ -622,8 +606,11 @@ export const IDL: FractionalVault = {
         },
         {
           "name": "collectionAuthority",
-          "isMut": true,
-          "isSigner": true
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "We check verification status in metadata instead of requiring authority signature"
+          ]
         },
         {
           "name": "collectionMetadata",
@@ -716,11 +703,6 @@ export const IDL: FractionalVault = {
         },
         {
           "name": "userFractionalAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "protocolTreasury",
           "isMut": true,
           "isSigner": false
         },

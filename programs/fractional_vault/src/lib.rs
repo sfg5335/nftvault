@@ -130,36 +130,115 @@ pub fn verify_collection_membership_status<'info>(
 }
 
 /// Parse Metaplex metadata to check collection verification status
-/// Returns true if collection is verified by authority, false if not verified, error if malformed
+/// SECURE VERSION: Follows proper Metaplex metadata structure instead of pattern matching
 fn parse_collection_verification_status(metadata_data: &[u8], expected_collection: &Pubkey) -> Result<bool> {
-    // Metaplex metadata standard layout (Token Metadata v1.13+):
-    // - Key (1 byte): discriminator = 4
-    // - Update Authority (32 bytes)
-    // - Mint (32 bytes) 
-    // - Data: name (4 + len), symbol (4 + len), uri (4 + len)
-    // - Seller fee basis points (2 bytes)
-    // - Creators (optional)
-    // - Collection (optional): verified flag (1 byte) + collection pubkey (32 bytes)
-    
+    // Metaplex TokenMetadata structure validation
     if metadata_data.len() < 100 {
         return Err(VaultError::InvalidMetadata.into());
     }
     
-    let collection_bytes = expected_collection.to_bytes();
-    
-    // Search for collection mint pattern in metadata
-    // Collection structure: [verified_byte][32_byte_collection_mint]
-    for i in 0..metadata_data.len().saturating_sub(33) {
-        if &metadata_data[i + 1..i + 33] == collection_bytes {
-            // Found collection mint, check verified flag (byte immediately before)
-            let verified = metadata_data[i] == 1;
-            msg!("🔍 Found collection in metadata at offset {}, verified: {}", i, verified);
-            return Ok(verified);
-        }
+    // Validate metadata discriminator (must be 4 for Metadata account)
+    if metadata_data[0] != 4 {
+        return Err(VaultError::InvalidMetadata.into());
     }
     
-    // Collection not found in metadata
-    Err(VaultError::WrongCollection.into())
+    // Start parsing after fixed fields: key(1) + update_authority(32) + mint(32) = 65 bytes
+    let mut cursor = 65;
+    
+    // Parse Data struct fields in order:
+    // 1. name: u32 length + string
+    if cursor + 4 > metadata_data.len() {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    let name_len = u32::from_le_bytes([
+        metadata_data[cursor], 
+        metadata_data[cursor + 1],
+        metadata_data[cursor + 2], 
+        metadata_data[cursor + 3]
+    ]) as usize;
+    cursor += 4 + name_len;
+    
+    // 2. symbol: u32 length + string  
+    if cursor + 4 > metadata_data.len() {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    let symbol_len = u32::from_le_bytes([
+        metadata_data[cursor],
+        metadata_data[cursor + 1], 
+        metadata_data[cursor + 2],
+        metadata_data[cursor + 3]
+    ]) as usize;
+    cursor += 4 + symbol_len;
+    
+    // 3. uri: u32 length + string
+    if cursor + 4 > metadata_data.len() {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    let uri_len = u32::from_le_bytes([
+        metadata_data[cursor],
+        metadata_data[cursor + 1],
+        metadata_data[cursor + 2], 
+        metadata_data[cursor + 3]
+    ]) as usize;
+    cursor += 4 + uri_len;
+    
+    // 4. seller_fee_basis_points: u16
+    if cursor + 2 > metadata_data.len() {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    cursor += 2;
+    
+    // 5. creators: Option<Vec<Creator>>
+    if cursor >= metadata_data.len() {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    let has_creators = metadata_data[cursor] == 1;
+    cursor += 1;
+    
+    if has_creators {
+        // Parse creators array: u32 length + (32 + 1 + 1) bytes per creator
+        if cursor + 4 > metadata_data.len() {
+            return Err(VaultError::InvalidMetadata.into());
+        }
+        let creators_count = u32::from_le_bytes([
+            metadata_data[cursor],
+            metadata_data[cursor + 1],
+            metadata_data[cursor + 2],
+            metadata_data[cursor + 3]
+        ]) as usize;
+        cursor += 4 + (creators_count * 34); // 32 (address) + 1 (verified) + 1 (share)
+    }
+    
+    // 6. collection: Option<Collection> - THIS IS WHAT WE'RE LOOKING FOR
+    if cursor >= metadata_data.len() {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    let has_collection = metadata_data[cursor] == 1;
+    cursor += 1;
+    
+    if !has_collection {
+        // No collection field found
+        msg!("❌ No collection field found in metadata");
+        return Err(VaultError::WrongCollection.into());
+    }
+    
+    // Parse Collection struct: verified (1 byte) + key (32 bytes)
+    if cursor + 33 > metadata_data.len() {
+        return Err(VaultError::InvalidMetadata.into());
+    }
+    
+    let verified = metadata_data[cursor] == 1;
+    let collection_key_bytes = &metadata_data[cursor + 1..cursor + 33];
+    
+    // Verify collection key matches expected
+    if collection_key_bytes != expected_collection.to_bytes() {
+        msg!("❌ Collection key mismatch. Expected: {}, Found: {:?}", 
+             expected_collection, collection_key_bytes);
+        return Err(VaultError::WrongCollection.into());
+    }
+    
+    msg!("✅ Collection found at offset {}, verified: {}, key matches", cursor, verified);
+    Ok(verified)
 }
 
 /// Manual construction of verify_sized_collection_item instruction

@@ -5,6 +5,7 @@ import '@solana/wallet-adapter-react-ui/styles.css'
 import { WalletProvider } from './components/WalletProvider'
 import { CacheMonitorToggle } from './components/CacheMonitor'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ComingSoon } from './components/ComingSoon'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -25,6 +26,7 @@ export default function RootLayout({
           <WalletProvider>
             {children}
             <CacheMonitorToggle />
+            <ComingSoon />
           </WalletProvider>
         </ErrorBoundary>
       </body>
